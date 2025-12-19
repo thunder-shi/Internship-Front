@@ -1,0 +1,58 @@
+// sideBar
+$menuText:#bfcbd9;
+$menuActiveText:#409EFF;
+$subMenuActiveText:#f4f4f5; //https://github.com/ElemeFE/element/issues/12951
+
+$menuBg:#f4f4f4;
+
+$sideBarWidth: 210px;
+$sideBarCollapsedWidth: 54px;
+
+:root {
+  --sidebar-expanded-width: #{$sideBarWidth};
+  --sidebar-collapsed-width: #{$sideBarCollapsedWidth};
+}
+
+$tooltipDelay:1500;
+
+// 登录页面及忘记密码等页面的主题色，此页面主题色不随用户设置的主题色的更改而更改
+$fixed-color: #009140;
+$color-primary: #009140;
+
+//title bar
+$headlineColor: #fff;
+$titleBarHeight: 52px;
+$tabBarHeight: 48px;
+$navBarHeight: 34px;
+
+// 主要内容 padding 边距
+$paddingTop: 16px;
+$paddingRight: 16px;
+$paddingBottom: 16px;
+$paddingLeft: 16px;
+
+
+
+
+
+// 导出 SCSS 变量到 JavaScript (CSS Modules 需要在这里定义 :export)
+// https://www.bluematador.com/blog/how-to-share-variables-between-js-and-sass
+:export {
+  menuText: $menuText;
+  menuActiveText: $menuActiveText;
+  subMenuActiveText: $subMenuActiveText;
+  menuBg: $menuBg;
+  sideBarWidth: $sideBarWidth;
+  sideBarCollapsedWidth: $sideBarCollapsedWidth;
+  titleBarHeight: $titleBarHeight;
+  tabBarHeight: $tabBarHeight;
+  headlineColor: $headlineColor;
+  navBarHeight: $navBarHeight;
+  paddingTop: $paddingTop;
+  paddingRight: $paddingRight;
+  paddingBottom: $paddingBottom;
+  paddingLeft: $paddingLeft;
+  fixedColor: $fixed-color;
+  color-primary: $color-primary;
+}
+

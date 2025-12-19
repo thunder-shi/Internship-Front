@@ -1,0 +1,95 @@
+/**按钮相关的样式设置*/
+
+// 禁用状态样式
+.el-button.is-disabled,
+.el-button.is-disabled:hover,
+.el-button.is-disabled:focus {
+  opacity: 0.6;
+}
+
+// 按钮类型的基础颜色设置
+.el-button--info {
+  background-color: #1890FF !important;
+  border-color: #1890FF !important;
+}
+
+.el-button--danger {
+  background-color: #F5585F !important;
+  border-color: #F5585F !important;
+}
+
+.el-button--warning {
+  background-color: #FFB400 !important;
+  border-color: #FFB400 !important;
+}
+
+// 按钮尺寸设置
+.el-button--mini {
+  padding: 8px 16px;
+}
+
+// 所有按钮的 hover 效果：背景色只比正常状态稍微浅一点，不会太白
+.el-button--primary {
+  &:hover:not(.is-disabled) {
+    // primary 按钮 hover 时稍微亮一点但不太白
+    background-color: #5aadff !important;
+    border-color: #5aadff !important;
+  }
+  
+  &:active:not(.is-disabled) {
+    background-color: #4da6ff !important;
+    border-color: #4da6ff !important;
+  }
+}
+
+.el-button--info {
+  &:hover:not(.is-disabled) {
+    // info 按钮 hover 时稍微亮一点
+    background-color: #40a9ff !important;
+    border-color: #40a9ff !important;
+  }
+  
+  &:active:not(.is-disabled) {
+    background-color: #2ba0ff !important;
+    border-color: #2ba0ff !important;
+  }
+}
+
+.el-button--danger {
+  &:hover:not(.is-disabled) {
+    // danger 按钮 hover 时稍微亮一点
+    background-color: #f77077 !important;
+    border-color: #f77077 !important;
+  }
+  
+  &:active:not(.is-disabled) {
+    background-color: #f36b72 !important;
+    border-color: #f36b72 !important;
+  }
+}
+
+.el-button--warning {
+  &:hover:not(.is-disabled) {
+    // warning 按钮 hover 时稍微亮一点
+    background-color: #ffc233 !important;
+    border-color: #ffc233 !important;
+  }
+  
+  &:active:not(.is-disabled) {
+    background-color: #ffb91a !important;
+    border-color: #ffb91a !important;
+  }
+}
+
+.el-button--success {
+  &:hover:not(.is-disabled) {
+    // success 按钮 hover 时稍微亮一点
+    background-color: #85ce61 !important;
+    border-color: #85ce61 !important;
+  }
+  
+  &:active:not(.is-disabled) {
+    background-color: #7bc85c !important;
+    border-color: #7bc85c !important;
+  }
+}

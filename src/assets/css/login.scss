@@ -1,0 +1,64 @@
+@use "@/assets/css/variables.module.scss" as *;
+
+.el-header {
+  display: flex;
+  align-items: center;
+  background-color: #e9eef3;
+  img {
+    width: 55px;
+    height: 70px;
+  }
+  .title-span {
+    line-height: 60px;
+    font-size: 24px;
+    color: $color-primary;
+    font-weight: bold;
+    margin-left: 10px;
+  }
+}
+.el-main {
+  background: url("@/assets/img/login_background.jpg") no-repeat;
+  background-size: 100% auto;
+  color: #333;  
+}
+.login-form {
+    background: #f5f7fa;
+    position: absolute;
+    right: 60px;
+    z-index: 999;
+    width: 320px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 35px;
+
+    border-radius: 6px;
+    overflow: hidden;
+    .input-icon {
+      height: 39px;
+      width: 14px;
+      margin-left: 2px;
+    }
+  }
+.el-container {
+  width: 100%;
+  height: 100%;
+}
+.text-color {
+  color: $color-primary;
+}
+.svg-icon {
+  color: #8a8a8a;
+}
+.display-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.svg-icon.active {
+  color: $color-primary;
+}
+.button-login {
+  width: 100%;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}

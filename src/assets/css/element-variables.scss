@@ -1,0 +1,20 @@
+/* 改变主题色变量 */
+$--color-primary: #009140;
+// $--color-info: #1890ff;
+// $--color-warning: #FFB400;
+// $--color-danger: #F5585F;
+
+// --label-font-color：为js操作此变量需要用到的KEY
+// --#RED：默认css属性值
+// $--color-primary: var(--theme-color, #009140);
+
+/* Element Plus 主题变量覆盖 */
+:root {
+  --el-color-primary: #009140;
+}
+
+// the :export directive is the magic sauce for webpack
+// https://www.bluematador.com/blog/how-to-share-variables-between-js-and-sass
+:export {
+  theme: $--color-primary;
+}

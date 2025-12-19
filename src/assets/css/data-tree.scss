@@ -1,0 +1,97 @@
+.custom-tree-node,
+.simple-tree-node {
+  flex: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  align-content: flex-start;
+  font-size: 14px;
+}
+
+.custom-tree-node {
+  border-bottom: 1px solid #EBEEF5;
+}
+
+.el-tree .el-button {
+  height: 24px;
+}
+
+.el-table td:hover {
+  cursor: pointer;
+}
+
+.tree-panel {
+  position: relative;
+  width: 320px;
+  transition: width 0.2s ease;
+
+  .el-card__body {
+    padding: 5px 12px;
+  }
+
+  .el-tree {
+    overflow: auto;
+  }
+}
+
+.tree-panel.collapsed {
+  width: 18px;
+}
+
+.collapse-trigger {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tree-panel.collapsed .collapse-trigger {
+  right: -8px;
+}
+
+.collapse-trigger__icon {
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+}
+
+.collapse-trigger__icon.left {
+  border-right: 7px solid #606266;
+}
+
+.collapse-trigger__icon.right {
+  border-left: 7px solid #606266;
+}
+
+.tree-fade-enter-active,
+.tree-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.tree-fade-enter-from,
+.tree-fade-leave-to {
+  opacity: 0;
+}
+
+.card-notitle {
+  border: unset;
+  transition: unset;
+}
+
+.el-scrollbar .el-scrollbar__wrap {
+  overflow-x: hidden;
+}
+
+#table-box-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
