@@ -11,10 +11,10 @@ router.beforeEach(async(to, from, next) => {
   NProgress.start()
   // if (!store.state.webSite.isSave) {
   //   const list = await getcolumn()
-  //   const websiteRoutes = await generateRoutes(list)    
+  //   const websiteRoutes = await generateRoutes(list)
   //   store.dispatch('updateStoreChange', true)
   //   store.dispatch('Nav', websiteRoutes)
-  //   await addWebsiteRoutes(websiteRoutes, next, to)    
+  //   await addWebsiteRoutes(websiteRoutes, next, to)
   // }
   // 确定用户是否已经登录
   const hasToken = getToken()
@@ -27,25 +27,37 @@ router.beforeEach(async(to, from, next) => {
       if (nextUrl.length) {
         // 只有在 constantRoutes 中确实存在 Homepage 路由时才跳转
         next('/Homepage')
+        NProgress.done()
+        return
       } else {
         // constantRoutes 中没有 Homepage，需要加载动态路由
-        const { menuList } = await store.dispatch('user/getUserInfo')
-        const asyncRoutes = await filterAsyncRoutes(menuList)
-        router.addRoute({ path: '/:pathMatch(.*)*', redirect: '/404', hidden: true })
-        await store.dispatch('permission/generateRoutes', asyncRoutes)        
-        
-        // 安全地获取第一个路由路径并跳转
-        const firstRoute = asyncRoutes && asyncRoutes.length > 0 ? asyncRoutes[0] : null
-        if (firstRoute && firstRoute.children && firstRoute.children.length > 0) {
-          next(firstRoute.children[0].path)
-        } else if (firstRoute) {
-          next(firstRoute.path)
-        } else {
-          // 如果仍然没有路由，尝试访问根路径，后续逻辑会处理
-          next('/')
+        try {
+          const { menuList } = await store.dispatch('user/getUserInfo')
+          const asyncRoutes = await filterAsyncRoutes(menuList)
+          router.addRoute({ path: '/:pathMatch(.*)*', redirect: '/404', hidden: true })
+          await store.dispatch('permission/generateRoutes', asyncRoutes)
+
+          // 安全地获取第一个路由路径并跳转
+          const firstRoute = asyncRoutes && asyncRoutes.length > 0 ? asyncRoutes[0] : null
+          if (firstRoute && firstRoute.children && firstRoute.children.length > 0) {
+            next(firstRoute.children[0].path)
+          } else if (firstRoute) {
+            next(firstRoute.path)
+          } else {
+            // 如果仍然没有路由，尝试访问根路径，后续逻辑会处理
+            next('/')
+          }
+          NProgress.done()
+          return
+        } catch (error) {
+          // 获取用户信息失败，清除 token 并跳转到登录页
+          await store.dispatch('user/resetToken')
+          ElMessage.error(error.message || '获取用户信息失败')
+          next('/Login')
+          NProgress.done()
+          return
         }
       }
-      NProgress.done()
     } else {
       // 确定用户是否通过 getUserInfo 获取了权限角色
       const hasRoles = store.getters.roles && store.getters.roles.length > 0
@@ -62,6 +74,7 @@ router.beforeEach(async(to, from, next) => {
           ElMessage.error(error.message || '功能获取失败，请联系管理员审核权限！')
           next(`/Login?redirect=${to.path}`)
           NProgress.done()
+          return // 重要：阻止路由守卫继续执行
           // await store.dispatch('user/logout')
           // location.reload() // 为了重新实例化vue-router对象 避免bug
         }
@@ -82,7 +95,7 @@ router.beforeEach(async(to, from, next) => {
 })
 
 const loadMenus = async(roles, next, to) => {
-  const asyncRoutes = await filterAsyncRoutes(roles)  
+  const asyncRoutes = await filterAsyncRoutes(roles)
   router.addRoute({ path: '/:pathMatch(.*)*', redirect: '/404', hidden: true })
   await store.dispatch('permission/generateRoutes', asyncRoutes)
   if (to.path === '/' || to.path === '/Homepage') {

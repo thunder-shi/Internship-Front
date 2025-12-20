@@ -8,8 +8,15 @@ import Layout from '@/layout/Index.vue'
  */
 
 export const filterAsyncRoutes = (routes, parentPath = '') => {
+  // 先按 theOrder 字段排序
+  const sortedRoutes = [...routes].sort((a, b) => {
+    const orderA = a.theOrder || 0
+    const orderB = b.theOrder || 0
+    return orderA - orderB
+  })
+
   const result = []
-  routes.forEach(route => {
+  sortedRoutes.forEach(route => {
     const temp = generateRoute(route, parentPath)
     // 如果父级路由包含子路由，递归调用 filterAsyncRoutes
     if (route.children && route.children.length) {

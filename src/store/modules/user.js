@@ -17,7 +17,7 @@ const mutations = {
     state.userInfo = userInfo
   },
   SET_ROLES: (state, roles) => {
-    state.roles = roles    
+    state.roles = roles
   },
   SET_CONTESTTYPES: (state, types) => {
     state.contestTypes = types
@@ -33,7 +33,7 @@ const actions = {
     return new Promise((resolve, reject) => {
       userAPI.login(userInfo).then(resp => {
         const token = resp.data
-        setToken(token)        
+        setToken(token)
         resolve()
       }).catch(error => {
         reject(error)
@@ -49,7 +49,7 @@ const actions = {
         }
         // 主题色为空的更改
         if (res.data.userInfo.themeColor == 'default' || res.data.userInfo.themeColor == '')
-           res.data.userInfo.themeColor = '#009140'        
+           res.data.userInfo.themeColor = '#009140'
         commit('SET_USERINFO', res.data.userInfo)
         commit('SET_ROLES', res.data.roles)
         // commit('SET_CONTESTTYPES', res.data.contestTypes)
