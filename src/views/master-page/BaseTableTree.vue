@@ -1,10 +1,14 @@
 <template>
   <div>
     <!-- :search-key="searchKey"  -->
-    <DataTableTree ref="dataTableTreeRef" :default-props="defaultProps.defaultDTTProps" @edit-click="editClick" @append-click="appendClick" />
+    <DataTableTree ref="dataTableTreeRef" :default-props="defaultProps.defaultDTTProps" @edit-click="editClick" @append-click="appendClick" @batch-import-click="batchImportClick" />
     <slot name="dlg">
       <!-- 简单窗口 -->
       <SimpleDialog ref="simpleDialogRef" :default-props="defaultProps.defaultSDProps" @update-record="updateDataTree" />
+    </slot>
+    <slot name="batch">
+      <!-- 批量录入窗口 -->
+      <DlgBatchImport ref="batchAppendDlg" :default-props="defaultDBIProps" @batch-import="batchImport" @import-success="importSuccess" />
     </slot>
   </div>
 </template>
@@ -12,7 +16,8 @@
 import { ref, reactive, onMounted, useAttrs } from 'vue'
 import DataTableTree from '@/components/DataTableTree.vue'
 import SimpleDialog from '@/components/SimpleDialog.vue'
-import { resetForm } from '@/utils/common'
+import DlgBatchImport from '@/views/dialogs/DlgBatchImport.vue'
+import { resetForm, customize } from '@/utils/common'
 import _ from 'lodash'
 
 const props = defineProps({
@@ -43,9 +48,14 @@ const emit = defineEmits(['edit-click', 'append-click'])
 
 const dataTableTreeRef = ref(null)
 const simpleDialogRef = ref(null)
+const batchAppendDlg = ref(null)
 
 const defaultDTTProps = reactive({
 })
+
+
+const defaultDBIProps = reactive({})
+_.mergeWith(defaultDBIProps, props.defaultProps.defaultDBIProps, customize)
 
 const defaultSDProps = reactive({
   formItems: [
@@ -107,5 +117,18 @@ function editClick(data) {
     simpleDialogRef.value.showDialog(true, form)
   }
 }
+
+function batchImportClick() {
+  batchAppendDlg.value.showDialog(true)
+}
+
+function batchImport() {
+  console.log('上传')
+}
+
+function importSuccess() {
+  dataTableTreeRef.value.initDataTree()
+}
+
 </script>
 

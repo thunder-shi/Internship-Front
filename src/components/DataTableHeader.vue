@@ -15,11 +15,7 @@
         </el-tooltip>
         <el-button v-if="button.more1.show" :type="button.more1.type" :icon="CirclePlus" @click="more1Click(selectedColumns)">{{ button.more1.name }}</el-button>
         <el-button v-if="button.more2.show" :type="button.more2.type" :icon="Promotion" @click="more2Click(selectedColumns)">{{ button.more2.name }}</el-button>
-        <div v-if="button.batchCreate.show" style="padding-left:10px;padding-right:10px;">
-          <el-upload ref="upload" v-model="fileList" action :file-list="fileList" :show-file-list="false" :http-request="handleUpload">
-            <el-button :icon="Upload" :type="button.batchCreate.type">{{ button.batchCreate.name }}</el-button>
-          </el-upload>
-        </div>        
+        <el-button v-if="button.batchCreate.show" :icon="UploadFilled" :type="button.batchCreate.type" @click="handleUpload">{{ button.batchCreate.name }}</el-button>
       </el-row>
       <!--列表上方的业务模块插槽-->
       <slot v-if="$slots.topOperate" name="topOperate" />
@@ -50,7 +46,7 @@
 import { ref, reactive, computed, onMounted, useAttrs, getCurrentInstance, useSlots } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
-import { Plus, Edit, Delete, Upload, CirclePlus, Promotion, Search, Refresh, Grid } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Upload, CirclePlus, Promotion, Search, Refresh, Grid, UploadFilled } from '@element-plus/icons-vue'
 import IEAPI from '@/api/importAndExport'
 import { getTemplateFile, arrangeButton } from '@/utils/common'
 import fileAPI from '@/api/file'
@@ -135,7 +131,7 @@ const button = computed(() => {
   const btn = {
     visible: { show: false, name: '查看详情', type: 'info' },
     create: { show: false, name: '新增', type: 'primary' },
-    batchCreate: { show: false, name: '导入', type: 'primary' },
+    batchCreate: { show: false, name: '批量导入', type: 'primary' },
     update: { show: false, name: '修改', type: 'info' },
     delete: { show: false, name: '删除', type: 'danger' },
     search: { show: false, name: '查询' },
@@ -170,7 +166,7 @@ async function createDynamicTableColumns() {
       e.firstVisible = true
     }
   })
-  await initTBLVisibles()  
+  await initTBLVisibles()
 }
 
 // 动态生成和配置列
@@ -220,22 +216,7 @@ async function more2Click(row) {
 
 // 导入数据
 async function handleUpload(para) {
-  const loading = ElLoading.service({ text: '上传中...', lock: true })
-  const params = {
-    files: [para.file],
-    tabName: keyWord.value.view,
-    importFlag: true,
-    userId: store.getters.userInfo.id,
-    relId: 0,
-    initSearchWords: JSON.stringify(instance?.parent?.setupState?.initSearchWords || instance?.parent?.exposed?.initSearchWords || {})
-  }
-  try {
-    await fileAPI.upload(params)
-  } catch (error) {
-    ElMessage.warning('文件上传失败' + error)
-  }
-  loading.close()
-  emit('upload-finish')
+  emit('upload')
 }
 // 删除
 function remove(row) {

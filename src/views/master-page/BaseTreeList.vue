@@ -11,6 +11,10 @@
       <!-- 简单窗口 -->
       <SimpleDialog :default-props="defaultSDProps" />
     </slot>
+    <slot name="batch">
+      <!-- 批量录入窗口 -->
+      <DlgBatchImport ref="batchAppendDlg" :default-props="defaultDBIProps" @ex-material="exMaterial" />
+    </slot>
   </div>
 </template>
 
@@ -19,6 +23,7 @@ import { ref, reactive } from 'vue'
 import DataTree from '@/components/DataTree.vue'
 import DataTableList from '@/components/DataTableList.vue'
 import SimpleDialog from '@/components/SimpleDialog.vue'
+import DlgBatchImport from '@/views/dialogs/DlgBatchImport.vue'
 import { customize } from '@/utils/common'
 import _ from 'lodash'
 
@@ -56,10 +61,12 @@ const dataTableList = ref(null)
 const defaultDTProps = reactive({})
 const defaultDTLProps = reactive({})
 const defaultSDProps = reactive({})
+const defaultDBIProps = reactive({})
 
 _.mergeWith(defaultDTProps, props.defaultProps.defaultDTProps, customize)
 _.mergeWith(defaultDTLProps, props.defaultProps.defaultDTLProps, customize)
 _.mergeWith(defaultSDProps, props.defaultProps.defaultSDProps, customize)
+_.mergeWith(defaultDBIProps, props.defaultProps.defaultDBIProps, customize)
 
 const treeInfo = reactive({})
 Object.assign(treeInfo, defaultDTLProps.treeInfo || {})

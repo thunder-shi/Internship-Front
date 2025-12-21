@@ -9,11 +9,24 @@ import request from '@/utils/request'
 const importInfo = (keyWord, file) => {
   const formData = new FormData()
   formData.append('file', file)
-  
+
   return request({
-    url: `/importAndExport/importInfo?keyWord=${keyWord}`,
+    url: '/importAndExport/importInfo', // 建议把参数拿出来
     method: 'post',
-    data: formData
+    params: { keyWord: keyWord },       // 1. 规范写法：查询参数放在 params 里
+    data: formData,
+    timeout: 300000                     // 2. 关键修改：设置超时时间为 5分钟 (单位毫秒)
+  })
+}
+
+function baseTemplateFile(val) {
+  return request({
+    url: `/importAndExport/template`,
+    method: 'post',
+    data: {
+      keyWords: val
+    },
+    responseType: 'blob'
   })
 }
 
@@ -41,5 +54,6 @@ const exportInfo = (keyWords, nodes, allTableColumns, searchWords) => {
 
 export default {
   importInfo,
-  exportInfo
+  exportInfo,
+  baseTemplateFile
 }

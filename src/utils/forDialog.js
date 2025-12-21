@@ -11,17 +11,26 @@ export default {
 // 保存列表或树结构的表单
 async function commonSubmitDlg(formPanel, formData, keyWords, option, isTree, isAudit, userId) {
   var resInfo
+
+  // 根据 formData 是否有 id 来判断是新增还是修改（优先级高于 option 参数）
   var op = ''
-  switch (option) {
-    case 'append': op = '新增'
-      break
-    case 'edit': op = '修改'
-      break
-    case 'audit': op = '审核'
-      break
-    case 'submit': op = '提交'
-      break
+  if (formData && formData.id != null && formData.id !== 0) {
+    // 有 id 说明是修改
+    op = '修改'
+  } else {
+    // 没有 id 或其他情况，根据 option 参数判断
+    switch (option) {
+      case 'append': op = '新增'
+        break
+      case 'edit': op = '修改'
+        break
+      case 'audit': op = '审核'
+        break
+      case 'submit': op = '提交'
+        break
+    }
   }
+
   if (await formPanel.validate()) {
     // const params = filterLastId(formData)
     const params = formData

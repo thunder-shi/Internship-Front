@@ -1,5 +1,5 @@
 <template>
-  <DataTableHeader ref="dataTBLMotherRef" :default-props="defaultProps.defaultDTHProps" v-model:selected-columns="selectedColumns" @init-click="initDataTree" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @upload-finish="uploadFinish">
+  <DataTableHeader ref="dataTBLMotherRef" :default-props="defaultProps.defaultDTHProps" v-model:selected-columns="selectedColumns" @init-click="initDataTree" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @upload="upload">
     <template #body>
       <el-card shadow="never">
         <template v-if="hasHeaderContent" #header>
@@ -184,7 +184,7 @@ onMounted(() => {
   thisEvents = {
     'delete-click': 'onDeleteClick' in attrs
   }
-  
+
   // 计算显示的按钮数量（包括固定的"新增下级"按钮）
   let num = 1 // 固定有一个"新增下级"按钮
   const arr = [
@@ -197,7 +197,7 @@ onMounted(() => {
     acc = cur ? acc + 1 : acc
     return acc
   }, 1) // 从1开始，因为已经有"新增下级"按钮
-  
+
   // 根据实际测量的按钮数量直接设置宽度
   let width = 0
   if (num === 5) {
@@ -214,7 +214,7 @@ onMounted(() => {
     // 没有按钮时，只显示列标题
     width = 50
   }
-  
+
   operateWidth.value = width
   setTimeout(() => { initDataTree() }, 500)
 })
@@ -240,19 +240,40 @@ async function lazyLoad(tree, treeNode, resolve) {
 }
 
 // 加载部分树
-function updatePartTree(row) {
+async function updatePartTree(row) {
   if (lazy.value) {
+    // 强制从后端重新加载数据，确保获取最新数据
     var nowMaps
     if (maps.value.size > 0) {
       nowMaps = maps.value.get(row.parentId)
     }
+
     if (nowMaps === undefined) {
-      lazyLoad({ id: -1, allNodeNames: '' }, null, null)
+      // 如果找不到父节点，重新加载整棵树
+      await initDataTree()
     } else {
-      lazyLoad(nowMaps.tree, nowMaps.treeNode, nowMaps.resolve)
+      // 重新从后端获取该节点的子数据
+      const view = keyWord.value.view
+      const res = await treeAPI.getAllNodes({
+        keyWords: view,
+        parentId: nowMaps.tree.id,
+        virtualRootFlag: virtualRootFlag.value,
+        searchKey: instance?.proxy?.searchKey,
+        lazy: true,
+        preName: nowMaps.tree.allNodeNames,
+        sort: sort.value
+      })
+
+      // 使用 resolve 更新数据，这会强制刷新该节点
+      nowMaps.resolve(res.data)
     }
   } else {
-    initDataTree()
+    await initDataTree()
+  }
+
+  // 更新完成后自动取消所有选择
+  if (dataTreeRef.value) {
+    dataTreeRef.value.clearSelection()
   }
 }
 
@@ -281,14 +302,67 @@ async function initDataTree(parentId = -1) {
 // #endregion
 
 // #region 选择相关
+// 获取当前所有展开的行的 key
+function getExpandedKeys() {
+  const table = dataTreeRef.value
+  if (!table || !table.store) return []
+
+  const expandedKeys = []
+  const states = table.store.states
+  if (states && states.treeData && states.treeData.value) {
+    Object.keys(states.treeData.value).forEach(key => {
+      if (states.treeData.value[key].expanded) {
+        expandedKeys.push(key)
+      }
+    })
+  }
+  return expandedKeys
+}
+
+// 恢复展开状态
+function restoreExpandedKeys(keys) {
+  const table = dataTreeRef.value
+  if (!table || !keys || keys.length === 0) return
+
+  // 使用 nextTick 确保 DOM 更新完成后再恢复展开状态
+  setTimeout(() => {
+    keys.forEach(key => {
+      const row = findRowByKey(treeTableData.value, key)
+      if (row) {
+        table.toggleRowExpansion(row, true)
+      }
+    })
+  }, 0)
+}
+
+// 根据 key 查找行数据
+function findRowByKey(data, key) {
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i].id) === String(key)) {
+      return data[i]
+    }
+    if (data[i].children && data[i].children.length) {
+      const found = findRowByKey(data[i].children, key)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 // 监听选中的事件
 function handleSelection(selection, row) {
+  // 保存当前展开状态
+  const expandedKeys = getExpandedKeys()
+
   if (selection.indexOf(row) !== -1) {
     selectChange(selection, row, true, true)
   } else {
     selectChange(selection, row, false, true)
   }
   emit('update:selectedColumns', selection)
+
+  // 恢复展开状态
+  restoreExpandedKeys(expandedKeys)
 }
 
 // 监听选中的事件
@@ -296,30 +370,69 @@ function handleSelectionChange(selection) {
   selectedColumns.value = selection
 }
 
+// 递归获取所有行数据（包括所有层级）
+function getAllRows(data) {
+  const result = []
+  function traverse(nodes) {
+    nodes.forEach(node => {
+      result.push(node)
+      if (node.children && node.children.length) {
+        traverse(node.children)
+      }
+    })
+  }
+  traverse(data)
+  return result
+}
+
 // 全选
 function handleSelectionAll(selection) {
+  const expandedKeys = getExpandedKeys()
+
   isAllSelect.value = !isAllSelect.value
   if (isAllSelect.value) {
-    selection.forEach(val => {
-      selectChange(selection, val, true, false)
+    // 获取所有行数据（包括所有层级）
+    const allRows = getAllRows(treeTableData.value)
+    // 选中所有行
+    allRows.forEach(row => {
+      dataTreeRef.value.toggleRowSelection(row, true)
     })
   } else {
     dataTreeRef.value.clearSelection()
-    selection = []
   }
-  emit('update:selectedColumns', selection)
+
+  // 恢复展开状态
+  restoreExpandedKeys(expandedKeys)
+
+  emit('update:selectedColumns', isAllSelect.value ? getAllRows(treeTableData.value) : [])
 }
 
 function selectChange(selection, row, isChecked, notAll) {
+  // 先选中/取消当前行（如果还没有被处理）
+  if (selection.indexOf(row) === -1 && isChecked) {
+    selection.push(row)
+  } else if (selection.indexOf(row) !== -1 && !isChecked) {
+    selection.splice(selection.indexOf(row), 1)
+  }
+
+  // 递归处理所有子节点
   if (row.children && row.children.length) {
     row.children.forEach(val => {
       dataTreeRef.value.toggleRowSelection(val, isChecked)
       if (notAll) {
-        isChecked
-          ? selection.push(val)
-          : selection.splice(selection.indexOf(val), 1)
+        if (isChecked) {
+          if (selection.indexOf(val) === -1) {
+            selection.push(val)
+          }
+        } else {
+          const index = selection.indexOf(val)
+          if (index !== -1) {
+            selection.splice(index, 1)
+          }
+        }
       }
-      if (row.children && row.children.length) {
+      // 递归处理子节点的子节点
+      if (val.children && val.children.length) {
         selectChange(selection, val, isChecked, notAll)
       }
     })
@@ -380,8 +493,8 @@ function handleNodeClick(val) {
   emit('node-click', val)
 }
 
-function uploadFinish() {
-  initDataTree()
+function upload() {
+  emit('batch-import-click')
 }
 
 // 暴露方法供外部调用
