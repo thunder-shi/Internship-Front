@@ -79,7 +79,7 @@
             <!-- 单列时间日期框 -->
             <el-date-picker v-else-if="item.type==='date'" v-model="form[item.field]" type="datetime" placeholder="选择日期时间" />
             <!-- 简单下拉选择框 -->
-            <el-select v-else-if="item.type==='select_noremote'" v-model="form[item.field]" placeholder="请选择">
+            <el-select v-else-if="item.type==='select_noremote'" v-model="form[item.field]" placeholder="请选择" @change="(val) => defaultProps.handleSelectChange(item,val,form)" >
               <el-option v-for="(sitem,sindex) in item.options" :key="sindex" :label="sitem.name" :value="sitem.id" />
             </el-select>
             <!-- 关联数据选择框 -->
@@ -214,6 +214,7 @@ onMounted(() => {
     'tree-select-change': 'onTreeSelectChange' in attrs
   }
 })
+
 function showDialog(val, formData = {}, bind = false) {
   if (formData !== null) {
     if (bind) {
@@ -229,6 +230,8 @@ function showDialog(val, formData = {}, bind = false) {
     verifyValid()
   }, 100)
 }
+
+
 
 // 窗口打开
 async function openDialog(row) {
