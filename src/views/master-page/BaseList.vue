@@ -11,6 +11,8 @@
       @more1-click="more1Click"
       @more2-click="more2Click"
       @after-init-data="afterInitData"
+      @edit-audit="editAudit"
+      @edit-submit="submit"
     >
       <!--数据操作按钮类 -->
       <!-- <template #searchPanel>
@@ -90,6 +92,7 @@ const emit = defineEmits([
   'more2-click',
   'submit-more',
   'simple-select-change',
+  'submit',
 ]);
 
 const attrs = useAttrs();
@@ -145,6 +148,13 @@ const editClick = async (row) => {
   }
 };
 
+const editAudit = async (row) => {
+  emit('edit-audit', row);
+};
+
+const submit = async (row) => {
+  emit('submit', row);
+};
 const deleteClick = async (row) => {
   if (attrs['onDelete-click'] || attrs['onDeleteClick']) {
     emit('delete-click', row);
