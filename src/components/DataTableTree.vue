@@ -499,6 +499,7 @@ function upload() {
 
 // 暴露方法供外部调用
 defineExpose({
-  updatePartTree
+  updatePartTree,
+  initDataTree
 })
 </script>
