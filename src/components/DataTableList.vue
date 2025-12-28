@@ -233,7 +233,8 @@ const emit = defineEmits([
   'audit-click',
   'self-init',
   'clean-out-value',
-  'input'
+  'input',
+  'open-dlg'
 ])
 
 const attrs = useAttrs()
@@ -610,37 +611,37 @@ const auditClick = async (row, operName) => {
   }
 }
 
-const _audit = (row, operName) => {
+const _audit = (row, operName, silent = false) => {
   if (row.length === 1) {
-    emit('audit-click', row, operName)
-  } else {
-    row.forEach(async (ro) => {
-      ro.auditUserId = ro.auditUserId || null
-      ro.auditTime = new Date()
-      switch (operName) {
-        case '批量审核通过':
-          ro.isAudit = CONSTANT.AUDIT_STATUS.PASS
-          ro.reason = CONSTANT.AUDIT_STATUS.PASSNAME
-          break
-        case '批量审核不通过':
-          ro.isAudit = CONSTANT.AUDIT_STATUS.NOTPASS
-          ro.reason = CONSTANT.AUDIT_STATUS.NOTPASSNAME
-          break
-        case '批量打回':
-          ro.isAudit = CONSTANT.AUDIT_STATUS.SAVE
-          ro.reason = CONSTANT.AUDIT_STATUS.SAVENAME
-          ro.auditTime = null
-          break
-        case '批量审核退回':
-          ro.isAudit = CONSTANT.AUDIT_STATUS.BACK
-          ro.reason = CONSTANT.AUDIT_STATUS.BACKNAME
-          break
-        default:
-          break
-      }
-      await listAPI.editOneNode(keyWord.value?.edit, ro)
-    })
+    emit('open-dlg', 'audit', row[0])
+    return
   }
+  row.forEach(async (ro) => {
+    ro.auditUserId = ro.auditUserId || null
+    ro.auditTime = new Date()
+    switch (operName) {
+      case '批量审核通过':
+        ro.isAudit = CONSTANT.AUDIT_STATUS.PASS
+        ro.reason = CONSTANT.AUDIT_STATUS.PASSNAME
+        break
+      case '批量审核不通过':
+        ro.isAudit = CONSTANT.AUDIT_STATUS.NOTPASS
+        ro.reason = CONSTANT.AUDIT_STATUS.NOTPASSNAME
+        break
+      case '批量打回':
+        ro.isAudit = CONSTANT.AUDIT_STATUS.SAVE
+        ro.reason = CONSTANT.AUDIT_STATUS.SAVENAME
+        ro.auditTime = null
+        break
+      case '批量审核退回':
+        ro.isAudit = CONSTANT.AUDIT_STATUS.BACK
+        ro.reason = CONSTANT.AUDIT_STATUS.BACKNAME
+        break
+      default:
+        break
+    }
+    await listAPI.editOneNode(keyWord.value?.edit, ro)
+  })
 }
 
 // 查询
@@ -764,6 +765,9 @@ const handleCurrentChange = async (val) => {
 defineExpose({
   initDataList,
   _deleteClick,
-  usedSearchWords
+  usedSearchWords,
+  _exportClick,
+  auditClick,
+  _audit
 })
 </script>
