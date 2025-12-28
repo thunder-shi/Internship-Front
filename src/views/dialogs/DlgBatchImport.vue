@@ -148,24 +148,30 @@ const submit = async () => {
     emit('selfImport', file.value)
     return
   }
+
+  let success = false
+  showDialog(false)
+  proxy.fullScreenLoading()
+
   try {
-    showDialog(false)
-    proxy.fullScreenLoading()
     await IEAPI.importInfo(props.defaultProps.keyWords, file.value)
-    proxy.fullScreenLoading().close()
-    emit('import-success')
-    proxy.$message.success('导入成功')
-    dlgBasicRef.value.buttonLoading.confirm = false
-    if (props.defaultProps.keyWords === 'SchoolOrganizationInfo') {
-      proxy.$parent.$refs.DataTableTree.initDataTree()
-    } else {
-      proxy.$parent.$refs.dataTableList.$refs.table.clearSelection()
-      proxy.$parent.$refs.dataTableList.initDataList()
-    }
+    success = true
   } catch (error) {
+    console.error('导入失败:', error)
+    proxy.$message.error('导入失败，请检查文件格式是否正确')
+  } finally {
     proxy.fullScreenLoading().close()
+    if (dlgBasicRef.value?.buttonLoading) {
+      dlgBasicRef.value.buttonLoading.confirm = false
+    }
+    file.value = {}
   }
-  file.value = {}
+
+  // 成功后的操作放在 try-catch 之外，避免事件处理错误影响提示
+  if (success) {
+    proxy.$message.success('导入成功')
+    emit('import-success')
+  }
 }
 
 defineExpose({
