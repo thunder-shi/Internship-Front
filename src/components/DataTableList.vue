@@ -1,47 +1,105 @@
 <template>
-  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns" :default-props="defaultProps.defaultDTHProps" @init-click="refreshInit" @show-search="showSearchPanel" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish">
+  <DataTableHeader
+    ref="dataTBLMother"
+    v-model:selected-columns="selectedColumns"
+    :default-props="defaultProps.defaultDTHProps"
+    @init-click="refreshInit"
+    @show-search="showSearchPanel"
+    @append-click="appendClick"
+    @edit-click="editClick"
+    @delete-click="deleteClick"
+    @audit-click="auditClick"
+    @export-click="exportClick"
+    @more1-click="more1Click"
+    @more2-click="more2Click"
+    @upload-finish="uploadFinish"
+    @batch-create="batchCreate"
+  >
     <template #searchPanel>
-      <!-- v-model="searchName" -->
-      <slot name="searchPanel"><BtnSearch :search-name="searchName" :placeholder="searchPlaceholder" :no-advanced-search="noAdvancedSearch" :search-items="searchItems" @search-click="searchClick" @advanced-search-click="advancedSearchClick" /></slot>
+      <slot name="searchPanel">
+        <BtnSearch
+          :search-name="searchName"
+          :placeholder="searchPlaceholder"
+          :no-advanced-search="noAdvancedSearch"
+          :search-items="searchItems"
+          @search-click="searchClick"
+          @advanced-search-click="advancedSearchClick"
+          @clean-out-value="onCleanOutValue"
+          @input="onInput"
+        >
+          <template #beforeSearch>
+            <slot name="beforeSearch" />
+          </template>
+        </BtnSearch>
+      </slot>
+    </template>
+    <template #moreTopButtons>
+      <slot name="moreTopButtons" />
+    </template>
+    <template #topOperate>
+      <slot name="topOperate" />
     </template>
     <template #body>
-      <!--列表展示-->
+      <slot name="topAlert" />
       <el-card shadow="never" :class="{ 'no-header': !hasCardTitle }">
         <template #header>
           <template v-if="hasCardTitle">
             <slot name="cardTitle" />
             <template v-if="title">
               <span>{{ title.mainTitle }}</span>
-              <span v-if="title.subTitle">&nbsp;|&nbsp;<strong>{{ title.subTitle || "全部" }}</strong></span>
+              <span v-if="title.subTitle">&nbsp;|&nbsp;<strong>{{ title.subTitle || '全部' }}</strong></span>
             </template>
           </template>
         </template>
-        <el-table ref="table" v-adaptive="{bottomOffset}" v-loading="loading" border height="100%" :data="dataList" row-key="id" highlight-current-rows @current-change="handleColumnChange" @selection-change="handleSelectionChange" @sort-change="handleSortChange">
+        <el-table
+          ref="table"
+          v-adaptive="{ bottomOffset }"
+          v-loading="loading"
+          height="100%"
+          border
+          :data="dataList"
+          row-key="id"
+          highlight-current-rows
+          @current-change="handleColumnChange"
+          @selection-change="handleSelectionChange"
+          @sort-change="handleSortChange"
+        >
           <el-table-column v-if="checkFlag" fixed :reserve-selection="true" type="selection" width="55" />
           <el-table-column v-else fixed width="55">
             <template #default="scope">
               <el-radio v-model="tableRadio" :label="scope.row"><i /></el-radio>
             </template>
           </el-table-column>
-          <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true" :prop="item.tableColumnName" :label="item.showName" :width="item.width" :sortable="item.sortable?'custom':false">
+          <el-table-column
+            v-for="(item, index) in tableColumnItem"
+            :key="index"
+            :show-overflow-tooltip="true"
+            :prop="item.tableColumnName"
+            :label="item.showName"
+            :width="item.width"
+            :sortable="item.sortable ? 'custom' : false"
+          >
             <template #default="scope">
-              <!-- 特殊列格式 -->
-              <div v-if="item.tableColumnName.endsWith('Time')">{{ filterDateTime(scope.row[item.tableColumnName]) }}</div>
-              <!-- 列表自定义显示的内容 tableColumnName 必须以 customize- 开头 -->
-              <slot v-else-if="item.tableColumnName.startsWith('customize-')" :name="item.tableColumnName.replace('customize-','')" :row="scope.row" />
-              <div v-else>{{ scope.row[item.tableColumnName] || "--" }}</div>
+              <slot
+                v-if="item.tableColumnName && item.tableColumnName.startsWith('customize-')"
+                :name="item.tableColumnName.replace('customize-', '')"
+                :row="scope.row"
+              />
+              <div v-else-if="item.tableColumnName && item.tableColumnName.endsWith('Time')">{{ filterDateTime(scope.row[item.tableColumnName]) }}</div>
+              <div v-else-if="item.tableColumnName && item.tableColumnName.endsWith('Day')">{{ filterDateDay(scope.row[item.tableColumnName]) }}</div>
+              <div v-else-if="item.tableColumnName === 'isAudit'">{{ filterIsAudit(scope.row[item.tableColumnName]) }}</div>
+              <div v-else-if="item.tableColumnName === 'cost'">{{ scope.row[item.tableColumnName] }}元</div>
+              <div v-else>{{ scope.row[item.tableColumnName] || '--' }}</div>
             </template>
           </el-table-column>
           <el-table-column v-if="operateShow" fixed="right" label="操作" :width="operateWidth">
             <template #default="scope">
-              <!--查看and编辑and删除-->
               <el-button v-if="button?.visible?.show" :type="button.visible.type" size="small" :title="button.visible.name" @click="view([scope.row])">
                 <svg-icon icon-class="axt-view" />
               </el-button>
               <el-button v-if="button?.update?.show" :type="button.update.type" size="small" :title="button.update.name" @click="editClick(scope.row)">
                 <el-icon><Edit /></el-icon>
               </el-button>
-              <!--列表数据右方的操作按钮-->
               <slot name="rightOperate" :row="scope.row" />
               <el-button v-if="button?.delete?.show" :type="button.delete.type" size="small" :title="button.delete.name" @click="remove([scope.row])">
                 <el-icon><Delete /></el-icon>
@@ -52,10 +110,24 @@
               <el-button v-if="button?.down?.show" :type="button.down.type" size="small" :loading="buttonLoading.down" :title="button.down.name" @click="move(scope.row, false)">
                 <el-icon><Bottom /></el-icon>
               </el-button>
+              <el-button v-if="button?.audit?.show" :type="button.audit.type" size="small" :title="button.audit.name" @click="auditClick([scope.row], null)">
+                <el-icon><Check /></el-icon>
+              </el-button>
+              <slot name="rightbtn" :row="scope.row" />
             </template>
           </el-table-column>
         </el-table>
-        <v-page v-if="showPage" align="center" :total="totalSize" :current-page="pageInfo.page" :page-size="pageInfo.size" :page-sizes="pageInfo.sizes" :selected-columns="selectedColumns" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+        <v-page
+          v-if="showPage"
+          align="center"
+          :total="totalSize"
+          :current-page="pageInfo.page"
+          :page-size="pageInfo.size"
+          :page-sizes="pageInfo.sizes"
+          :selected-columns="selectedColumns"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
       </el-card>
     </template>
   </DataTableHeader>
@@ -63,7 +135,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted, useAttrs, useSlots, nextTick } from 'vue'
-import { Edit, Delete, Top, Bottom } from '@element-plus/icons-vue'
+import { Edit, Delete, Top, Bottom, Check } from '@element-plus/icons-vue'
 import DataTableHeader from '@/components/DataTableHeader.vue'
 import listAPI from '@/api/list'
 import BtnSearch from '@/components/BtnSearch.vue'
@@ -80,10 +152,20 @@ defineOptions({
 
 // 过滤器函数
 const filterDateTime = (val) => {
-  if (!val) {
-    return '--'
-  } else {
-    return moment(val).format('YYYY-MM-DD HH:mm')
+  if (!val) return '--'
+  return moment(val).format('YYYY-MM-DD HH:mm')
+}
+const filterDateDay = (val) => {
+  if (!val) return '--'
+  return moment(val).format('YYYY-MM-DD')
+}
+const filterIsAudit = (val) => {
+  switch (val) {
+    case CONSTANT.AUDIT_STATUS.SUBMIT: return CONSTANT.AUDIT_STATUS.SUBMITNAME
+    case CONSTANT.AUDIT_STATUS.PASS: return CONSTANT.AUDIT_STATUS.PASSNAME
+    case CONSTANT.AUDIT_STATUS.NOTPASS: return CONSTANT.AUDIT_STATUS.NOTPASSNAME
+    case CONSTANT.AUDIT_STATUS.BACK: return CONSTANT.AUDIT_STATUS.BACKNAME
+    default: return CONSTANT.AUDIT_STATUS.SAVENAME
   }
 }
 
@@ -93,15 +175,18 @@ const props = defineProps({
     default: () => {
       return {
         keyWord: { },
+        selectedColumns: [],
         title: { mainTile: '', subTitle: '' },
         bottomOffset: 0,
         sortStr: { properties: 'Id', direction: 'DESC' }, // 排序方法
         treeInfo: { },
+        parentId: '',
         someFlags: {
           operateShow: true, // 最右边的按钮操作面板是否出现
           checkFlag: true, // 是否出现最左边的checkBox
           showPage: true, // 是否显示底部翻页
-          autoInit: true // 初始时是否显示数据
+          autoInit: true, // 初始时是否显示数据
+          hasOwnGet: false
         },
         initSearchWords: { // 初始时查询的三个关键词
           searchKey: { },
@@ -135,14 +220,20 @@ const emit = defineEmits([
   'append-click',
   'edit-click',
   'delete-click',
+  'delete-finish-click',
   'export-click',
   'more1-click',
   'more2-click',
   'upload-finish',
+  'batch-create',
   'update-column',
   'view-click',
   'spec-remove',
-  'spec-move'
+  'spec-move',
+  'audit-click',
+  'self-init',
+  'clean-out-value',
+  'input'
 ])
 
 const attrs = useAttrs()
@@ -160,50 +251,39 @@ const usedSearchWords = reactive({ // 最终使用查询的三个关键词
 })
 const selectedColumns = ref([])
 const dataList = ref([])
-const pageInfo = reactive({ page: 1, size: 25 })
+const pageInfo = reactive({ page: 1, size: 25, sizes: [25, 50, 75, 100] })
 const totalSize = ref(0)
 const loading = ref(false)
 const buttonLoading = reactive({ up: false, down: false })
 const tableRadio = ref(null)
-// 列表中的字体颜色
 const redArr = ref([])
 const greenArr = ref([])
 const blueArr = ref([])
 const yellowArr = ref([])
 const operateWidth = ref(60)
-const thisEvents = ref('')
+const thisEvents = ref([])
 const isPageInit = ref(false)
 
+const nowSearchWordsLocal = reactive({
+  searchKey: _.cloneDeep(props.defaultProps.nowSearchWords?.searchKey || {}),
+  regKey: _.cloneDeep(props.defaultProps.nowSearchWords?.regKey || {}),
+  andor: _.cloneDeep(props.defaultProps.nowSearchWords?.andor || {})
+})
+
 // computed
-const keyWord = computed(() => {
-  return dataTBLMother.value?.keyWord
-})
+const keyWord = computed(() => dataTBLMother.value?.keyWord)
 
-const title = computed(() => {
-  return props.defaultProps.title ? props.defaultProps.title : null
-})
+const title = computed(() => props.defaultProps.title || null)
 
-// 判断是否有卡片标题（用于控制是否显示 header）
 const hasCardTitle = computed(() => {
-  // 检查是否有 cardTitle slot
-  if (slots.cardTitle) {
-    return true
-  }
-  // 检查是否有 title 且有内容
-  if (title.value && (title.value.mainTitle || title.value.subTitle)) {
-    return true
-  }
+  if (slots.cardTitle) return true
+  if (title.value && (title.value.mainTitle || title.value.subTitle)) return true
   return false
 })
 
-const button = computed(() => {
-  return dataTBLMother.value?.button
-})
+const button = computed(() => dataTBLMother.value?.button)
 
-// 从 DataTableHeader 获取 tableColumnItem
-const tableColumnItem = computed(() => {
-  return dataTBLMother.value?.tableColumnItem || []
-})
+const tableColumnItem = computed(() => dataTBLMother.value?.tableColumnItem || [])
 
 const operateShow = computed(() => {
   if (Object.prototype.hasOwnProperty.call(props.defaultProps, 'someFlags')) {
@@ -221,6 +301,15 @@ const checkFlag = computed(() => {
     }
   }
   return true
+})
+
+const orderList = computed(() => {
+  if (Object.prototype.hasOwnProperty.call(props.defaultProps, 'someFlags')) {
+    if (Object.prototype.hasOwnProperty.call(props.defaultProps.someFlags, 'orderList')) {
+      return props.defaultProps.someFlags.orderList
+    }
+  }
+  return false
 })
 
 const noAdvancedSearch = computed(() => {
@@ -250,33 +339,17 @@ const autoInit = computed(() => {
   return true
 })
 
-const bottomOffset = computed(() => {
-  return props.defaultProps.bottomOffset ? props.defaultProps.bottomOffset : 0
-})
+const bottomOffset = computed(() => props.defaultProps.bottomOffset || 0)
 
-const searchItems = computed(() => {
-  return props.defaultProps.searchItems ? props.defaultProps.searchItems : []
-})
+const searchItems = computed(() => props.defaultProps.searchItems || [])
 
-const sortStr = computed(() => {
-  return props.defaultProps.sortStr ? props.defaultProps.sortStr : { properties: 'Id', direction: 'DESC' }
-})
+const sortStr = reactive(props.defaultProps.sortStr ? _.cloneDeep(props.defaultProps.sortStr) : { properties: 'Id', direction: 'DESC' })
 
-const initSearchWords = computed(() => {
-  return props.defaultProps.initSearchWords ? props.defaultProps.initSearchWords : { }
-})
+const initSearchWords = computed(() => props.defaultProps.initSearchWords || { })
 
-const nowSearchWords = computed(() => {
-  return props.defaultProps.nowSearchWords ? props.defaultProps.nowSearchWords : { }
-})
+const moveSearchWords = computed(() => props.defaultProps.moveSearchWords || { })
 
-const moveSearchWords = computed(() => {
-  return props.defaultProps.moveSearchWords ? props.defaultProps.moveSearchWords : { }
-})
-
-const treeInfo = computed(() => {
-  return props.defaultProps.treeInfo ? props.defaultProps.treeInfo : {}
-})
+const treeInfo = computed(() => props.defaultProps.treeInfo || {})
 
 const searchName = computed(() => {
   if (Object.prototype.hasOwnProperty.call(props.defaultProps, 'searchPanel')) {
@@ -294,93 +367,77 @@ const searchPlaceholder = computed(() => {
 
 // watch
 watch(autoInit, (val) => {
-  if (val) {
-    setTimeout(() => { initDataList() }, 500)
-  }
+  if (val) setTimeout(() => { initDataList() }, 500)
 })
 
-watch(nowSearchWords, (val) => {
+watch(() => props.defaultProps.nowSearchWords, (val) => {
+  if (val) {
+    nowSearchWordsLocal.searchKey = _.cloneDeep(val.searchKey || {})
+    nowSearchWordsLocal.regKey = _.cloneDeep(val.regKey || {})
+    nowSearchWordsLocal.andor = _.cloneDeep(val.andor || {})
+  }
+}, { deep: true, immediate: true })
+
+watch(nowSearchWordsLocal, () => {
   if (autoInit.value) {
     setTimeout(() => { initDataList() }, 500)
   }
-}, { deep: true, immediate: true })
+}, { deep: true })
 
-// 监听 tableColumnItem 的变化，确保列能正确显示
-watch(() => dataTBLMother.value?.tableColumnItem, (newVal) => {
-  if (newVal && newVal.length > 0) {
-    // 触发响应式更新
-    nextTick(() => {
-      // 确保表格能正确渲染列
+watch(() => props.defaultProps.selectedColumns, (val) => {
+  if (Array.isArray(val)) {
+    selectedColumns.value = []
+    val.forEach(id => {
+      const row = dataList.value.find(item => item.id === id)
+      if (row) {
+        selectedColumns.value.push(row)
+      }
     })
   }
-}, { deep: true, immediate: true })
+}, { deep: true })
 
-// mounted
 onMounted(() => {
-  // 获取所有事件监听器
   thisEvents.value = Object.keys(attrs).filter(key => key.startsWith('on'))
-  
   nextTick(() => {
-    // 计算显示的按钮数量
     let num = 0
     const arr = [
       button.value?.visible?.show,
       button.value?.update?.show,
       button.value?.delete?.show,
       button.value?.up?.show,
-      button.value?.down?.show
+      button.value?.down?.show,
+      button.value?.audit?.show
     ]
-    num = arr.reduce((acc, cur) => {
-      acc = cur ? acc + 1 : acc
-      return acc
-    }, 0)    
-    // 根据实际测量的按钮数量直接设置宽度
-    let width = 0
-    if (num === 5) {
-      width = 160
-    } else if (num === 4) {
-      width = 130
-    } else if (num === 3) {
-      width = 105
-    } else if (num === 2) {
-      width = 78
-    } else if (num === 1) {
-      width = 55
-    } else {
-      // 没有按钮时，只显示列标题
-      width = 50
-    }    
-    operateWidth.value = width    
-    // 延迟初始化数据
-    setTimeout(() => { 
-      initDataList() 
-    }, 500)
+    num = arr.reduce((acc, cur) => (cur ? acc + 1 : acc), 0)
+    let width = num * 46
+    if (width < 60) width = 60
+    operateWidth.value = width
+    setTimeout(() => { initDataList() }, 500)
   })
 })
 
-// methods 转换为普通函数
-// #region initDataList
+// methods
 const getUsedSearchWords = () => {
   usedSearchWords.searchKey = {}
   usedSearchWords.regKey = {}
   usedSearchWords.andor = {}
 
-  if (Object.prototype.hasOwnProperty.call(initSearchWords.value, 'searchKey') && (Object.keys(initSearchWords.value.searchKey).length !== 0)) {
+  if (initSearchWords.value?.searchKey && Object.keys(initSearchWords.value.searchKey).length !== 0) {
     usedSearchWords.searchKey = _.cloneDeep(initSearchWords.value.searchKey)
-    if (Object.prototype.hasOwnProperty.call(initSearchWords.value, 'regKey') && (Object.keys(initSearchWords.value.regKey).length !== 0)) {
+    if (initSearchWords.value?.regKey && Object.keys(initSearchWords.value.regKey).length !== 0) {
       usedSearchWords.regKey = _.cloneDeep(initSearchWords.value.regKey)
     }
-    if (Object.prototype.hasOwnProperty.call(initSearchWords.value, 'andor') && (Object.keys(initSearchWords.value.andor).length !== 0)) {
+    if (initSearchWords.value?.andor && Object.keys(initSearchWords.value.andor).length !== 0) {
       usedSearchWords.andor = _.cloneDeep(initSearchWords.value.andor)
     }
   }
-  if (Object.prototype.hasOwnProperty.call(nowSearchWords.value, 'searchKey') && (Object.keys(nowSearchWords.value.searchKey).length !== 0)) {
-    usedSearchWords.searchKey = _.merge(nowSearchWords.value.searchKey, initSearchWords.value.searchKey)
-    if (Object.prototype.hasOwnProperty.call(nowSearchWords.value, 'regKey') && (Object.keys(nowSearchWords.value.regKey).length !== 0)) {
-      usedSearchWords.regKey = _.merge(nowSearchWords.value.regKey, initSearchWords.value.regKey)
+  if (nowSearchWordsLocal.searchKey && Object.keys(nowSearchWordsLocal.searchKey).length !== 0) {
+    usedSearchWords.searchKey = _.merge(nowSearchWordsLocal.searchKey, initSearchWords.value.searchKey)
+    if (nowSearchWordsLocal.regKey && Object.keys(nowSearchWordsLocal.regKey).length !== 0) {
+      usedSearchWords.regKey = _.merge(nowSearchWordsLocal.regKey, initSearchWords.value.regKey)
     }
-    if (Object.prototype.hasOwnProperty.call(nowSearchWords.value, 'andor') && (Object.keys(nowSearchWords.value.andor).length !== 0)) {
-      usedSearchWords.andor = _.merge(nowSearchWords.value.andor, initSearchWords.value.andor)
+    if (nowSearchWordsLocal.andor && Object.keys(nowSearchWordsLocal.andor).length !== 0) {
+      usedSearchWords.andor = _.merge(nowSearchWordsLocal.andor, initSearchWords.value.andor)
     }
   }
 }
@@ -392,94 +449,78 @@ const _initDataList = async () => {
       selectedColumns.value = selectedColumns.value.slice(0, 0)
       table.value?.clearSelection()
     }
-    // 每次刷新前，都应该拼一下usedSearchWords
     getUsedSearchWords()
     let resp
     try {
-      if (JSON.stringify(treeInfo.value) === '{}') {
-        resp = await listAPI.getSomeRecords({
-          keyWords: keyWord.value?.view,
-          pageInfo: pageInfo,
-          treeInfo: null,
-          searchKey: usedSearchWords.searchKey,
-          sort: sortStr.value,
-          reg: usedSearchWords.regKey,
-          andor: usedSearchWords.andor
-        })
-      } else {
-        resp = await listAPI.getSomeRecords({
-          keyWords: keyWord.value?.view,
-          pageInfo: pageInfo,
-          treeInfo: treeInfo.value,
-          searchKey: usedSearchWords.searchKey,
-          sort: sortStr.value,
-          reg: usedSearchWords.regKey,
-          andor: usedSearchWords.andor
-        })
+      if (props.defaultProps.someFlags?.hasOwnGet) {
+        emit('self-init', pageInfo, sortStr, usedSearchWords)
+        loading.value = false
+        return
       }
+      const payload = {
+        keyWords: keyWord.value?.view,
+        pageInfo,
+        treeInfo: Object.keys(treeInfo.value || {}).length ? treeInfo.value : null,
+        searchKey: usedSearchWords.searchKey,
+        sort: sortStr,
+        reg: usedSearchWords.regKey,
+        andor: usedSearchWords.andor
+      }
+      resp = await listAPI.getSomeRecords(payload)
     } catch (error) {
-      console.log(error)
+      console.error(error)
       loading.value = false
       return
     }
-    
-    if (!resp || !resp.data) {
-      loading.value = false
-      return
-    }
-    
-    // 过滤掉空行（null、undefined 或空对象）
-    const filteredContent = (resp.data.content || []).filter(item => {
-      // 过滤掉 null、undefined
+
+    const filteredContent = (resp?.data?.content || []).filter(item => {
       if (!item || typeof item !== 'object') return false
-      // 过滤掉空对象（没有任何有效属性）
       const keys = Object.keys(item)
       if (keys.length === 0) return false
-      // 过滤掉只有 id 且 id 为 null/undefined 的对象
       if (keys.length === 1 && keys[0] === 'id' && (item.id === null || item.id === undefined)) return false
-      // 过滤掉所有属性值都为空的对象（除了 id）
       const hasValidData = keys.some(key => {
-        if (key === 'id') return true // id 可以为空
+        if (key === 'id') return true
         const value = item[key]
         return value !== null && value !== undefined && value !== ''
       })
       return hasValidData
     })
-    
+
     dataList.value = _.cloneDeep(filteredContent)
-    totalSize.value = filteredContent.length > 0 ? (resp.data.totalElements || filteredContent.length) : 0
+    totalSize.value = filteredContent.length > 0 ? (resp?.data?.totalElements || filteredContent.length) : 0
+
+    if (Array.isArray(props.defaultProps.selectedColumns) && props.defaultProps.selectedColumns.length) {
+      dataList.value.forEach((row) => {
+        const shouldSelect = props.defaultProps.selectedColumns.includes(row.id)
+        table.value?.toggleRowSelection(row, shouldSelect)
+      })
+    }
+
     emit('after-init-data', dataList.value)
     emit('total-size', totalSize.value)
   } catch (error) {
-    console.log(error)
-    loading.value = false
+    console.error(error)
   }
   loading.value = false
 }
 
-const initDataList = async (manual = false) => { // manual: 手动刷新按钮
+const initDataList = async (manual = false) => {
   if (autoInit.value || manual) {
     await _initDataList()
   }
 }
-// #endregion
 
-const showSearchPanel = (flag) => {
-  // Vue 3 不需要 $forceUpdate，响应式系统会自动更新
-}
+const showSearchPanel = () => {}
 
-// #region 按钮相关
+const onCleanOutValue = () => emit('clean-out-value')
+const onInput = (val) => emit('input', val)
+
 // 按钮新增
-const appendClick = async () => {
-  emit('append-click')
-}
+const appendClick = async () => { emit('append-click') }
 
 // 按钮修改
-const editClick = async (row) => {
-  emit('edit-click', row)
-}
+const editClick = async (row) => { emit('edit-click', row) }
 
-// #region 按钮删除
 // 删除主函数
 const _deleteClick = async (row) => {
   const ids = row.map(e => e.id)
@@ -492,7 +533,6 @@ const _deleteSuccess = async (num, row) => {
   const { ElMessage } = await import('element-plus')
   ElMessage.success('删除成功！')
   emit('delete-finish-click', row)
-  // 避免删除最后出现分页空白bug
   if ((totalSize.value - num) % pageInfo.size === 0 && pageInfo.page > 1) {
     pageInfo.page--
   }
@@ -500,13 +540,16 @@ const _deleteSuccess = async (num, row) => {
   initDataList()
 }
 
-const uploadFinish = () => {
-  initDataList()
-}
+const uploadFinish = () => { initDataList() }
 
-// 导出按钮
-const _exportClick = async () => {
-  await dataTBLMother.value?._exportData()
+const _exportClick = async () => { await dataTBLMother.value?._exportData() }
+
+const batchCreate = async () => {
+  if (thisEvents.value.includes('onBatch-create') || thisEvents.value.includes('onBatchCreate')) {
+    emit('batch-create')
+  } else {
+    await _exportClick()
+  }
 }
 
 const exportClick = async () => {
@@ -517,7 +560,6 @@ const exportClick = async () => {
   }
 }
 
-// 删除按钮
 const deleteClick = async (row) => {
   if (thisEvents.value.includes('onDelete-click') || thisEvents.value.includes('onDeleteClick')) {
     emit('delete-click', row)
@@ -526,7 +568,6 @@ const deleteClick = async (row) => {
   }
 }
 
-// 直接点删除时的弹框提示，调用上一层的函数
 const remove = (row) => {
   if (!thisEvents.value.includes('onSpec-remove') && !thisEvents.value.includes('onSpecRemove')) {
     dataTBLMother.value?.remove(row)
@@ -534,9 +575,7 @@ const remove = (row) => {
     emit('spec-remove', row)
   }
 }
-// #endregion
 
-// #region 上移下移
 const _move = async (row, up) => {
   try {
     await listAPI.changeNodeOrder(keyWord.value?.edit, row.id, up, moveSearchWords.value.searchKey, moveSearchWords.value.regKey)
@@ -545,47 +584,85 @@ const _move = async (row, up) => {
     ElMessage.success('移动成功！')
     return true
   } catch (error) {
-    console.log(error)
+    console.error(error)
     return false
   }
 }
 
-// 节点上下移
 const move = async (row, up) => {
-  if (up) {
-    buttonLoading.up = true
-  } else {
-    buttonLoading.down = true
-  }
+  if (up) buttonLoading.up = true
+  else buttonLoading.down = true
   if (!thisEvents.value.includes('onSpec-move') && !thisEvents.value.includes('onSpecMove')) {
     await _move(row, up)
   } else {
     emit('spec-move', row, up)
   }
-  if (up) {
-    buttonLoading.up = false
+  if (up) buttonLoading.up = false
+  else buttonLoading.down = false
+}
+
+// 审核
+const auditClick = async (row, operName) => {
+  if (thisEvents.value.includes('onAudit-click') || thisEvents.value.includes('onAuditClick')) {
+    emit('audit-click', row, operName)
   } else {
-    buttonLoading.down = false
+    _audit(row, operName)
   }
 }
-// #endregion
 
-// 按钮查询
+const _audit = (row, operName) => {
+  if (row.length === 1) {
+    emit('audit-click', row, operName)
+  } else {
+    row.forEach(async (ro) => {
+      ro.auditUserId = ro.auditUserId || null
+      ro.auditTime = new Date()
+      switch (operName) {
+        case '批量审核通过':
+          ro.isAudit = CONSTANT.AUDIT_STATUS.PASS
+          ro.reason = CONSTANT.AUDIT_STATUS.PASSNAME
+          break
+        case '批量审核不通过':
+          ro.isAudit = CONSTANT.AUDIT_STATUS.NOTPASS
+          ro.reason = CONSTANT.AUDIT_STATUS.NOTPASSNAME
+          break
+        case '批量打回':
+          ro.isAudit = CONSTANT.AUDIT_STATUS.SAVE
+          ro.reason = CONSTANT.AUDIT_STATUS.SAVENAME
+          ro.auditTime = null
+          break
+        case '批量审核退回':
+          ro.isAudit = CONSTANT.AUDIT_STATUS.BACK
+          ro.reason = CONSTANT.AUDIT_STATUS.BACKNAME
+          break
+        default:
+          break
+      }
+      await listAPI.editOneNode(keyWord.value?.edit, ro)
+    })
+  }
+}
+
+// 查询
 const searchClick = (searchInfo) => {
   const searchKey = {}
   const regKey = {}
+  pageInfo.page = 1
   if (typeof searchName.value === 'string') {
     searchKey[searchName.value] = searchInfo
     regKey[searchName.value] = CONSTANT.SEARCH_OPERATOR.LIKE
   }
-  // 注意：nowSearchWords 是 computed，不能直接修改，需要通过 props 修改
-  // 这里需要根据实际需求调整
+  nowSearchWordsLocal.searchKey = searchKey
+  nowSearchWordsLocal.regKey = regKey
+  nowSearchWordsLocal.andor = {}
   setTimeout(() => { initDataList() }, 500)
 }
 
 const advancedSearchClick = (searchInfo) => {
   const searchKey = {}
   const regKey = {}
+  const andor = {}
+  pageInfo.page = 1
   const keys = Object.keys(searchInfo)
   for (let i = 0; i < keys.length; i++) {
     const item = searchItems.value.filter(item => item.field === keys[i])
@@ -593,49 +670,56 @@ const advancedSearchClick = (searchInfo) => {
       if (item[0].type === 'input') {
         searchKey[keys[i]] = searchInfo[keys[i]]
         regKey[keys[i]] = CONSTANT.SEARCH_OPERATOR.LIKE
+        if (item[0].doubleWords && item[0].doubleWords.length > 0) {
+          andor[keys[i]] = false
+          item[0].doubleWords.forEach(e => {
+            searchKey[e] = searchInfo[keys[i]]
+            regKey[e] = CONSTANT.SEARCH_OPERATOR.LIKE
+            andor[e] = false
+          })
+        }
       } else if (item[0].type === 'select') {
         searchKey[keys[i]] = searchInfo[keys[i]]
+      } else if (item[0].type === 'cascader') {
+        searchKey[keys[i]] = searchInfo[keys[i]][searchInfo[keys[i]].length - 1]
+      } else if (item[0].type === 'year') {
+        searchKey[keys[i]] = searchInfo[keys[i]] ? searchInfo[keys[i]].getFullYear() : null
+      } else if (item[0].type === 'day') {
+        searchKey[keys[i]] = searchInfo[keys[i]] || null
       } else if (item[0].type === 'date') {
-        searchKey[keys[i]] = { beginDate: searchInfo[keys[i]][0], endDate: searchInfo[keys[i]][1] }
+        if (searchInfo[keys[i]] && searchInfo[keys[i]].length) {
+          const endDate = new Date(searchInfo[keys[i]][1])
+          endDate.setHours(23, 59, 59, 0)
+          searchKey[keys[i]] = { beginDate: searchInfo[keys[i]][0], endDate }
+        } else {
+          searchKey[keys[i]] = []
+        }
         regKey[keys[i]] = CONSTANT.SEARCH_OPERATOR.RANGE
       }
     }
   }
-  // 注意：nowSearchWords 是 computed，不能直接修改
+  nowSearchWordsLocal.searchKey = searchKey
+  nowSearchWordsLocal.regKey = regKey
+  nowSearchWordsLocal.andor = andor
   setTimeout(() => { initDataList() }, 500)
 }
 
-// 更多内容1
-const more1Click = async (row) => {
-  emit('more1-click', row)
-}
+const more1Click = async (row) => { emit('more1-click', row) }
+const more2Click = async (row) => { emit('more2-click', row) }
 
-// 更多内容2
-const more2Click = async (row) => {
-  emit('more2-click', row)
-}
-// #endregion
-
-// 刷新操作
 const refreshInit = () => {
-  // 注意：nowSearchWords 是 computed，不能直接修改
+  nowSearchWordsLocal.searchKey = {}
+  nowSearchWordsLocal.regKey = {}
+  nowSearchWordsLocal.andor = {}
   initDataList()
 }
 
-// 自定义排序
 const handleSortChange = (column) => {
-  if (sortStr.value) {
-    sortStr.value.properties = column.prop
-    if (column.order === 'ascending') {
-      sortStr.value.direction = 'ASC'
-    } else {
-      sortStr.value.direction = 'DESC'
-    }
-  }
+  sortStr.properties = column.prop
+  sortStr.direction = column.order === 'ascending' ? 'ASC' : 'DESC'
   setTimeout(() => { initDataList() }, 500)
 }
 
-// 监听点击某一行事件
 const handleColumnChange = (val) => {
   if (!checkFlag.value) {
     tableRadio.value = val
@@ -644,17 +728,19 @@ const handleColumnChange = (val) => {
   emit('update-column', val)
 }
 
-// 监听选中的事件
 const handleSelectionChange = (selection) => {
+  if (Array.isArray(props.defaultProps.selectedColumns)) {
+    selection.forEach(val => {
+      if (!props.defaultProps.selectedColumns.includes(val.id)) {
+        props.defaultProps.selectedColumns.push(val.id)
+      }
+    })
+  }
   selectedColumns.value = selection
 }
 
-// 查看节点
-const view = async (val) => {
-  emit('view-click', val)
-}
+const view = async (val) => { emit('view-click', val) }
 
-// 改变页码
 const handleSizeChange = async (val) => {
   pageInfo.size = val
   isPageInit.value = true
@@ -667,11 +753,17 @@ const handleCurrentChange = async (val) => {
   isPageInit.value = true
   await initDataList()
   isPageInit.value = false
+  if (Array.isArray(props.defaultProps.selectedColumns)) {
+    dataList.value.forEach(row => {
+      const shouldSelect = props.defaultProps.selectedColumns.includes(row.id)
+      table.value?.toggleRowSelection(row, shouldSelect)
+    })
+  }
 }
 
-// 暴露方法给父组件
 defineExpose({
   initDataList,
-  _deleteClick
+  _deleteClick,
+  usedSearchWords
 })
 </script>

@@ -15,14 +15,32 @@
         </el-tooltip>
         <el-button v-if="button.more1.show" :type="button.more1.type" :icon="CirclePlus" @click="more1Click(selectedColumns)">{{ button.more1.name }}</el-button>
         <el-button v-if="button.more2.show" :type="button.more2.type" :icon="Promotion" @click="more2Click(selectedColumns)">{{ button.more2.name }}</el-button>
-        <el-button v-if="button.batchCreate.show" :icon="UploadFilled" :type="button.batchCreate.type" @click="handleUpload">{{ button.batchCreate.name }}</el-button>
+        <div v-if="button.batchCreate.show" style="padding-left:10px;padding-right:10px;">
+          <el-upload ref="uploadRef" v-model:file-list="fileList" :show-file-list="false" :http-request="handleUpload">
+            <el-button :icon="UploadFilled" :type="button.batchCreate.type">{{ button.batchCreate.name }}</el-button>
+          </el-upload>
+        </div>
+        <slot v-if="$slots.moreTopButtons" name="moreTopButtons" />
+        <div v-if="button.audit.show" style="padding-left:10px;padding-right:10px;">
+          <el-dropdown ref="auditButton" split-button size="mini" :type="button.audit.type" :disabled="selectedColumns.length < 1" @command="auditDropdownSelect" @click="auditDropdownClick(selectedColumns)">
+            {{ auditButtonName }}
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="button.audit.showPass" :command="CONSTANT.AUDIT_STATUS.PASS">批量审核通过</el-dropdown-item>
+                <el-dropdown-item v-if="button.audit.showNotPass" :command="CONSTANT.AUDIT_STATUS.NOTPASS">批量审核不通过</el-dropdown-item>
+                <el-dropdown-item v-if="button.audit.showSave" :command="CONSTANT.AUDIT_STATUS.SAVE">批量打回</el-dropdown-item>
+                <el-dropdown-item v-if="button.audit.showBack" :command="CONSTANT.AUDIT_STATUS.BACK">批量审核退回</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </el-row>
       <!--列表上方的业务模块插槽-->
       <slot v-if="$slots.topOperate" name="topOperate" />
       <!--右侧-->
       <slot v-if="$slots.right" name="right" />
-      <el-button-group v-if="button.buttonGroup.show">
-        <el-button v-if="button.search.show" :icon="Search" title="搜索" @click="showSearch" />
+      <el-button-group v-if="showButtonGroup">
+        <el-button v-if="showButtonGroupSearch" :icon="Search" title="搜索" @click="showSearch" />
         <el-button :icon="Refresh" title="刷新" @click="initData" />
         <el-popover placement="bottom-end" width="100" trigger="click">
           <template #reference>
@@ -62,7 +80,9 @@ const props = defineProps({
         buttonProps: { update: { show: false }}, // 控制树结构上方的按钮
         allTableColumns: [],
         searchPanel: false, // 初始是否出现搜索按钮
-        showTopButtons: true // 是否显示顶部按钮}}
+        showTopButtons: true, // 是否显示顶部按钮}}
+        showButtonGroup: true, // 是否显示右上角按钮组
+        showButtonGroupSearch: true // 是否显示右上角搜索按钮
         // defaultProps每一项和默认值无用，写清楚方便后面查询调用
       }
     }
@@ -70,7 +90,7 @@ const props = defineProps({
   selectedColumns: { type: Array, default: () => [] }
 })
 
-const emit = defineEmits(['update:selectedColumns', 'append-click', 'edit-click', 'delete-click', 'more1-click', 'more2-click', 'export-click', 'show-search', 'init-click', 'upload-finish'])
+const emit = defineEmits(['update:selectedColumns', 'append-click', 'edit-click', 'delete-click', 'more1-click', 'more2-click', 'export-click', 'show-search', 'init-click', 'upload-finish', 'audit-click'])
 
 const instance = getCurrentInstance()
 const store = useStore()
@@ -84,6 +104,9 @@ const tableColumnItem = ref([])
 const checkAll = ref(true)
 const indeterminate = ref(false)
 const showSearchPanel = ref(false)
+const showButtonGroup = ref(true)
+const showButtonGroupSearch = ref(true)
+const auditButtonName = ref('')
 let thisEvents = {}
 
 // computed 属性
@@ -138,9 +161,9 @@ const button = computed(() => {
     up: { show: false, name: '上移', type: 'warning' },
     down: { show: false, name: '下移', type: 'warning' },
     export: { show: false, name: '导出', type: 'warning' },
-    // batchExport: { show: false, name: '全部导出', type:'warning' },
     more1: { show: false, name: '更多操作1', type: 'info' },
     more2: { show: false, name: '更多操作2', type: 'info' },
+    audit: { show: false, name: '审核', type: 'primary', showPass: true, showNotPass: true, showSave: true, showBack: true },
     buttonGroup: { show: true }
   }
   return arrangeButton(buttonProps.value, btn)
@@ -155,6 +178,21 @@ onMounted(() => {
 // 初始化
 async function init() {
   await createDynamicTableColumns()
+  const auditBtn = button.value.audit || {}
+  if (auditBtn.show) {
+    if (auditBtn.showPass) {
+      auditDropdownSelect(CONSTANT.AUDIT_STATUS.PASS)
+    } else if (auditBtn.showNotPass) {
+      auditDropdownSelect(CONSTANT.AUDIT_STATUS.NOTPASS)
+    } else if (auditBtn.showSave) {
+      auditDropdownSelect(CONSTANT.AUDIT_STATUS.SAVE)
+    } else if (auditBtn.showBack) {
+      auditDropdownSelect(CONSTANT.AUDIT_STATUS.BACK)
+    }
+  }
+  showSearchPanel.value = props.defaultProps.searchPanel !== false
+  showButtonGroup.value = props.defaultProps.showButtonGroup !== false
+  showButtonGroupSearch.value = props.defaultProps.showButtonGroupSearch !== false
 }
 
 // 立即执行初始化
@@ -216,7 +254,22 @@ async function more2Click(row) {
 
 // 导入数据
 async function handleUpload(para) {
-  emit('upload')
+  const loading = ElLoading.service({ text: '上传中...', lock: true })
+  const params = {
+    files: [para.file],
+    tabName: keyWord.value.view,
+    importFlag: true,
+    userId: store.getters.userInfo.id,
+    relId: 0,
+    initSearchWords: JSON.stringify(instance?.parent?.setupState?.initSearchWords || {})
+  }
+  try {
+    await fileAPI.upload(params)
+    emit('upload-finish')
+  } catch (error) {
+    ElMessage.warning(`文件上传失败${error}`)
+  }
+  loading.close()
 }
 // 删除
 function remove(row) {
@@ -228,6 +281,29 @@ function remove(row) {
       emit('delete-click', row)
     }).catch(error => error)
   }
+}
+
+// 审核状态选择
+function auditDropdownSelect(command) {
+  switch (command) {
+    case CONSTANT.AUDIT_STATUS.PASS:
+      auditButtonName.value = '批量审核通过'
+      return
+    case CONSTANT.AUDIT_STATUS.NOTPASS:
+      auditButtonName.value = '批量审核不通过'
+      return
+    case CONSTANT.AUDIT_STATUS.SAVE:
+      auditButtonName.value = '批量打回'
+      return
+    case CONSTANT.AUDIT_STATUS.BACK:
+      auditButtonName.value = '批量审核退回'
+      return
+  }
+}
+
+// 审核按钮点击
+function auditDropdownClick(row) {
+  emit('audit-click', row, auditButtonName.value)
 }
 
 // 导出数据
