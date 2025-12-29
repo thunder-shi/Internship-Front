@@ -2,7 +2,7 @@ export default {
   /**
    * @description 网站标题
    */
-  title: '安徽省高等学校计算机教育研究会竞赛管理系统',
+  title: '实习实训管理系统',
   title2: '账户登录',
   /**
    * @description 是否显示 tagsView

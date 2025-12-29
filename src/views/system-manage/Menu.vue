@@ -7,7 +7,7 @@ import BaseTableTree from '@/views/master-page/BaseTableTree.vue'
 
 const defaultProps = reactive({
   defaultDTTProps: {
-    title: { mainTitle: '测试1', subTitle: '测试2'},
+    // title: { mainTitle: '测试1', subTitle: '测试2'},
     defaultDTHProps: {
       keyWord: { edit: 'SysMenu' }      
     }
