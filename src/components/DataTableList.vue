@@ -139,26 +139,6 @@
               >
                 <el-icon><Bottom /></el-icon>
               </el-button>
-              <el-button
-                v-if="button?.audit?.show"
-                :type="button.audit.type"
-                size="small"
-                :loading="buttonLoading.audit"
-                :title="button.audit.name"
-                @click="editAudit(scope.row)"
-              >
-                <el-icon><Position /></el-icon>
-              </el-button>
-              <el-button
-                v-if="button?.submit?.show"
-                :type="button.submit.type"
-                size="small"
-                :loading="buttonLoading.submit"
-                :title="button.submit.name"
-                @click="submit(scope.row)"
-              >
-                <el-icon><Check /></el-icon>
-              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -264,8 +244,6 @@ const emit = defineEmits([
   'view-click',
   'spec-remove',
   'spec-move',
-  'edit-audit',
-  'edit-submit',
 ]);
 
 const attrs = useAttrs();
@@ -469,8 +447,6 @@ onMounted(() => {
       button.value?.delete?.show,
       button.value?.up?.show,
       button.value?.down?.show,
-      button.value?.submit?.show,
-      button.value?.audit?.show,
     ];
     num = arr.reduce((acc, cur) => {
       acc = cur ? acc + 1 : acc;
@@ -488,8 +464,6 @@ onMounted(() => {
       width = 78;
     } else if (num === 1) {
       width = 55;
-    } else if (num === 6) {
-      width = 190;
     } else {
       // 没有按钮时，只显示列标题
       width = 50;
@@ -645,14 +619,6 @@ const appendClick = async () => {
 // 按钮修改
 const editClick = async (row) => {
   emit('edit-click', row);
-};
-
-const editAudit = async (row) => {
-  emit('edit-audit', row);
-};
-
-const submit = async (row) => {
-  emit('edit-submit', row);
 };
 
 // #region 按钮删除
