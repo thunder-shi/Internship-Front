@@ -3,9 +3,18 @@ const state = {
   cachedViews: []
 }
 
+// 规范化路径（去除尾部斜杠，统一格式）
+const normalizePath = (path) => {
+  if (!path) return ''
+  // 去除尾部斜杠（除了根路径）
+  return path === '/' ? path : path.replace(/\/+$/, '')
+}
+
 const mutations = {
   ADD_VISITED_VIEW: (state, view) => {
-    if (state.visitedViews.some(v => v.path === view.path)) return
+    // 使用规范化路径进行匹配，避免因路径格式差异导致的重复添加
+    const normalizedViewPath = normalizePath(view.path)
+    if (state.visitedViews.some(v => normalizePath(v.path) === normalizedViewPath)) return
     state.visitedViews.push(
       Object.assign({}, view, {
         title: view.meta?.title || 'no-name'

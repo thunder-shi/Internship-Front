@@ -46,6 +46,16 @@ const getTabList = (val) => {
   tabList.value = val
 }
 
+// 获取已访问的标签页列表
+const visitedViews = computed(() => store.state.tagsView?.visitedViews || [])
+
+// 规范化路径（去除尾部斜杠，统一格式）
+const normalizePath = (path) => {
+  if (!path) return ''
+  // 去除尾部斜杠（除了根路径）
+  return path === '/' ? path : path.replace(/\/+$/, '')
+}
+
 // 菜单点击事件处理
 const handleMenuSelect = (index, indexPath) => {
   // index 是菜单项的路径，indexPath 是路径数组
@@ -59,12 +69,33 @@ const handleMenuSelect = (index, indexPath) => {
     return
   }
 
+  // 规范化路径
+  const normalizedIndex = normalizePath(index)
+  const normalizedCurrentPath = normalizePath(route.path)
+
   // 如果当前路径和要跳转的路径相同，不重复跳转
-  if (route.path === index) {
+  if (normalizedCurrentPath === normalizedIndex) {
     return
   }
 
-  // 使用 router.push 进行路由跳转，页面会在右侧主内容区打开
+  // 检查标签页列表中是否已存在该路径（使用规范化路径匹配）
+  const existingView = visitedViews.value.find(view => {
+    const normalizedViewPath = normalizePath(view.path)
+    return normalizedViewPath === normalizedIndex
+  })
+
+  if (existingView) {
+    // 如果已存在，直接跳转到该标签页
+    router.push(existingView.fullPath || existingView.path).catch(err => {
+      // 避免重复导航错误
+      if (err.name !== 'NavigationDuplicated') {
+        console.error('路由跳转失败:', err)
+      }
+    })
+    return
+  }
+
+  // 如果不存在，使用 router.push 进行路由跳转，页面会在右侧主内容区打开
   router.push(index).catch(err => {
     // 避免重复导航错误
     if (err.name !== 'NavigationDuplicated') {
