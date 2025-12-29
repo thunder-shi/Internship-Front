@@ -76,13 +76,20 @@ service.interceptors.response.use(
   },
   (error) => {
     const errorData = error?.response?.data
-    const requestUrl = error?.config?.url || ''
-    const isLogoutRequest = requestUrl && requestUrl.includes('/sign/logout')
-    const errorMessage = errorData?.message || error?.message || '请求失败'
+    // 获取请求 URL（可能是相对路径或完整路径）
+    const configUrl = error?.config?.url || ''
+    const baseURL = error?.config?.baseURL || ''
+    // 构建完整的请求路径用于判断
+    const fullUrl = configUrl.startsWith('http') ? configUrl : (baseURL + configUrl)
+    // 更健壮的判断：检查 URL 中是否包含退出登录路径
+    const isLogoutRequest = fullUrl && (fullUrl.includes('/sign/logout') || configUrl.includes('/sign/logout'))
+    const httpStatus = error?.response?.status
+    const errorMessage = errorData?.message || error?.message || 'Request failed with status code ' + (httpStatus || 'unknown')
     
     // 退出登录请求：即使服务器错误也静默处理，不显示错误消息
+    // 包括 401 未授权错误，因为退出登录时 token 可能已经失效
     if (isLogoutRequest) {
-      console.warn('Logout request failed, but continuing with session cleanup:', errorMessage)
+      // 静默处理，不显示错误消息
       return Promise.reject(error)
     }
     
