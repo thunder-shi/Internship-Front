@@ -21,7 +21,13 @@ const defaultProps = reactive({
       },
       keyWord: { edit: 'BasePostType', view: 'ViewBasePostType' },
       allTableColumns: [
-        { id: 1, showName: '企业', theOrder: 1, tableColumnName: 'departmentName', sortable: true },
+        {
+          id: 1,
+          showName: '所属企业',
+          theOrder: 1,
+          tableColumnName: 'departmentName',
+          sortable: true,
+        },
         { id: 3, showName: '岗位代码', theOrder: 3, tableColumnName: 'code', sortable: true },
         { id: 2, showName: '岗位名称', theOrder: 2, tableColumnName: 'name', sortable: true },
         { id: 4, showName: '岗位薪资', theOrder: 4, tableColumnName: 'salary', sortable: true },
@@ -46,10 +52,10 @@ const defaultProps = reactive({
       { name: '岗位地址', field: 'address', type: 'input' },
     ],
     formRules: {
-      companyId: [{ required: true, message: '企业不能为空', trigger: 'blur' }],
+      companyId: [{ required: true, message: '所属企业不能为空', trigger: 'blur' }],
       name: [{ required: true, message: '岗位名称不能为空', trigger: 'blur' }],
       code: [{ required: true, message: '岗位代码不能为空', trigger: 'blur' }],
-      salary: [{ required: true, message: '薪资不能为空', trigger: 'blur' }],
+      salary: [{ required: true, message: '岗位薪资不能为空', trigger: 'blur' }],
     },
     defaultDBProps: {
       dialog: {},
