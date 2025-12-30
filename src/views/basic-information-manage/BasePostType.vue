@@ -1,5 +1,9 @@
 <template>
-  <BaseList :default-props="defaultProps" @simple-select-change="SimpleSelectChange" />
+  <BaseList
+    :default-props="defaultProps"
+    @simple-select-change="SimpleSelectChange"
+    @simple-select-init-finish="simpleSelectInitFinish"
+  />
 </template>
 <script setup>
 import { reactive } from 'vue';
@@ -34,7 +38,13 @@ const defaultProps = reactive({
   defaultSDProps: {
     keyWord: 'BasePostType',
     formItems: [
-      { name: '企业', field: 'companyId', type: 'select', keyWords: 'BaseDepartment' },
+      {
+        name: '企业',
+        field: 'companyId',
+        type: 'select',
+        keyWords: 'BaseDepartment',
+        regKey: { type: 1 },
+      },
       { name: '岗位名称', field: 'name', type: 'input' },
       { name: '岗位代码', field: 'code', type: 'input' },
       { name: '薪资', field: 'salary', type: 'input' },
@@ -57,5 +67,12 @@ const defaultProps = reactive({
 
 const SimpleSelectChange = (val, field, form, options) => {
   form.address = options[0].departmentAdd || '';
+};
+
+const simpleSelectInitFinish = (field, options) => {
+  if (!options.length) return;
+  options.sort((a, b) => a.departmentType - b.departmentType);
+  const index = options.findIndex((i) => i.departmentType != 1);
+  index > 0 && options.splice(index);
 };
 </script>
