@@ -26,7 +26,7 @@
         @update-record="initDataList"
         @submit-more="submitMore"
         @simple-select-change="SimpleSelectChange"
-        @simple-select-init-finish="simpleSelectInitFinish"
+        @tree-select-change="treeSelectChange"
       />
     </slot>
   </div>
@@ -92,6 +92,7 @@ const emit = defineEmits([
   'submit-more',
   'simple-select-change',
   'simple-select-init-finish',
+  'tree-select-change',
 ]);
 
 const attrs = useAttrs();
@@ -147,8 +148,8 @@ const editClick = async (row) => {
   }
 };
 
-const simpleSelectInitFinish = async (field, options) => {
-  emit('simple-select-init-finish', field, options);
+const treeSelectChange = async (val, field, form, node) => {
+  emit('tree-select-change', val, field, form, node);
 };
 
 const deleteClick = async (row) => {
