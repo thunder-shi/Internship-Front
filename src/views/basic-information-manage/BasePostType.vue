@@ -73,6 +73,8 @@ const simpleSelectInitFinish = (field, options) => {
   if (!options.length) return;
   options.sort((a, b) => a.departmentType - b.departmentType);
   const index = options.findIndex((i) => i.departmentType != 1);
-  index > 0 && options.splice(index);
+  if (index > -1) {
+    options.splice(index);
+  }
 };
 </script>
