@@ -19,11 +19,11 @@ const defaultProps = reactive({
         update: { show: true },
         create: { show: true },
         delete: { show: true },
-        export: { show: true },
+        export: { show: true }
       },
-      keyWord: { edit: 'BaseInternshipType', view: 'ViewInternshipType' },  
+      keyWord: { edit: 'BaseInternshipType', view: 'ViewBaseInternshipType' },
       allTableColumns: [
-        { id: 1, showName: '所属院系', theOrder: 1, tableColumnName: 'universityName', sortable: true },
+        { id: 1, showName: '所属院系', theOrder: 1, tableColumnName: 'universityName',  sortable: true },
         { id: 2, showName: '模板类型', theOrder: 2, tableColumnName: 'typeName', sortable: true },
         { id: 3, showName: '模板编码', theOrder: 3, tableColumnName: 'code', sortable: true },
         { id: 4, showName: '模板名称', theOrder: 4, tableColumnName: 'name', sortable: true }
@@ -34,12 +34,12 @@ const defaultProps = reactive({
   defaultSDProps: {
     keyWord: 'BaseInternshipType',
     formItems: [
-      { name: '学校院系', field: 'universityId', type: 'cascader', keyWords: 'BaseDepartment' },
+      { name: '学校院系', field: 'universityId', type: 'cascader',searchKeys: { departmentType: 1 }, keyWords: 'ViewBaseDepartment' },
       { name: '模板类型', field: 'intTypeId', type: 'select', keyWords: 'BaseIntType' },
       { name: '模板编码', field: 'code', type: 'input' },
       { name: '模板名称', field: 'name', type: 'input' },
       { name: '模板说明', field: 'remarks', type: 'textarea' }
-    ],    
+    ],
     defaultDBProps: {
       dialog: {},
     },

@@ -173,34 +173,32 @@ export default {
               const allRoutes = this.$router.getRoutes()
               
               // 过滤出动态路由（排除常量路由如Login、404等）
-              const dynamicRoutes = allRoutes.filter(route => 
-                route.path !== '/' && 
-                route.path !== '/Login' && 
-                route.path !== '/404' && 
+              const dynamicRoutes = allRoutes.filter(route =>
+                route.path !== '/' &&
+                route.path !== '/Login' &&
+                route.path !== '/404' &&
                 route.path !== '/:pathMatch(.*)*' &&
                 !route.hidden
               )
-              
-              console.log('dynamicRoutes', dynamicRoutes)
               
               // 查找第一个叶子路由（实际页面路由）
               const firstLeafRoute = findFirstLeafRoute(dynamicRoutes)
               
               if (firstLeafRoute) {
                 redirectPath = firstLeafRoute.path
-                console.log('使用第一个动态路由作为跳转目标:', redirectPath, firstLeafRoute)
+                // console.log('使用第一个动态路由作为跳转目标:', redirectPath, firstLeafRoute)
               } else {
                 // 如果没有找到叶子路由，提供一个备用页面（如果存在）
                 redirectPath = '/Dashboard'
-                console.log('没有找到动态路由，使用备用路径:', redirectPath)
+                // console.log('没有找到动态路由，使用备用路径:', redirectPath)
               }
-            }            
+            }
             // 使用修改后的跳转逻辑
             setTimeout(() => {
               // 检查路由是否存在
               const routeExists = this.$router.getRoutes().some(route => 
                 route.path === redirectPath || route.name === redirectPath
-              )              
+              )
               if (routeExists) {
                 this.$router.replace(redirectPath).catch(error => {
                   console.error('路由跳转失败:', error)

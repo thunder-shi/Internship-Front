@@ -108,7 +108,7 @@ service.interceptors.response.use(
           location.reload() // 为了重新实例化vue-router对象 避免bug
         })
       })
-    } else if (shouldSuppress(errorMessage, requestUrl)) {
+    } else if (shouldSuppress(errorMessage, configUrl)) {
       console.warn('suppressed error message:', errorMessage)
       return Promise.reject(error)
     } else {
