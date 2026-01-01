@@ -43,7 +43,11 @@ const defaultProps = reactive({
         type: 'cascader',
         keyWords: 'SysArea',
       },
-
+      { name: '详细地址', field: 'departmentAdd',type:'input'},
+      { name: '邮政编码', field: 'departmentPostalCode',type:'input'},
+      { name: '电话', field: 'departmentPhone',type:'input'},
+      { name: '传真', field: 'departmentFax' , type:'input'},
+      { name: '电子邮箱', field: 'departmentEmail', type:'input'},
       {
         name: '类型',
         field: 'departmentType',
@@ -111,9 +115,14 @@ Object.assign(allTableColumns, [
   { id: 3, showName: '完整名称', theOrder: 3, tableColumnName: 'allNodeNames' },
   { id: 4, showName: '专业名称', theOrder: 4, tableColumnName: 'majorId' },
   { id: 5, showName: '省市县', theOrder: 5, tableColumnName: 'areaId' },
-  { id: 6, showName: '类型', theOrder: 6, tableColumnName: 'departmentType' },
-  { id: 7, showName: '入学年份', theOrder: 7, tableColumnName: 'startYear' },
-  { id: 8, showName: '备注', theOrder: 8, tableColumnName: 'remarks' },
+  { id: 6, showName: '详细地址', theOrder: 5, tableColumnName: 'departmentAdd' },
+  { id: 7, showName: '邮政编码', theOrder: 5, tableColumnName: 'departmentPostalCode' },
+  { id: 8, showName: '电话', theOrder: 5, tableColumnName: 'departmentPhone' },
+  { id: 9, showName: '传真', theOrder: 5, tableColumnName: 'departmentFax' },
+  { id: 10, showName: '电子邮箱', theOrder: 5, tableColumnName: 'departmentEmail' },
+  { id: 11, showName: '类型', theOrder: 6, tableColumnName: 'departmentType' },
+  { id: 12, showName: '入学年份', theOrder: 7, tableColumnName: 'startYear' },
+  { id: 13, showName: '备注', theOrder: 8, tableColumnName: 'remarks' },
 
 ])
 </script>
