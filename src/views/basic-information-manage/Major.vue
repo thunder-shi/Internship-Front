@@ -11,7 +11,6 @@ defineOptions({
 
 const defaultProps = reactive({
   defaultDTTProps: {
-    title: { mainTitle: '专业信息管理'},
     defaultDTHProps: {
       buttonProps: {
         update: { show: true },
