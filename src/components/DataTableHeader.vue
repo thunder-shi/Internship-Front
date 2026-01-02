@@ -169,9 +169,6 @@ const checkAll = ref(true);
 const indeterminate = ref(false);
 const showSearchPanel = ref(false);
 
-// 获取组件实例(用于判断事件监听)
-const instance = getCurrentInstance();
-
 // 辅助方法:判断是否有指定事件的监听器
 const hasListener = (eventName) => {
   // 将事件名转换为驼峰形式，例如: export-click -> onExportClick
