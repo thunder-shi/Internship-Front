@@ -65,6 +65,7 @@ const appendClick = () => {
   
   // 使用深拷贝确保数据正确传递
   const form = JSON.parse(JSON.stringify(formData));
+  console.log(form);
   // 打开对话框并传入默认值，这会覆盖 BaseList 中的默认逻辑
   baseList.value?.openDlg('append', form);
 };

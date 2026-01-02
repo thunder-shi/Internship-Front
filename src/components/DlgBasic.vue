@@ -175,10 +175,15 @@ const needVerifyUpdate = computed(() => {
 })
 
 const cloneOldData = () => {
+  // 深拷贝 form.value 来保存初始数据，用于后续比较数据是否有变化
+  // 注意：form.value 现在可能是 SimpleDialog 的 form 的引用（reactive 对象）
+  // 使用 toRaw 来获取原始对象，避免 reactive 对象的问题
   oldData.value = _.cloneDeep(form.value)
 }
 
 const showDialog = (val, newForm = {}) => {
+  // 直接赋值，保持对原始对象的引用（这样 DlgBasic 的 form.value.id 能正确反映 SimpleDialog 的 form.id）
+  // 注意：这里不深拷贝，因为 DlgBasic 只需要读取 id 来判断标题和按钮，不需要修改表单数据
   form.value = newForm
   if (val) {
     currentSave.value = false
@@ -192,16 +197,14 @@ const openFun = () => {
 }
 
 const _onConfirm = async () => {
-  if (JSON.stringify(oldData.value) !== JSON.stringify(form.value)) {
-    currentSave.value = true
-    if (props.dlgbasicConfirm && typeof props.dlgbasicConfirm === 'function') {
-      type.value = 'stop'
-      await props.dlgbasicConfirm(option.value, type.value)
-    }
-    if (autoSaveClose.value && type.value === 'stop') {
-      dialogShow.value = false
-    }
-  } else {
+  // 总是调用 dlgbasicConfirm，让 SimpleDialog 的 confirm 函数处理保存逻辑
+  // SimpleDialog 的 confirm 函数会调用 commonSubmitDlg，它会进行表单验证
+  currentSave.value = true
+  if (props.dlgbasicConfirm && typeof props.dlgbasicConfirm === 'function') {
+    type.value = 'stop'
+    await props.dlgbasicConfirm(option.value, type.value)
+  }
+  if (autoSaveClose.value && type.value === 'stop') {
     dialogShow.value = false
   }
 }
