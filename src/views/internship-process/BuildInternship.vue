@@ -37,6 +37,25 @@ const defaultProps = reactive({
   },
   defaultSDProps: {
     keyWord: 'MainInternship',
+    formItems: [
+      { name: '实习名称', field: 'name', type: 'input' },
+      { name: '开始时间', field: 'startTime', type: 'datetime' },
+      { name: '结束时间', field: 'endTime', type: 'datetime' },
+      { name: '实习模板', field: 'internshipType', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'} },
+      { name: '报告周期', field: 'cron', type: 'input' },
+      { name: '上报开始时间', field: 'reportStartTime', type: 'datetime' },
+      { name: '上报结束时间', field: 'reportEndTime', type: 'datetime' },
+      { name: '备注', field: 'remarks', type: 'textarea' }
+    ],
+    formRules: {
+      name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],
+      startTime: [{ required: true, message: '开始时间不能为空', trigger: 'blur' }],
+      endTime: [{ required: true, message: '结束时间不能为空', trigger: 'blur' }],
+      internshipType: [{ required: true, message: '请选择实习模板', trigger: 'blur' }],
+    },
+    defaultDBProps: {
+      dialog: {}
+    }
   },
 });
 

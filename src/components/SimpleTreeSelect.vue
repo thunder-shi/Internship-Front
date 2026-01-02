@@ -11,6 +11,7 @@
       :options="options"
       :props="cascaderProps"
       :placeholder="placeholder"
+      :disabled="disabled"
       clearable=""
       @change="handleChange"
     />
@@ -33,6 +34,7 @@ const props = defineProps({
   searchKeys: { type: Object, default: () => ({}) },
   lazy: { type: Boolean, default: true },
   multiple: { type: Boolean, default: false },
+  disabled: { type: Boolean, default: false }
 });
 
 const emit = defineEmits(['update:modelValue', 'update-value']);
@@ -91,8 +93,9 @@ async function changeSelection() {
   loading.value = false;
 }
 
-async function initOptions(searchKey) {
+async function initOptions(searchKey, sort) {
   const searchKeysToUse = searchKey != null ? searchKey : props.searchKeys;
+  const sortToUse = sort != null ? sort : props.sort;
   try {
     if (!props.lazy) {
       // 不是懒加载
@@ -103,6 +106,7 @@ async function initOptions(searchKey) {
         virtualRootFlag: false,
         searchKey: searchKeysToUse,
         lazy: false,
+        sort: sortToUse
       });
       options.value = res.data || [];
     } else {

@@ -151,6 +151,7 @@
               :disabled="item.disabled"
               :placeholder="item.placeholder ? item.placeholder : '请选择'"
               :auto-select="item.autoSelect"
+              :sortJson="item.sortJson"
               @update-value="onSimpleSelectChange"
               @init-finish="simpleSelectInitFinish"
             />
@@ -413,7 +414,7 @@ function verifyValid(showMessage = true) {
         const rules = formRules.value;
         const fields = Object.keys(rules);
         let hasError = false;
-        
+
         // 遍历所有规则字段，手动检查必填规则
         fields.forEach((field) => {
           const ruleArray = rules[field];
@@ -423,14 +424,14 @@ function verifyValid(showMessage = true) {
             const requiredRule = ruleArray.find((r) => r.required === true);
             if (requiredRule) {
               // 检查值是否为空
-              if (value === undefined || value === null || value === '' || 
+              if (value === undefined || value === null || value === '' ||
                   (Array.isArray(value) && value.length === 0)) {
                 hasError = true;
               }
             }
           }
         });
-        
+
         // 设置按钮状态
         dlgBasicRef.value.validate = hasError;
       }
@@ -563,7 +564,8 @@ function onSimpleSelectChange(val, field, options) {
 }
 
 function simpleSelectInitFinish(field, options) {
-  emit('simple-select-init-finish', field, options);
+  const formData = _.cloneDeep(form)
+  emit('simple-select-init-finish', field, options, formData);
 }
 
 function onTreeSelectChange(val, field, node) {

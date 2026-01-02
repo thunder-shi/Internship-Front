@@ -4,7 +4,7 @@
     <DataTableTree ref="dataTableTreeRef" :default-props="defaultProps.defaultDTTProps" @edit-click="editClick" @append-click="appendClick" @batch-import-click="batchImportClick" />
     <slot name="dlg">
       <!-- 简单窗口 -->
-      <SimpleDialog ref="simpleDialogRef" :default-props="defaultProps.defaultSDProps" @update-record="updateDataTree" />
+      <SimpleDialog ref="simpleDialogRef" :default-props="defaultProps.defaultSDProps" @update-record="updateDataTree" @simple-select-change="onSimpleSelectChange" @simple-select-init-finish="onSimpleSelectInitFinish"/>
     </slot>
     <slot name="batch">
       <!-- 批量录入窗口 -->
@@ -85,7 +85,7 @@ const hasListener = (eventName) => {
   // 将事件名转换为驼峰形式，例如: append-click -> onAppendClick
   const camelCaseName = 'on' + eventName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
     .replace(/^[a-z]/, letter => letter.toUpperCase());
-  
+
   // 检查 vnode.props 中是否存在对应的事件监听器
   return instance?.vnode?.props?.[camelCaseName] !== undefined;
 };
@@ -134,6 +134,14 @@ function batchImport() {
 
 function importSuccess() {
   dataTableTreeRef.value.initDataTree()
+}
+
+function onSimpleSelectChange(val, field, form, options) {
+  emit('simple-select-change', val, field, form, options)
+}
+
+function onSimpleSelectInitFinish(field, options, form) {
+  emit('simple-select-init-finish', field, options, form)
 }
 
 </script>
