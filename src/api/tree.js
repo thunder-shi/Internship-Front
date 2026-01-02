@@ -17,6 +17,11 @@ const getAllNodes = async ({ keyWords, parentId = -1, virtualRootFlag = true, se
       preName,
       sort
     }
+  }).then(response => {
+    if (response && response.data) {
+      response.data = response.data.filter(item => item.code !== '0')
+    }
+    return response
   })
 }
 
