@@ -159,7 +159,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, useAttrs, useSlots, nextTick } from 'vue';
+import { ref, reactive, computed, watch, onMounted, useAttrs, useSlots, nextTick, getCurrentInstance } from 'vue';
 import { Edit, Delete, Top, Bottom, Position, Check } from '@element-plus/icons-vue';
 import DataTableHeader from '@/components/DataTableHeader.vue';
 import listAPI from '@/api/list';
@@ -273,8 +273,20 @@ const greenArr = ref([]);
 const blueArr = ref([]);
 const yellowArr = ref([]);
 const operateWidth = ref(60);
-const thisEvents = ref('');
 const isPageInit = ref(false);
+
+// 获取组件实例(用于判断事件监听)
+const instance = getCurrentInstance();
+
+// 辅助方法:判断是否有指定事件的监听器
+const hasListener = (eventName) => {
+  // 将事件名转换为驼峰形式，例如: export-click -> onExportClick
+  const camelCaseName = 'on' + eventName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+    .replace(/^[a-z]/, letter => letter.toUpperCase());
+  
+  // 检查 vnode.props 中是否存在对应的事件监听器
+  return instance?.vnode?.props?.[camelCaseName] !== undefined;
+};
 
 // computed
 const keyWord = computed(() => {
@@ -435,8 +447,6 @@ watch(
 
 // mounted
 onMounted(() => {
-  // 获取所有事件监听器
-  thisEvents.value = Object.keys(attrs).filter((key) => key.startsWith('on'));
 
   nextTick(() => {
     // 计算显示的按钮数量
@@ -652,27 +662,33 @@ const _exportClick = async () => {
 };
 
 const exportClick = async () => {
-  if (thisEvents.value.includes('onExport-click') || thisEvents.value.includes('onExportClick')) {
+  if (hasListener('export-click')) {
+    // 有监听器:只触发事件,交给父组件处理
     emit('export-click');
   } else {
+    // 无监听器:执行默认逻辑
     await _exportClick();
   }
 };
 
 // 删除按钮
 const deleteClick = async (row) => {
-  if (thisEvents.value.includes('onDelete-click') || thisEvents.value.includes('onDeleteClick')) {
+  if (hasListener('delete-click')) {
+    // 有监听器:只触发事件,交给父组件处理
     emit('delete-click', row);
   } else {
+    // 无监听器:执行默认逻辑
     _deleteClick(row);
   }
 };
 
 // 直接点删除时的弹框提示，调用上一层的函数
 const remove = (row) => {
-  if (!thisEvents.value.includes('onSpec-remove') && !thisEvents.value.includes('onSpecRemove')) {
+  if (!hasListener('spec-remove')) {
+    // 无监听器:执行默认逻辑
     dataTBLMother.value?.remove(row);
   } else {
+    // 有监听器:只触发事件,交给父组件处理
     emit('spec-remove', row);
   }
 };
@@ -705,9 +721,11 @@ const move = async (row, up) => {
   } else {
     buttonLoading.down = true;
   }
-  if (!thisEvents.value.includes('onSpec-move') && !thisEvents.value.includes('onSpecMove')) {
+  if (!hasListener('spec-move')) {
+    // 无监听器:执行默认逻辑
     await _move(row, up);
   } else {
+    // 有监听器:只触发事件,交给父组件处理
     emit('spec-move', row, up);
   }
   if (up) {

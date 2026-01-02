@@ -168,7 +168,19 @@ const tableColumnItem = ref([]);
 const checkAll = ref(true);
 const indeterminate = ref(false);
 const showSearchPanel = ref(false);
-let thisEvents = {};
+
+// 获取组件实例(用于判断事件监听)
+const instance = getCurrentInstance();
+
+// 辅助方法:判断是否有指定事件的监听器
+const hasListener = (eventName) => {
+  // 将事件名转换为驼峰形式，例如: export-click -> onExportClick
+  const camelCaseName = 'on' + eventName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+    .replace(/^[a-z]/, letter => letter.toUpperCase());
+  
+  // 检查 vnode.props 中是否存在对应的事件监听器
+  return instance?.vnode?.props?.[camelCaseName] !== undefined;
+};
 
 // computed 属性
 const keyWord = computed(() => {
@@ -241,11 +253,6 @@ const button = computed(() => {
   return arrangeButton(buttonProps.value, btn);
 });
 
-onMounted(() => {
-  thisEvents = {
-    'export-click': 'onExportClick' in attrs,
-  };
-});
 
 // 初始化
 async function init() {
@@ -329,10 +336,12 @@ function remove(row) {
 
 // 导出数据
 async function exportData() {
-  if (!thisEvents['export-click']) {
-    await _exportData();
-  } else {
+  if (hasListener('export-click')) {
+    // 有监听器:只触发事件,交给父组件处理
     emit('export-click');
+  } else {
+    // 无监听器:执行默认逻辑
+    await _exportData();
   }
 }
 

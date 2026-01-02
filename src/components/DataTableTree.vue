@@ -97,7 +97,19 @@ const loading = ref(true)
 const isAllSelect = ref(false)
 
 const maps = ref(new Map())
-let thisEvents = {}
+
+// 获取组件实例(用于判断事件监听)
+const instance = getCurrentInstance();
+
+// 辅助方法:判断是否有指定事件的监听器
+const hasListener = (eventName) => {
+  // 将事件名转换为驼峰形式，例如: delete-click -> onDeleteClick
+  const camelCaseName = 'on' + eventName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+    .replace(/^[a-z]/, letter => letter.toUpperCase());
+  
+  // 检查 vnode.props 中是否存在对应的事件监听器
+  return instance?.vnode?.props?.[camelCaseName] !== undefined;
+};
 
 // 过滤器改为方法
 function filterDateTime(val) {
@@ -180,10 +192,6 @@ const bottomOffset = computed(() => {
 })
 
 onMounted(() => {
-  // 在 Vue 3 中，使用 attrs 来检查事件监听器
-  thisEvents = {
-    'delete-click': 'onDeleteClick' in attrs
-  }
 
   // 计算显示的按钮数量（包括固定的"新增下级"按钮）
   let num = 1 // 固定有一个"新增下级"按钮
@@ -452,9 +460,11 @@ async function editClick(row) {
 
 // 按钮删除
 async function deleteClick(row) {
-  if (thisEvents['delete-click']) {
+  if (hasListener('delete-click')) {
+    // 有监听器:只触发事件,交给父组件处理
     emit('delete-click', row)
   } else {
+    // 无监听器:执行默认逻辑
     loading.value = true
     await treeAPI.delManyNode(keyWord.value.edit, row)
     dataTreeRef.value.clearSelection()
