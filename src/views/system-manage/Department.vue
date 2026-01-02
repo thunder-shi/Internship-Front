@@ -13,7 +13,6 @@ defineOptions({
 
 const defaultProps = reactive({
   defaultDTTProps: {
-    title: { mainTitle: '单位部门管理' },
     defaultDTHProps: {
       buttonProps: {
         update: { show: true },

@@ -13,12 +13,15 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, onMounted, useAttrs } from 'vue'
+import { ref, reactive, getCurrentInstance } from 'vue'
 import DataTableTree from '@/components/DataTableTree.vue'
 import SimpleDialog from '@/components/SimpleDialog.vue'
 import DlgBatchImport from '@/views/dialogs/DlgBatchImport.vue'
 import { resetForm, customize } from '@/utils/common'
 import _ from 'lodash'
+
+// 获取组件实例(用于判断事件监听)
+const instance = getCurrentInstance()
 
 const props = defineProps({
   defaultProps: {
@@ -72,21 +75,20 @@ const defaultSDProps = reactive({
 
 const form = reactive({})
 const keyWord = reactive({})
-const attrs = useAttrs()
-let thisEvents = {}
 
 if (Object.prototype.hasOwnProperty.call(props.defaultProps, 'defaultSDProps')) {
   const dialog = props.defaultProps.defaultSDProps.defaultDBProps.dialog // 关联dialog
 }
 
-onMounted(() => {
-  // 在 Vue 3 中，使用 attrs 来检查事件监听器
-  // 事件监听器在 attrs 中以 'on' + 事件名（首字母大写）的形式存在
-  thisEvents = {
-    'append-click': 'onAppendClick' in attrs,
-    'edit-click': 'onEditClick' in attrs
-  }
-})
+// 辅助方法:判断是否有指定事件的监听器
+const hasListener = (eventName) => {
+  // 将事件名转换为驼峰形式，例如: append-click -> onAppendClick
+  const camelCaseName = 'on' + eventName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+    .replace(/^[a-z]/, letter => letter.toUpperCase());
+  
+  // 检查 vnode.props 中是否存在对应的事件监听器
+  return instance?.vnode?.props?.[camelCaseName] !== undefined;
+};
 
 async function updateDataTree(row) {
   dataTableTreeRef.value.updatePartTree(row)
@@ -101,18 +103,22 @@ function _appendClick(data) {
 }
 
 function appendClick(data) {
-  if (thisEvents['append-click']) {
+  if (hasListener('append-click')) {
+    // 有监听器:只触发事件,交给父组件处理
     emit('append-click', data)
   } else {
+    // 无监听器:执行默认逻辑
     Object.assign(form, resetForm(form))
     _appendClick(data)
   }
 }
 
 function editClick(data) {
-  if (thisEvents['edit-click']) {
+  if (hasListener('edit-click')) {
+    // 有监听器:只触发事件,交给父组件处理
     emit('edit-click', data)
   } else {
+    // 无监听器:执行默认逻辑
     Object.assign(form, _.cloneDeep(data))
     simpleDialogRef.value.showDialog(true, form)
   }

@@ -33,7 +33,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, useAttrs } from 'vue';
+import { ref, reactive, onMounted, useAttrs, getCurrentInstance } from 'vue';
 import DataTableList from '@/components/DataTableList.vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import { resetForm } from '@/utils/common';
@@ -41,6 +41,9 @@ import { resetForm } from '@/utils/common';
 defineOptions({
   name: 'BaseList',
 });
+
+// 获取组件实例(用于判断事件监听)
+const instance = getCurrentInstance();
 
 const props = defineProps({
   defaultProps: {
@@ -104,11 +107,7 @@ const form = reactive({}); // 关联form
 const keyWord = reactive({ edit: '', view: '' });
 const treeInfo = reactive({});
 const searchName = ref('');
-const thisEvents = ref('');
-onMounted(() => {
-  // 获取所有事件监听器
-  thisEvents.value = Object.keys(attrs).filter((key) => key.startsWith('on'));
-});
+
 
 const initDataList = async () => {
   dataTableList.value?.initDataList();
@@ -131,20 +130,36 @@ const searchClick = () => {
   // setTimeout(() => { initDataList() }, 500)
 };
 
-const appendClick = async () => {
-  if (attrs['onAppend-click'] || attrs['onAppendClick']) {
+// 辅助方法:判断是否有指定事件的监听器
+const hasListener = (eventName) => {
+  // 将事件名转换为驼峰形式，例如: append-click -> onAppendClick
+  const camelCaseName = 'on' + eventName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+    .replace(/^[a-z]/, letter => letter.toUpperCase());
+  
+  // 检查 vnode.props 中是否存在对应的事件监听器
+  return instance?.vnode?.props?.[camelCaseName] !== undefined;
+};
+
+// 核心处理方法(内置默认逻辑)
+const appendClick = () => {
+  // 步骤1:判断父组件是否监听了"append-click" 事件
+  if (hasListener('append-click')) {
+    // 有监听器:只触发事件,交给父组件处理,不执行默认逻辑
     emit('append-click');
   } else {
+    // 无监听器:执行子组件默认逻辑
     Object.assign(form, resetForm(form));
     simpleDialog.value?.showDialog(true, form);
   }
 };
 
 const editClick = async (row) => {
-  if (!attrs['onEdit-click'] && !attrs['onEditClick']) {
-    openDlg('edit', row);
-  } else {
+  if (hasListener('edit-click')) {
+    // 有监听器:只触发事件,交给父组件处理
     emit('edit-click', row);
+  } else {
+    // 无监听器:执行默认逻辑
+    openDlg('edit', row);
   }
 };
 
@@ -153,9 +168,11 @@ const treeSelectChange = async (val, field, form, node) => {
 };
 
 const deleteClick = async (row) => {
-  if (attrs['onDelete-click'] || attrs['onDeleteClick']) {
+  if (hasListener('delete-click')) {
+    // 有监听器:只触发事件,交给父组件处理
     emit('delete-click', row);
   } else {
+    // 无监听器:执行默认逻辑
     dataTableList.value?._deleteClick(row);
   }
 };
@@ -166,9 +183,11 @@ const _exportClick = async () => {
 };
 
 const exportClick = async () => {
-  if (attrs['onExport-click'] || attrs['onExportClick']) {
+  if (hasListener('export-click')) {
+    // 有监听器:只触发事件,交给父组件处理
     emit('export-click');
   } else {
+    // 无监听器:执行默认逻辑
     await _exportClick();
   }
 };

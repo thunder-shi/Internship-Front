@@ -340,7 +340,8 @@ const formRules = computed(() => {
 watch(
   form,
   () => {
-    verifyValid();
+    // 表单变化时只检查按钮状态，不显示错误信息
+    verifyValid(false);
   },
   { deep: true }
 );
@@ -360,11 +361,19 @@ function showDialog(val, formData = {}, bind = false) {
       Object.assign(form, _.cloneDeep(formData));
     }
   }
+  // 将 form 数据传递给 DlgBasic，这样 DlgBasic 可以根据 form.id 判断是编辑还是新增
   dlgBasicRef.value.showDialog(val, form);
   setTimeout(() => {
     formPanelRef.value.clearValidate();
-    // 初始化时触发一次验证，确保按钮状态正确
-    verifyValid();
+    // 初始化时设置按钮为禁用状态（因为表单为空，验证会失败）
+    // 但如果是编辑模式（有 id），按钮应该是启用的（因为表单已有数据）
+    if (formData && formData.id != null && formData.id !== 0) {
+      // 编辑模式，检查表单是否有必填项未填
+      verifyValid(false);
+    } else {
+      // 新增模式，按钮禁用
+      dlgBasicRef.value.validate = true;
+    }
   }, 100);
 }
 
@@ -383,20 +392,48 @@ async function resetPass(password) {
   }
 }
 
-function verifyValid() {
+function verifyValid(showMessage = true) {
   if (!formPanelRef.value || !dlgBasicRef.value) return;
   nextTick(() => {
     if (formPanelRef.value && dlgBasicRef.value) {
-      formPanelRef.value
-        .validate((valid) => {
-          // valid: true 表示验证通过，false 表示验证失败
-          // validate: true 表示按钮禁用，false 表示按钮可用
-          dlgBasicRef.value.validate = !valid;
-        })
-        .catch(() => {
-          // 验证出错时，按钮应该禁用
-          dlgBasicRef.value.validate = true;
+      if (showMessage) {
+        // 需要显示错误信息时（如保存时），正常验证
+        formPanelRef.value
+          .validate((valid) => {
+            // valid: true 表示验证通过，false 表示验证失败
+            // validate: true 表示按钮禁用，false 表示按钮可用
+            dlgBasicRef.value.validate = !valid;
+          })
+          .catch(() => {
+            // 验证出错时，按钮应该禁用
+            dlgBasicRef.value.validate = true;
+          });
+      } else {
+        // 不需要显示错误信息时（如初始化、表单变化时），手动检查规则但不显示错误
+        const rules = formRules.value;
+        const fields = Object.keys(rules);
+        let hasError = false;
+        
+        // 遍历所有规则字段，手动检查必填规则
+        fields.forEach((field) => {
+          const ruleArray = rules[field];
+          if (Array.isArray(ruleArray)) {
+            const value = form[field];
+            // 检查必填规则
+            const requiredRule = ruleArray.find((r) => r.required === true);
+            if (requiredRule) {
+              // 检查值是否为空
+              if (value === undefined || value === null || value === '' || 
+                  (Array.isArray(value) && value.length === 0)) {
+                hasError = true;
+              }
+            }
+          }
         });
+        
+        // 设置按钮状态
+        dlgBasicRef.value.validate = hasError;
+      }
     }
   });
 }
