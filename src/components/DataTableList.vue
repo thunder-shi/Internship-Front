@@ -419,16 +419,19 @@ watch(autoInit, (val) => {
   }
 });
 
+// 监听 nowSearchWords 变化，但不使用 immediate，避免和 onMounted 重复请求
 watch(
   nowSearchWords,
-  (val) => {
+  (val, oldVal) => {
+    // 跳过初始化时的调用（oldVal 为 undefined 时说明是初始化）
+    if (oldVal === undefined) return;
     if (autoInit.value) {
       setTimeout(() => {
         initDataList();
       }, 500);
     }
   },
-  { deep: true, immediate: true }
+  { deep: true }
 );
 
 // 监听 tableColumnItem 的变化，确保列能正确显示
