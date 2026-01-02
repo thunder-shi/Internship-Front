@@ -1,13 +1,29 @@
 <template>
   <div class="simple-select-wrapper">
-    <el-select v-model="selectValue" v-loading="loading" class="simple-select" :placeholder="placeholder" :size="size" :multiple="multiple" :disabled="disabled" :filterable="filterable" @change="handleChange">
-      <el-option v-for="item in options" :key="item.id" :label="item.name" :value="item.id" :value-key="item.id" />
+    <el-select
+      v-model="selectValue"
+      v-loading="loading"
+      class="simple-select"
+      :placeholder="placeholder"
+      :size="size"
+      :multiple="multiple"
+      :disabled="disabled"
+      :filterable="filterable"
+      @change="handleChange"
+    >
+      <el-option
+        v-for="item in options"
+        :key="item.id"
+        :label="item.name"
+        :value="item.id"
+        :value-key="item.id"
+      />
     </el-select>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick, computed } from 'vue'
+import { ref, watch, computed } from 'vue' // 删除 onMounted, nextTick
 import listAPI from '@/api/list'
 import _ from 'lodash'
 
@@ -33,23 +49,40 @@ const emit = defineEmits(['update:modelValue', 'update-value', 'init-finish'])
 
 const options = ref([])
 const loading = ref(false)
-// 获取实际的值：优先使用 modelValue（v-model），否则使用 value
+
+// 获取实际的值
 const actualValue = computed(() => props.modelValue != null ? props.modelValue : props.value)
-// 多选模式下，如果初始值为 null，应该设置为空数组
 const selectValue = ref(props.multiple && actualValue.value == null ? [] : actualValue.value)
 
+// 辅助函数：判断两个值是否相等（深度比较）
+const isEqual = (a, b) => {
+  if (a === b) return true
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    return a.every((item, index) => item === b[index])
+  }
+  return false
+}
+
 async function changeSelection(val) {
-  // 如果 options 为空，先加载 options
-  if (options.value.length === 0) {
+  // 1. 如果 options 为空且没在加载，尝试加载 (防止死循环调用)
+  if (options.value.length === 0 && !loading.value && props.autoInit) {
     await initOptions()
   }
-  
-  if (val != null) {
-    // 如果传入了明确的 val，直接使用（但需要确保类型匹配）
-    if (props.multiple && Array.isArray(val) && options.value.length > 0) {
+
+  // 如果加载后依然为空，直接返回，避免后续报错
+  if (options.value.length === 0) return
+
+  let targetVal = val
+  if (targetVal === undefined || targetVal === null) {
+    targetVal = actualValue.value
+  }
+
+  if (targetVal != null) {
+    if (props.multiple && Array.isArray(targetVal)) {
       // 多选模式：匹配并转换类型
       const optionIds = options.value.map(item2 => String(item2.id))
-      const matchedValues = val.filter(item => {
+      const matchedValues = targetVal.filter(item => {
         return optionIds.includes(String(item))
       }).map(item => {
         const matchedOption = options.value.find(opt => String(opt.id) === String(item))
@@ -57,43 +90,18 @@ async function changeSelection(val) {
       })
       selectValue.value = matchedValues
     } else {
-      selectValue.value = val
-    }
-  } else if (actualValue.value != null) {
-    if (props.multiple && Array.isArray(actualValue.value)) {
-      // 多选模式：只有在 options 已加载时才进行匹配
-      if (options.value.length > 0) {
-        const optionIds = options.value.map(item2 => String(item2.id))
-        const matchedValues = actualValue.value.filter(item => {
-          return optionIds.includes(String(item))
-        }).map(item => {
-          // 转换为 options 中的实际类型
-          const matchedOption = options.value.find(opt => String(opt.id) === String(item))
-          return matchedOption ? matchedOption.id : item
-        })
-        selectValue.value = matchedValues
-      } else {
-        // options 还没加载，先设置原值（会在 initOptions 完成后重新匹配）
-        selectValue.value = actualValue.value
-      }
-    } else {
       // 单选模式
-      if (options.value.length > 0) {
-        const optionIds = options.value.map(item => String(item.id))
-        const valueStr = String(actualValue.value)
-        if (optionIds.includes(valueStr)) {
-          const matchedOption = options.value.find(item => String(item.id) === valueStr)
-          selectValue.value = matchedOption ? matchedOption.id : actualValue.value
-        } else {
-          selectValue.value = actualValue.value
-        }
+      const optionIds = options.value.map(item => String(item.id))
+      const valueStr = String(targetVal)
+      if (optionIds.includes(valueStr)) {
+        const matchedOption = options.value.find(item => String(item.id) === valueStr)
+        selectValue.value = matchedOption ? matchedOption.id : targetVal
       } else {
-        // options 还没加载，先保持原值
-        selectValue.value = actualValue.value
+        selectValue.value = targetVal
       }
     }
   } else {
-    // 多选模式下，null 应该转换为空数组
+    // 处理 null 情况
     if (props.multiple) {
       selectValue.value = []
     } else {
@@ -103,6 +111,9 @@ async function changeSelection(val) {
 }
 
 async function initOptions() {
+  // 【关键修改1】请求锁：如果正在加载，阻止重复请求
+  if (loading.value) return
+
   loading.value = true
   try {
     const resp = await listAPI.getSomeRecords({
@@ -118,130 +129,69 @@ async function initOptions() {
       })
     }
     emit('init-finish', props.field, options.value)
-    
-    // options 加载完成后，如果 actualValue 有值，重新匹配并设置
-    // 注意：即使 actualValue 是 null，如果是多选模式，也应该检查一下（可能后续会被设置）
+
+    // 数据加载回来后，立即进行一次值的匹配
+    // 这里直接调用逻辑，不需要再去触发 changeSelection 导致潜在的递归
     if (actualValue.value != null || (props.multiple && options.value.length > 0)) {
-      if (props.multiple && Array.isArray(actualValue.value)) {
-        // 多选模式：匹配并转换类型
-        const optionIds = options.value.map(item2 => String(item2.id))
-        const matchedValues = actualValue.value.filter(item => {
-          return optionIds.includes(String(item))
-        }).map(item => {
-          // 转换为 options 中的实际类型
-          const matchedOption = options.value.find(opt => String(opt.id) === String(item))
-          return matchedOption ? matchedOption.id : item
-        })
-        selectValue.value = matchedValues
-      } else if (props.multiple && actualValue.value == null) {
-        // 多选模式但 actualValue 是 null，保持空数组
-        selectValue.value = []
-      } else {
-        // 单选模式：匹配并转换类型
-        const optionIds = options.value.map(item => String(item.id))
-        const valueStr = String(actualValue.value)
-        if (optionIds.includes(valueStr)) {
-          const matchedOption = options.value.find(item => String(item.id) === valueStr)
-          selectValue.value = matchedOption ? matchedOption.id : actualValue.value
-        } else {
-          selectValue.value = actualValue.value
+        // 复用 changeSelection 的核心匹配逻辑，或者简单地调用它
+        // 由于 options 已经有值了，调用 changeSelection 不会再次触发 initOptions
+        await changeSelection(actualValue.value)
+    }
+
+    // AutoSelect 逻辑
+    if (props.autoSelect) {
+      if (!props.multiple) {
+        if ((selectValue.value == null || selectValue.value === '') && options.value.length > 0) {
+          selectValue.value = options.value[0].id
+          handleChange(selectValue.value) // 触发更新
         }
       }
-    } else if (props.multiple) {
-      // 多选模式但 actualValue 是 null，延迟检查一次（可能 form.roleIds 会在稍后设置）
-      // 延迟检查，给 form.roleIds 设置的时间
-      setTimeout(() => {
-        if (actualValue.value != null && Array.isArray(actualValue.value) && actualValue.value.length > 0) {
-          const optionIds = options.value.map(item2 => String(item2.id))
-          const matchedValues = actualValue.value.filter(item => {
-            return optionIds.includes(String(item))
-          }).map(item => {
-            const matchedOption = options.value.find(opt => String(opt.id) === String(item))
-            return matchedOption ? matchedOption.id : item
-          })
-          selectValue.value = matchedValues
-        }
-      }, 200)
     }
   } catch (error) {
+    console.error(error)
+  } finally {
     loading.value = false
   }
-  if (props.autoSelect) {
-    // 多选模式下，如果值为 null，应该设置为空数组，而不是自动选择第一个
-    if (props.multiple) {
-      if (selectValue.value == null) {
-        selectValue.value = []
-      }
-    } else {
-      // 单选模式下，如果值为 null，自动选择第一个
-      if (selectValue.value == null && options.value.length > 0) {
-        selectValue.value = options.value[0].id
-        emit('update-value', selectValue.value, props.field, options.value.filter((value, index) => { return value.id === selectValue.value }))
-      }
-    }
-  }
-  loading.value = false
 }
 
 function handleChange(val) {
-  // 同时触发 update:modelValue（v-model）和 update-value（兼容旧代码）
   emit('update:modelValue', val)
   if (props.multiple && Array.isArray(val)) {
-    // 多选模式：返回匹配的选项数组
     const matchedOptions = options.value.filter(opt => val.includes(opt.id))
     emit('update-value', val, props.field, matchedOptions)
   } else {
-    // 单选模式：返回匹配的单个选项
     const matchedOptions = options.value.filter(opt => opt.id === val)
     emit('update-value', val, props.field, matchedOptions)
   }
 }
 
-// Watch value prop (同时监听 modelValue 和 value)
+// Watch modelValue/value
+// 【关键修改2】移除 immediate: true
+// 初始值的匹配由 initOptions 完成后的回调处理，这里只监听后续变化
 watch(() => actualValue.value, async (val, oldVal) => {
-  // 如果值没有变化，不处理（使用深度比较）
-  const isEqual = (a, b) => {
-    if (a === b) return true
-    if (Array.isArray(a) && Array.isArray(b)) {
-      if (a.length !== b.length) return false
-      return a.every((item, index) => item === b[index])
-    }
-    return false
-  }
-  
-  if (isEqual(val, oldVal)) {
-    return
-  }
-  
-  await nextTick() // 等待 DOM 更新
-  
-  if (props.autoInit) {
-    if (!options.value || options.value.length === 0) {
+  if (isEqual(val, oldVal)) return
+
+  // 如果 options 还没加载且允许自动加载，则加载（针对后续动态改变 value 的情况）
+  if (options.value.length === 0 && props.autoInit) {
       await initOptions()
-    } else {
-      // options 已加载，直接进行匹配
-      await changeSelection()
-    }
   } else {
-    // 即使不自动初始化，如果 options 已存在，也应该尝试匹配
-    if (options.value && options.value.length > 0) {
-      await changeSelection()
-    }
+      await changeSelection(val)
   }
-}, { immediate: true, deep: true })
+}, { deep: true }) // 移除 immediate: true
 
 // Watch searchKey prop
-watch(() => props.searchKey, async (val) => {
-  await initOptions()
-  await changeSelection()
+// 【关键修改3】保持 immediate: true，作为组件初始化的唯一入口
+// 当 props.searchKey 初始化时，触发第一次请求
+watch(() => props.searchKey, async () => {
+  if (props.autoInit) {
+    await initOptions()
+    // initOptions 内部会处理赋值，这里不需要再调用 changeSelection
+  }
 }, { deep: true, immediate: true })
 
-// Initialize on mount
-onMounted(() => {
-  if (props.autoInit) {
-    initOptions()
-  }
-})
+// 【关键修改4】移除 onMounted
+// 因为 searchKey 的 watcher 带有 immediate: true，组件挂载时会自动执行一次
+// 删除 onMounted 避免双重触发
 </script>
 
 <style scoped>

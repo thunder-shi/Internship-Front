@@ -1,35 +1,40 @@
 <template>
-  <div v-loading="loading" class="cascader-wrapper">
+  <div class="cascader-wrapper" v-loading="loading">
     <el-cascader
-      v-if="isShowInfo"
-      ref="cascader"
-      v-model="arrVal"
+      v-if="!isInitializing"
+      :key="componentKey"
+      ref="cascaderRef"
+      v-model="currentVal"
       class="cascader"
-      :multiple="multiple"
-      :append-to-body="false"
-      :size="size"
       :options="options"
       :props="cascaderProps"
       :placeholder="placeholder"
       :disabled="disabled"
-      clearable=""
+      :size="size"
+      :show-all-levels="true"
+      clearable
       @change="handleChange"
-    />
+      @visible-change="handleVisibleChange"
+    >
+      <template #default="{ node, data }">
+        <span>{{ data.name }}</span>
+      </template>
+    </el-cascader>
   </div>
 </template>
+
 <script setup>
-// cascader没有loading属性
-import { ref, watch, nextTick, computed } from 'vue';
+import { ref, watch, computed } from 'vue';
 import treeAPI from '@/api/tree';
 import _ from 'lodash';
 
 const props = defineProps({
-  modelValue: { type: Number, default: () => null }, // Vue 3 v-model 标准 prop
-  value: { type: Number, default: () => null }, // 父级 v-model 绑定值（后端返回的 id 值，兼容旧代码）
+  modelValue: { type: Number, default: () => null },
+  value: { type: Number, default: () => null },
   field: { type: String, default: '' },
-  keyWords: { type: String, default: '' }, // 搜索级联选项关键字
+  keyWords: { type: String, default: '' },
   placeholder: { type: String, default: '请选择' },
-  checkStrictly: { type: Boolean, default: true }, // 是否严格的遵守父子节点不互相关联
+  checkStrictly: { type: Boolean, default: true },
   size: { type: String, default: '' },
   searchKeys: { type: Object, default: () => ({}) },
   lazy: { type: Boolean, default: true },
@@ -39,12 +44,14 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'update-value']);
 
-const cascader = ref(null);
-const isShowInfo = ref(true);
-const arrVal = ref([]);
-const valTemp = ref([]);
-const options = ref([]); // 回显备选项
-const loading = ref(true);
+const cascaderRef = ref(null);
+const options = ref([]);
+const loading = ref(false);
+const isInitializing = ref(true); // 新增：专门用于控制初始化状态
+const componentKey = ref(0);
+const currentVal = ref([]);
+
+const actualValue = computed(() => (props.modelValue != null ? props.modelValue : props.value));
 
 const cascaderProps = computed(() => ({
   label: 'name',
@@ -52,159 +59,149 @@ const cascaderProps = computed(() => ({
   children: 'children',
   checkStrictly: props.checkStrictly,
   lazy: props.lazy,
-  lazyLoad: lazyLoad,
+  lazyLoad: onLazyLoad,
+  multiple: props.multiple,
+  emitPath: true
 }));
 
-// 获取实际的值：优先使用 modelValue（Vue 3 v-model），否则使用 value（兼容旧代码）
-const actualValue = computed(() => (props.modelValue != null ? props.modelValue : props.value));
+// --- 核心逻辑 ---
 
-async function changeSelection() {
+async function initData() {
+  if (loading.value) return;
   loading.value = true;
-  if (actualValue.value) {
-    const res = await treeAPI.getAllParentIndex(props.keyWords, actualValue.value);
-    if (res.data && res.data.length > 0) {
-      valTemp.value = res.data.map((item) => item.id).reverse();
-    } else {
-      valTemp.value = [];
-    }
-  } else {
-    valTemp.value = [];
-  }
-  await initOptions();
+  isInitializing.value = true; // 开始初始化，组件暂时隐藏
 
-  // 设置 arrVal，确保 options 加载完成后再设置
-  await nextTick();
-
-  if (props.lazy) {
-    isShowInfo.value = false;
-    arrVal.value = [...valTemp.value];
-    await nextTick();
-    isShowInfo.value = true;
-  } else {
-    // 非懒加载模式下，也需要先隐藏再显示来强制重新渲染
-    isShowInfo.value = false;
-    arrVal.value = [...valTemp.value];
-    await nextTick();
-    isShowInfo.value = true;
-  }
-
-  // 再次等待 DOM 更新，确保 cascader 能正确显示
-  await nextTick();
-  loading.value = false;
-}
-
-async function initOptions(searchKey, sort) {
-  const searchKeysToUse = searchKey != null ? searchKey : props.searchKeys;
-  const sortToUse = sort != null ? sort : props.sort;
   try {
-    if (!props.lazy) {
-      // 不是懒加载
-      // 非懒加载模式下，如果 options 为空，就重新加载
-      // 为了确保数据完整，每次 changeSelection 时都重新加载
-      const res = await treeAPI.getAllNodes({
-        keyWords: props.keyWords,
-        virtualRootFlag: false,
-        searchKey: searchKeysToUse,
-        lazy: false,
-        sort: sortToUse
-      });
-      options.value = res.data || [];
-    } else {
-      // 懒加载
-      var arrNow = _.cloneDeep(valTemp.value);
-      arrNow.unshift(-1);
-      arrNow.pop();
-      arrNow.reverse();
-      var res = [];
-      var lastRes = [];
-      var lastParent = 0;
-      options.value = [];
-      for (const element of arrNow) {
-        res = await treeAPI.getAllNodes({
-          keyWords: props.keyWords,
-          virtualRootFlag: false,
-          searchKey: searchKeysToUse,
-          lazy: true,
-          parentId: element,
-        });
-        res = res.data;
-        if (lastParent !== 0) {
-          res.forEach((el) => {
-            if (el.id === element) {
-              el.children.push(lastRes);
-            }
-          });
-        }
-        lastRes = _.cloneDeep(res);
-        lastParent = element;
+    const targetId = actualValue.value;
+    let pathIds = [];
+
+    // 1. 获取路径
+    if (targetId) {
+      const res = await treeAPI.getAllParentIndex(props.keyWords, targetId);
+      if (res.data && res.data.length > 0) {
+        pathIds = res.data.map((item) => item.id).reverse();
       }
-      options.value = res;
     }
+
+    // 2. 加载树结构（这里会请求一次根节点，填充 options）
+    if (!props.lazy) {
+      await loadFullTree();
+    } else {
+      await loadPartialTree(pathIds);
+    }
+
+    // 3. 设置选中值
+    currentVal.value = pathIds;
+
+    // 4. (可选) 只有在某些极端情况下才需要更新 Key
+    // componentKey.value++;
+
   } catch (error) {
-    console.log(error);
+    console.error('Cascader init failed:', error);
+  } finally {
+    // 关键：数据准备好了，loading 结束，isInitializing 设为 false
+    // 此时 el-cascader 会被 v-if 渲染出来，并触发它的第一次 lazyLoad
+    loading.value = false;
+    isInitializing.value = false;
   }
 }
 
-async function getCurrentLevels(parentId) {
+/**
+ * 懒加载回调
+ */
+async function onLazyLoad(node, resolve) {
+  const { level, value } = node;
+  const parentId = level === 0 ? -1 : value;
+
+  // 关键修改 2: 拦截根节点请求
+  // 当 v-if 变为 true，组件渲染触发 lazyLoad(level 0)。
+  // 此时 initData 已经把 options 填满了。
+  // 我们直接返回 options.value，避免再次发请求。
+  if (level === 0 && options.value.length > 0) {
+    return resolve(options.value);
+  }
+
+  // 正常加载子节点
+  const nodes = await fetchNodes(parentId);
+  resolve(nodes);
+}
+
+// --- 下面是辅助函数，逻辑保持不变 ---
+
+async function loadFullTree() {
+  const res = await treeAPI.getAllNodes({
+    keyWords: props.keyWords,
+    virtualRootFlag: false,
+    searchKey: props.searchKeys,
+    lazy: false,
+  });
+  options.value = res.data || [];
+}
+
+async function loadPartialTree(pathIds) {
+  // 加载根节点
+  const rootRes = await fetchNodes(-1);
+  let currentLevelOptions = rootRes;
+  options.value = currentLevelOptions;
+
+  if (!pathIds || pathIds.length === 0) return;
+
+  for (let i = 0; i < pathIds.length; i++) {
+    const currentNodeId = pathIds[i];
+    const targetNode = currentLevelOptions.find(opt => String(opt.id) === String(currentNodeId));
+
+    if (!targetNode) break;
+
+    if (i < pathIds.length - 1) {
+       const children = await fetchNodes(currentNodeId);
+       targetNode.children = children;
+       currentLevelOptions = children;
+    }
+  }
+}
+
+async function fetchNodes(parentId) {
   try {
     const res = await treeAPI.getAllNodes({
       keyWords: props.keyWords,
       virtualRootFlag: false,
       searchKey: props.searchKeys,
-      lazy: props.lazy,
-      parentId: parentId,
+      lazy: true,
+      parentId: parentId
     });
-    const nodes = res.data.map((item) => ({
+    return (res.data || []).map(item => ({
       ...item,
-      id: item.id,
-      name: item.name,
-      parentId: parentId,
-      leaf: item.childNum === 0, // 判断是否为末尾节点
+      leaf: item.childNum === 0
     }));
-    return nodes;
-  } catch (error) {
+  } catch (e) {
     return [];
   }
 }
 
-// 懒加载
-async function lazyLoad(node, resolve) {
-  const { level } = node;
-  const parentId = level ? node.value : -1;
-  try {
-    const nodes = await getCurrentLevels(parentId);
-    resolve(nodes);
-    // changeSelection()
-  } catch (error) {
-    resolve([]);
-  }
-}
-
-// 接口入参需求为最后一级 id
 function handleChange(val) {
+  if (!val || val.length === 0) {
+    emit('update:modelValue', null);
+    emit('update-value', null, props.field, []);
+    return;
+  }
   const lastId = val[val.length - 1];
-  // 同时触发 update:modelValue（Vue 3 v-model）和 update-value（兼容旧代码）
-  const node = cascader.value.getCheckedNodes();
+  const checkedNodes = cascaderRef.value?.getCheckedNodes();
   emit('update:modelValue', lastId);
-  emit('update-value', lastId, props.field, node);
+  emit('update-value', lastId, props.field, checkedNodes);
 }
 
-function handleFocus(val) {
-  console.log(val);
+function handleVisibleChange(visible) {
+    //
 }
 
-// Watch value prop (同时监听 modelValue 和 value)
 watch(
-  () => actualValue.value,
-  async (val) => {
-    await changeSelection();
+  [() => actualValue.value, () => props.searchKeys],
+  async ([newVal, newParams], [oldVal, oldParams]) => {
+    if (newVal === oldVal && _.isEqual(newParams, oldParams)) return;
+    await initData();
   },
   { deep: true, immediate: true }
 );
-
-defineOptions({
-  name: 'SimpleTreeSelect',
-});
 </script>
 
 <style scoped>
