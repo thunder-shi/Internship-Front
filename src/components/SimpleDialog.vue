@@ -355,19 +355,32 @@ onMounted(() => {
 
 function showDialog(val, formData = {}, bind = false) {
   if (formData !== null) {
+    // 先重置 form，清除所有已有属性的值
+    resetForm(form);
+    // 然后赋值新数据
     if (bind) {
       Object.assign(form, formData);
     } else {
       Object.assign(form, _.cloneDeep(formData));
     }
+    // 如果 formData 中没有 id 或 id 为 null/0，确保删除 id 属性
+    // 使用 Vue 3 的响应式删除方式
+    if (!formData || formData.id == null || formData.id === 0) {
+      if (Object.prototype.hasOwnProperty.call(form, 'id')) {
+        // 使用 Reflect.deleteProperty 确保响应式更新
+        Reflect.deleteProperty(form, 'id');
+      }
+    }
   }
   // 将 form 数据传递给 DlgBasic，这样 DlgBasic 可以根据 form.id 判断是编辑还是新增
-  dlgBasicRef.value.showDialog(val, form);
+  // 同时传递一个明确的 option 参数，确保 DlgBasic 能正确判断
+  const isEdit = formData && formData.id != null && formData.id !== 0;
+  dlgBasicRef.value.showDialog(val, form, isEdit ? 'edit' : 'append');
   setTimeout(() => {
     formPanelRef.value.clearValidate();
     // 初始化时设置按钮为禁用状态（因为表单为空，验证会失败）
     // 但如果是编辑模式（有 id），按钮应该是启用的（因为表单已有数据）
-    if (formData && formData.id != null && formData.id !== 0) {
+    if (isEdit) {
       // 编辑模式，检查表单是否有必填项未填
       verifyValid(false);
     } else {

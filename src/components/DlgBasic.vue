@@ -80,6 +80,7 @@ const validate = ref(true)
 const buttonLoading = reactive({ confirm: false, submit: false, repeatAdd: false, last: false, next: false, finish: false })
 const oldData = ref({})
 const type = ref('')
+const currentOption = ref(null) // 用于存储当前的操作类型（append/edit）
 
 // Vue 3 中不再需要通过 proxy 访问全局方法
 
@@ -87,15 +88,30 @@ const dlgTitle = computed(() => {
   if (props.defaultProps.dlgTitle) {
     return props.defaultProps.dlgTitle
   }
+  // 优先根据 option 判断
+  const currentOpt = option.value
+  if (currentOpt === 'edit') {
+    return '编辑/查看'
+  }
+  if (currentOpt === 'append') {
+    return '新增'
+  }
+  // 如果没有明确的 option，则根据 form.value.id 判断
   if (Object.prototype.hasOwnProperty.call(form.value, 'id') && form.value.id != null && form.value.id !== 0) {
     return '编辑/查看'
   }
   return '新增'
 })
 const option = computed(() => {
+  // 优先使用明确传入的 option
+  if (currentOption.value) {
+    return currentOption.value
+  }
+  // 其次使用 props 中的 option
   if (props.defaultProps.option) {
     return props.defaultProps.option
   }
+  // 最后根据 form.value.id 判断
   if (Object.prototype.hasOwnProperty.call(form.value, 'id') && form.value.id != null && form.value.id !== 0) {
     return 'edit'
   }
@@ -181,10 +197,16 @@ const cloneOldData = () => {
   oldData.value = _.cloneDeep(form.value)
 }
 
-const showDialog = (val, newForm = {}) => {
+const showDialog = (val, newForm = {}, optionParam = null) => {
   // 直接赋值，保持对原始对象的引用（这样 DlgBasic 的 form.value.id 能正确反映 SimpleDialog 的 form.id）
   // 注意：这里不深拷贝，因为 DlgBasic 只需要读取 id 来判断标题和按钮，不需要修改表单数据
   form.value = newForm
+  // 如果传入了明确的 option 参数，则使用它；否则清除，让 computed 属性根据 form.value.id 自动判断
+  if (optionParam) {
+    currentOption.value = optionParam
+  } else {
+    currentOption.value = null
+  }
   if (val) {
     currentSave.value = false
   }

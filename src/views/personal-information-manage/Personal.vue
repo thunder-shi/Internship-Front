@@ -14,12 +14,11 @@
         </el-radio-group>
       </el-form-item>
       <el-form-item label="所在学校/单位">
-        <div>{{ form.schoolName || '--' }}</div>
+        <div>{{ form.departmentName || '--' }}</div>
       </el-form-item>
-      <el-form-item label="所在院系/部门" prop="departmentId">
-        <!-- @update-value="onSimpleSelectChange" @init-finish="simpleSelectInitFinish" -->
+      <!-- <el-form-item label="所在院系/部门" prop="departmentId">
         <SimpleSelect v-model="form.departmentId" key-words="BaseDepartment" :search-key="searchKey" @update-value="onSimpleSelectChange"  />
-      </el-form-item>
+      </el-form-item> -->
       <el-form-item label="身份类型">
         <div>{{ form.jobName || '--' }}</div>
       </el-form-item>
@@ -75,7 +74,7 @@ const formRule = reactive({
 })
 
 const searchKey = computed(() => {
-  return { parentId: form.schoolId, theLevel: 3 }
+  return { parentId: form.departmentId, theLevel: 2 }
 })
 
 // 方法
