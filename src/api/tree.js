@@ -3,7 +3,7 @@ import { getEncryptKeyWord } from '@/utils/rsaEncrypt'
 import constant from '@/utils/constant'
 
 // 获得所有树节点
-const getAllNodes = async ({ keyWords, parentId = -1, virtualRootFlag = true, searchKey = '', lazy = false, preName = '', sort }) => {
+const getAllNodes = async ({ keyWords, parentId = -1, virtualRootFlag = true, searchKey = '', lazy = false, preName = '', sort = {properties: 'theOrder', direction: 'ASC'} }) => {
   const encryptedKeyWords = await getEncryptKeyWord(keyWords)
   return request({
     url: '/dataTree/readAllTreeNodes',
@@ -15,8 +15,13 @@ const getAllNodes = async ({ keyWords, parentId = -1, virtualRootFlag = true, se
       searchKey,
       lazy,
       preName,
-      sort
+      sort,
     }
+  }).then(response => {
+    if (response && response.data) {
+      response.data = response.data.filter(item => item.code !== '0')
+    }
+    return response
   })
 }
 
