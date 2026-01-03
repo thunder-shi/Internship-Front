@@ -28,7 +28,6 @@
             :default-props="tableListProps"
             @append-click="handleTableAppend"
             @edit-click="handleTableEdit"
-            @delete-click="handleTableDelete"
           />
         </div>
       </div>
@@ -37,6 +36,7 @@
   <!-- 流程选择窗口 -->
   <DlgProcessSelect
     ref="dlgProcessSelect"
+    :internship-type-id="form.id"
     @update-record="handleProcessSelectSave"
   />
 </template>
@@ -50,6 +50,7 @@ import FormItemsforDialog from '@/components/FormItemsforDialog.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import DlgProcessSelect from '@/views/dialogs/DlgProcessSelect.vue';
 import dlgAPI from '@/utils/forDialog';
+import listAPI from '@/api/list';
 
 const emit = defineEmits(['update-record', 'close-dialog']);
 
@@ -97,22 +98,29 @@ const formRules = {
 const tableListProps = reactive({
   keyWord: {},
   title: {},
-  bottomOffset: 0,
-  sortStr: { properties: 'Id', direction: 'DESC' },
+  bottomOffset: 0, // 隐藏分页后不需要预留空间
+  sortStr: { properties: 'theOrder', direction: 'ASC' },  // 按照 theOrder 排序
+  pageInfo: { page: 1, size: 100 }, // 设置较大的页面大小，确保所有数据在一页显示
+  initSearchWords: {
+    // 初始查询条件：只显示当前实习类型相关的流程
+    searchKey: {}
+  },
   someFlags: {
     operateShow: true,
     checkFlag: true,
-    showPage: true,
+    showPage: false, // 隐藏分页组件
     autoInit: false  // 初始时不自动加载数据，等基本信息保存后再加载
   },
   defaultDTHProps: {
+    keyWord: { edit: 'RelProcessInternshipType', view: 'ViewRelProcessInternshipType' },
     buttonProps: {
       create: { show: true },  // 新增按钮
       update: { show: true },  // 修改按钮
       delete: { show: true }   // 删除按钮
     },
     allTableColumns: [
-      // 列配置稍后添加
+      { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName', sortable: false },
+      { id: 2, showName: '审核要求', theOrder: 2, tableColumnName: 'verifyTypeName', sortable: false }
     ]
   }
 });
@@ -136,6 +144,15 @@ function showDialog(val, formData = {}) {
     // 赋值新数据
     Object.assign(form, formData);
   }
+  
+  // 设置 DataTableList 的过滤条件：只显示当前实习类型相关的流程
+  if (formData && formData.id != null && formData.id !== 0) {
+    // 编辑模式：设置过滤条件为 internshipTypeId = form.id
+    tableListProps.initSearchWords.searchKey = { internshipTypeId: formData.id };
+  } else {
+    // 新增模式：清空过滤条件，避免后端查询错误
+    tableListProps.initSearchWords.searchKey = {};
+  }
   // 打开对话框
   dlgBasicRef.value?.showDialog(val, form, 'edit');
   // 设置按钮状态
@@ -144,6 +161,10 @@ function showDialog(val, formData = {}) {
     if (formData && formData.id != null && formData.id !== 0) {
       // 编辑模式，检查表单是否有必填项未填
       verifyValid(false);
+      // 如果有 id，则加载流程列表数据
+      setTimeout(() => {
+        dataTableList.value?.initDataList(true);
+      }, 200);
     } else {
       // 新增模式，按钮禁用
       dlgBasicRef.value.validate = true;
@@ -226,25 +247,59 @@ function onTreeSelectChange(val, field, node) {
 // DataTableList 的事件处理
 function handleTableAppend() {
   // 表格新增按钮点击事件，打开流程选择窗口
-  dlgProcessSelect.value?.showDialog(true, {});
+  // 只有在编辑模式下（有 id）才能添加流程
+  if (form.id != null && form.id !== 0) {
+    dlgProcessSelect.value?.showDialog(true, {});
+  } else {
+    ElMessage.warning('请先保存基本信息后再添加流程');
+  }
 }
 
 // 处理流程选择窗口的保存
-function handleProcessSelectSave(processData) {
-  // 这里可以处理保存流程数据的逻辑
-  // 例如：将流程数据添加到表格中
-  console.log('流程数据:', processData);
-  // TODO: 实现保存流程数据到表格的逻辑
+async function handleProcessSelectSave(processData) {
+  // 保存流程数据到后端
+  const saveData = {
+    internshipTypeId: form.id, // 当前实习类型的 ID
+    processTypeId: processData.processTypeId, // 流程模板 ID
+    verifyTypeId: processData.verifyTypeId // 审核要求 ID
+  };
+  
+  // 如果是编辑模式，需要包含 id
+  if (processData.id != null && processData.id !== 0) {
+    saveData.id = processData.id;
+  }
+  
+  try {
+    // 直接调用 API 保存，因为表单验证已经在 DlgProcessSelect 中完成
+    const resInfo = await listAPI.editOneNode('RelProcessInternshipType', saveData);
+    
+    if (resInfo && resInfo.message === 'successful') {
+      const isEdit = processData.id != null && processData.id !== 0;
+      ElMessage.success(isEdit ? '修改成功！' : '新增成功！');
+      // 保存成功后，刷新流程列表
+      dataTableList.value?.initDataList(true);
+      // 关闭流程选择窗口
+      dlgProcessSelect.value?.showDialog(false, {});
+    } else {
+      ElMessage.warning(resInfo?.message || '保存失败');
+    }
+  } catch (error) {
+    console.error('保存流程数据失败:', error);
+    ElMessage.error('保存失败，请重试');
+  }
 }
 
 function handleTableEdit(row) {
-  // 表格编辑按钮点击事件
-  // 可以在这里打开子对话框编辑行数据
-}
-
-function handleTableDelete(row) {
-  // 表格删除按钮点击事件
-  // 可以在这里删除行数据
+  // 表格编辑按钮点击事件，打开流程选择窗口并传入当前行数据
+  // row 可能是数组（批量编辑）或单个对象（单行编辑）
+  const rowData = Array.isArray(row) ? row[0] : row;
+  if (rowData) {
+    dlgProcessSelect.value?.showDialog(true, {
+      id: rowData.id,
+      processTypeId: rowData.processTypeId,
+      verifyTypeId: rowData.verifyTypeId
+    });
+  }
 }
 
 defineExpose({

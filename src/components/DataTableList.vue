@@ -262,7 +262,12 @@ const usedSearchWords = reactive({
 });
 const selectedColumns = ref([]);
 const dataList = ref([]);
-const pageInfo = reactive({ page: 1, size: 25 });
+// 支持通过 defaultProps 设置初始的 pageInfo
+const pageInfo = reactive(
+  props.defaultProps.pageInfo 
+    ? { ...props.defaultProps.pageInfo } 
+    : { page: 1, size: 25 }
+);
 const totalSize = ref(0);
 const loading = ref(false);
 const buttonLoading = reactive({ up: false, down: false });
@@ -652,7 +657,7 @@ const _deleteSuccess = async (num, row) => {
     pageInfo.page--;
   }
   table.value?.clearSelection();
-  initDataList();
+  initDataList(true); // 传递 true 确保即使 autoInit 为 false 也会刷新
 };
 
 const uploadFinish = () => {

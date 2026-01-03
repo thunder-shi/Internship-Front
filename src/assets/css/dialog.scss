@@ -91,7 +91,25 @@
 
 .table-section {
   flex: 1;
-  overflow: hidden;
+  overflow: hidden; // 保持 hidden，避免双重滚动
   padding: 15px;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  
+  // 确保 DataTableList 的卡片能够正确显示
+  :deep(.el-card) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    
+    .el-card__body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+  }
 }
