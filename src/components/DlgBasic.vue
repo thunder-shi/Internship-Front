@@ -364,9 +364,6 @@ defineExpose({
   display: contents;
 }
 .view-dialog {
-  :deep(.el-dialog__body) {
-    max-height: unset;
-    height: calc(100vh - 108px);
-  }
+  // 全屏对话框样式已在 dialog.scss 中统一处理
 }
 </style>

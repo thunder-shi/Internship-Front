@@ -22,3 +22,76 @@
 .el-dialog__title {
   font-size: 14px !important;
 }
+
+// 全屏对话框样式
+.el-dialog.is-fullscreen {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  
+  .el-dialog__header {
+    padding: 15px 20px !important;
+    margin: 0 !important;
+    flex-shrink: 0;
+  }
+  
+  .el-dialog__body {
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    max-height: none !important;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  
+  .el-dialog__footer {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0;
+    border-top: 1px solid #e4e7ed;
+    
+    .dialog-footer {
+      padding: 10px 20px !important;
+      margin: 0 !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      justify-content: flex-end !important;
+      align-items: center;
+      gap: 10px;
+    }
+  }
+}
+
+// 对话框内容包装器样式（用于上下分块布局）
+.dlg-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.form-section {
+  flex-shrink: 0;
+  padding: 15px;
+  border-bottom: 1px solid #e4e7ed;
+  background-color: #fafafa;
+}
+
+.table-section {
+  flex: 1;
+  overflow: hidden;
+  padding: 15px;
+  min-height: 0;
+}

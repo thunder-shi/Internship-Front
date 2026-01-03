@@ -3,16 +3,25 @@
     :default-props="defaultProps"
     ref="baseList"
     @append-click="appendClick"
+    @edit-click="editClick"
+  />
+  <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
+  <DlgIntershipType
+    ref="dlgIntershipType"
+    @update-record="handleUpdateRecord"
   />
 </template>
 <script setup>
 import { reactive, ref } from 'vue';
 import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
+import DlgIntershipType from '@/views/dialogs/DlgIntershipType.vue';
+
 defineOptions({
   name: 'InternshipType',
 });
 const baseList = ref(null);
+const dlgIntershipType = ref(null);
 const store = useStore();
 const defaultProps = reactive({
   defaultDTLProps: {
@@ -37,7 +46,7 @@ const defaultProps = reactive({
   defaultSDProps: {
     keyWord: 'BaseInternshipType',
     formItems: [
-      { name: '学校院系', field: 'universityId', type: 'cascader',searchKeys: { departmentType: 1 }, keyWords: 'ViewBaseDepartment' },
+      { name: '学校院系', field: 'universityId', type: 'cascader',searchKeys: { typeName: "学校" }, keyWords: 'ViewBaseDepartment' },
       { name: '模板类型', field: 'intTypeId', type: 'select', keyWords: 'BaseIntType' },
       { name: '模板编码', field: 'code', type: 'input' },
       { name: '模板名称', field: 'name', type: 'input' },
@@ -54,7 +63,6 @@ const defaultProps = reactive({
 
 // 处理新增按钮点击事件，设置默认的所属院系
 const appendClick = () => {
-  console.log('appendClick defined');
   const userInfo = store.getters.userInfo || {};
   const formData = {};
   
@@ -65,8 +73,17 @@ const appendClick = () => {
   
   // 使用深拷贝确保数据正确传递
   const form = JSON.parse(JSON.stringify(formData));
-  console.log(form);
-  // 打开对话框并传入默认值，这会覆盖 BaseList 中的默认逻辑
+  // 通过 BaseList 的 openDlg 方法打开新增窗口（会使用默认的 SimpleDialog）
   baseList.value?.openDlg('append', form);
+};
+
+// 处理编辑按钮点击事件，使用自定义的编辑窗口
+const editClick = (row) => {
+  dlgIntershipType.value?.showDialog(true, row);
+};
+
+// 处理更新记录后的回调
+const handleUpdateRecord = () => {
+  baseList.value?.initDataList();
 };
 </script>
