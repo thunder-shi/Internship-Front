@@ -355,27 +355,39 @@ onMounted(() => {
 });
 
 function showDialog(val, formData = {}, bind = false) {
+  // 判断是编辑还是新增
+  const isEdit = formData && formData.id != null && formData.id !== 0;
+  
   if (formData !== null) {
-    // 先重置 form，清除所有已有属性的值
-    resetForm(form);
-    // 然后赋值新数据
-    if (bind) {
-      Object.assign(form, formData);
+    if (isEdit) {
+      // 编辑模式：先重置 form，然后赋值新数据
+      resetForm(form);
+      if (bind) {
+        Object.assign(form, formData);
+      } else {
+        Object.assign(form, _.cloneDeep(formData));
+      }
     } else {
-      Object.assign(form, _.cloneDeep(formData));
-    }
-    // 如果 formData 中没有 id 或 id 为 null/0，确保删除 id 属性
-    // 使用 Vue 3 的响应式删除方式
-    if (!formData || formData.id == null || formData.id === 0) {
+      // 新增模式：先清除 form 中的所有属性，然后只赋值 formData 中的属性
+      // 这样可以确保不会保留之前编辑时的数据
+      const formKeys = Object.keys(form);
+      formKeys.forEach(key => {
+        Reflect.deleteProperty(form, key);
+      });
+      // 然后赋值新数据
+      if (bind) {
+        Object.assign(form, formData);
+      } else {
+        Object.assign(form, _.cloneDeep(formData));
+      }
+      // 确保删除 id 属性（如果存在）
       if (Object.prototype.hasOwnProperty.call(form, 'id')) {
-        // 使用 Reflect.deleteProperty 确保响应式更新
         Reflect.deleteProperty(form, 'id');
       }
     }
   }
   // 将 form 数据传递给 DlgBasic，这样 DlgBasic 可以根据 form.id 判断是编辑还是新增
   // 同时传递一个明确的 option 参数，确保 DlgBasic 能正确判断
-  const isEdit = formData && formData.id != null && formData.id !== 0;
   dlgBasicRef.value.showDialog(val, form, isEdit ? 'edit' : 'append');
   setTimeout(() => {
     formPanelRef.value.clearValidate();

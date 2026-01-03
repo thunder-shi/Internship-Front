@@ -217,10 +217,25 @@ const submitMore = (row) => {
 };
 
 const openDlg = (option, row) => {
-  if (row != null) {
-    Object.assign(form, { ...row });
+  if (option === 'append') {
+    // 新增模式：先重置 form，清除所有已有属性
+    resetForm(form);
+    // 如果传入了初始数据（如默认值），则合并进去
+    if (row != null) {
+      Object.assign(form, { ...row });
+    }
+  } else if (option === 'edit') {
+    // 编辑模式：直接赋值编辑数据
+    if (row != null) {
+      Object.assign(form, { ...row });
+    }
   } else {
-    Object.assign(form, resetForm(form));
+    // 其他情况：根据 row 是否为 null 判断
+    if (row != null) {
+      Object.assign(form, { ...row });
+    } else {
+      Object.assign(form, resetForm(form));
+    }
   }
   // if (option == null) {
   //   option = this.dialog.option
