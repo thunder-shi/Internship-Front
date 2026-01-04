@@ -1,18 +1,20 @@
 <template>
-  <BaseList
-    :default-props="defaultProps"
-    ref="baseList"
-    @append-click="appendClick"
-    @edit-click="editClick"
-  />
-  <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
-  <DlgIntershipType
-    ref="dlgIntershipType"
-    @update-record="handleUpdateRecord"
-  />
+  <div class="internship-type-container">
+    <BaseList
+      :default-props="defaultProps"
+      ref="baseList"
+      @append-click="appendClick"
+      @edit-click="editClick"
+    />
+    <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
+    <DlgIntershipType
+      ref="dlgIntershipType"
+      @update-record="handleUpdateRecord"
+    />
+  </div>
 </template>
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
 import DlgIntershipType from '@/views/dialogs/DlgIntershipType.vue';
@@ -86,4 +88,9 @@ const editClick = (row) => {
 const handleUpdateRecord = () => {
   baseList.value?.initDataList();
 };
+
+// 组件销毁前关闭所有对话框，防止遮罩层残留导致页面空白
+onBeforeUnmount(() => {
+  dlgIntershipType.value?.closeAllDialogs?.();
+});
 </script>

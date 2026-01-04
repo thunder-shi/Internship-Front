@@ -42,7 +42,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
 import DlgBasic from '@/components/DlgBasic.vue';
@@ -302,8 +302,22 @@ function handleTableEdit(row) {
   }
 }
 
+// 关闭所有对话框的方法，用于组件销毁前清理
+function closeAllDialogs() {
+  // 关闭流程选择对话框
+  dlgProcessSelect.value?.showDialog?.(false, {});
+  // 关闭主对话框
+  dlgBasicRef.value?.showDialog?.(false, {});
+}
+
+// 组件销毁前关闭所有对话框，防止遮罩层残留
+onBeforeUnmount(() => {
+  closeAllDialogs();
+});
+
 defineExpose({
-  showDialog
+  showDialog,
+  closeAllDialogs
 });
 </script>
 

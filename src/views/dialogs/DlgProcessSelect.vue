@@ -7,7 +7,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onBeforeUnmount } from 'vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 
 const props = defineProps({
@@ -60,6 +60,11 @@ async function confirm(option, type, form) {
     simpleDialogRef.value?.showDialog(false, form);
   }
 }
+
+// 组件销毁前关闭对话框，防止遮罩层残留
+onBeforeUnmount(() => {
+  simpleDialogRef.value?.showDialog?.(false, {});
+});
 
 defineExpose({
   showDialog
