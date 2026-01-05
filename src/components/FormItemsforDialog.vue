@@ -130,6 +130,7 @@
           v-model="form[item.field]"
           :disabled="item.disabled"
           :show-expression="item.showExpression"
+          @change="(val) => onCronChange(val, item.field)"
         />
         <!-- 简单下拉选择框 -->
         <el-select
@@ -297,7 +298,8 @@ const props = defineProps({
 const emit = defineEmits([
   'simple-select-change',
   'simple-select-init-finish',
-  'tree-select-change'
+  'tree-select-change',
+  'cron-change'
 ]);
 
 const formPanelRef = ref(null);
@@ -320,6 +322,17 @@ watch(
         } else {
           dateRangeValues[item.field] = null;
         }
+      }
+      // 初始化 cron 关联字段的显示状态
+      if (item.type === 'cron' && item.relatedFields) {
+        const cronVal = newForm[item.field];
+        const shouldHide = !cronVal;
+        item.relatedFields.forEach(relatedField => {
+          const relatedItem = props.formItems.find(i => i.field === relatedField);
+          if (relatedItem) {
+            relatedItem.hidden = shouldHide;
+          }
+        });
       }
     });
   },
@@ -350,6 +363,22 @@ function simpleSelectInitFinish(field, options) {
 
 function onTreeSelectChange(val, field, node) {
   emit('tree-select-change', val, field, node);
+}
+
+function onCronChange(val, field) {
+  // 找到当前 cron 项的配置
+  const cronItem = props.formItems.find(item => item.field === field);
+  // 如果配置了关联字段，根据 cron 值控制它们的显示/隐藏
+  if (cronItem && cronItem.relatedFields) {
+    const shouldHide = !val; // cron 为空时（选择"无"）隐藏关联字段
+    cronItem.relatedFields.forEach(relatedField => {
+      const relatedItem = props.formItems.find(item => item.field === relatedField);
+      if (relatedItem) {
+        relatedItem.hidden = shouldHide;
+      }
+    });
+  }
+  emit('cron-change', val, field, props.form);
 }
 
 function selected(name) {

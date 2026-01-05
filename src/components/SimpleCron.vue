@@ -1,6 +1,7 @@
 <template>
   <div class="simple-cron">
     <el-select v-model="cycleType" placeholder="选择周期" class="cron-select" @change="handleChange">
+      <el-option label="无" value="none" />
       <el-option label="每天" value="daily" />
       <el-option label="每周" value="weekly" />
       <el-option label="每月" value="monthly" />
@@ -28,8 +29,9 @@
       <el-option v-for="day in 31" :key="day" :label="`${day}号`" :value="day" />
     </el-select>
 
-    <!-- 时间选择 -->
+    <!-- 时间选择（选择"无"时隐藏） -->
     <el-time-picker
+      v-if="cycleType !== 'none'"
       v-model="time"
       format="HH:mm"
       value-format="HH:mm"
@@ -65,7 +67,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'change']);
 
-const cycleType = ref('daily');
+const cycleType = ref('none');
 const weekDay = ref(1);
 const monthDay = ref(1);
 const time = ref('09:00');
@@ -117,10 +119,17 @@ const cronExpression = computed(() => {
 
 // 解析 cron 表达式
 const parseCron = (cron) => {
-  if (!cron) return;
+  // 空值或无效值时设为"无"
+  if (!cron) {
+    cycleType.value = 'none';
+    return;
+  }
 
   const parts = cron.split(' ');
-  if (parts.length < 6) return;
+  if (parts.length < 6) {
+    cycleType.value = 'none';
+    return;
+  }
 
   const [, minute, hour, day, , week] = parts;
 
@@ -147,26 +156,26 @@ const parseCron = (cron) => {
 
 // 处理变更
 const handleChange = () => {
-  if (cronExpression.value) {
-    emit('update:modelValue', cronExpression.value);
-    emit('change', cronExpression.value);
-  }
+  // 选择"无"时，传递空字符串
+  emit('update:modelValue', cronExpression.value);
+  emit('change', cronExpression.value);
 };
 
 // 监听外部值变化
 watch(
   () => props.modelValue,
   (newVal) => {
-    if (newVal && newVal !== cronExpression.value) {
+    if (newVal !== cronExpression.value) {
       parseCron(newVal);
     }
   },
   { immediate: true }
 );
 
-// 初始化时如果没有值，设置默认值
+// 初始化时如果没有值，默认选择"无"
 onMounted(() => {
   if (!props.modelValue) {
+    cycleType.value = 'none';
     handleChange();
   }
 });
@@ -177,15 +186,39 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  width: 100%;
 }
 
-.cron-select {
-  width: 120px;
+/* 第一个选择框（周期类型）自动扩展填满剩余空间 */
+.simple-cron :deep(.el-select:first-child) {
+  flex: 1;
+  min-width: 120px;
 }
 
-.cron-time {
-  width: 120px;
+.simple-cron :deep(.el-select:first-child .el-input) {
+  width: 100% !important;
+}
+
+/* 其他选择框固定宽度 */
+.simple-cron :deep(.el-select:not(:first-child)) {
+  width: 120px !important;
+  min-width: 120px !important;
+  flex-shrink: 0;
+}
+
+.simple-cron :deep(.el-select:not(:first-child) .el-input) {
+  width: 120px !important;
+}
+
+.simple-cron :deep(.el-select .el-input__wrapper) {
+  width: 100% !important;
+}
+
+.simple-cron :deep(.el-date-editor) {
+  width: 120px !important;
+  min-width: 120px !important;
+  flex-shrink: 0;
 }
 
 .cron-expression {

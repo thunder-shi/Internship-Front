@@ -33,6 +33,7 @@
         @simple-select-change="onSimpleSelectChange"
         @simple-select-init-finish="simpleSelectInitFinish"
         @tree-select-change="onTreeSelectChange"
+        @cron-change="onCronChange"
       >
         <template #upItems>
           <slot name="upItems" />
@@ -102,6 +103,7 @@ const emit = defineEmits([
   'simple-select-change',
   'simple-select-init-finish',
   'tree-select-change',
+  'cron-change',
 ]);
 
 const store = useStore();
@@ -430,6 +432,11 @@ function simpleSelectInitFinish(field, options) {
 function onTreeSelectChange(val, field, node) {
   form[field] = val;
   emit('tree-select-change', val, field, form, node);
+}
+
+function onCronChange(val, field, formData) {
+  form[field] = val;
+  emit('cron-change', val, field, form);
 }
 
 // reCloneOldData() {
