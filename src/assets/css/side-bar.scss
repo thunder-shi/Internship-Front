@@ -75,14 +75,14 @@
       color: #99999c;
 
       &:hover {
-        color: $color-primary;
+        color: var(--color-primary, $color-primary);
         background-color: unset !important;
       }
     }
 
     .submenu-title-noDropdown.is-active,
     .el-submenu__title.is-active {
-      color: $color-primary;
+      color: var(--color-primary, $color-primary);
     }
 
     & .nest-menu .el-submenu>.el-submenu__title,
@@ -93,7 +93,7 @@
       background-color: unset !important;
 
       &:hover {
-        color: $color-primary;
+        color: var(--color-primary, $color-primary);
         background-color: unset !important;
       }
     }
@@ -199,7 +199,7 @@
     &:hover {
       // you can use $subMenuHover
       background-color: $menuBg !important;
-      color: $color-primary;
+      color: var(--color-primary, $color-primary);
     }
   }
 

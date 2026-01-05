@@ -94,12 +94,42 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <!-- 单列时间日期框 -->
+        <!-- 单列时间日期框（带时间） -->
+        <el-date-picker
+          v-else-if="item.type === 'datetime'"
+          v-model="form[item.field]"
+          type="datetime"
+          :placeholder="item.placeholder || '选择日期时间'"
+          :disabled="item.disabled"
+          value-format="YYYY-MM-DD HH:mm:ss"
+        />
+        <!-- 单列日期框（LocalDate，不带时间） -->
         <el-date-picker
           v-else-if="item.type === 'date'"
           v-model="form[item.field]"
-          type="datetime"
-          placeholder="选择日期时间"
+          type="date"
+          :placeholder="item.placeholder || '选择日期'"
+          :disabled="item.disabled"
+          value-format="YYYY-MM-DD"
+        />
+        <!-- 日期范围选择（LocalDate） -->
+        <el-date-picker
+          v-else-if="item.type === 'daterange'"
+          v-model="dateRangeValues[item.field]"
+          type="daterange"
+          range-separator="至"
+          :start-placeholder="item.startPlaceholder || '开始日期'"
+          :end-placeholder="item.endPlaceholder || '结束日期'"
+          :disabled="item.disabled"
+          value-format="YYYY-MM-DD"
+          @change="(val) => handleDateRangeChange(item, val)"
+        />
+        <!-- Cron 表达式选择器（定时任务周期） -->
+        <SimpleCron
+          v-else-if="item.type === 'cron'"
+          v-model="form[item.field]"
+          :disabled="item.disabled"
+          :show-expression="item.showExpression"
         />
         <!-- 简单下拉选择框 -->
         <el-select
@@ -213,11 +243,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { Search } from '@element-plus/icons-vue';
 import SimpleSelect from '@/components/SimpleSelect.vue';
 import SimpleTreeSelect from '@/components/SimpleTreeSelect.vue';
 import SimpleUpload from '@/components/SimpleUpload.vue';
+import SimpleCron from '@/components/SimpleCron.vue';
 import Password from '@/components/Password.vue';
 import IconSelect from '@/components/IconSelect.vue';
 import ElUploadSelf from '@/components/ElUploadSelf.vue';
@@ -272,6 +303,41 @@ const emit = defineEmits([
 const formPanelRef = ref(null);
 const iconSelectRef = ref(null);
 const fileList = ref([]);
+
+// 日期范围选择的临时存储（因为 el-date-picker 的 daterange 返回数组）
+const dateRangeValues = reactive({});
+
+// 初始化日期范围值（从 form 中的 startField 和 endField 初始化）
+watch(
+  () => props.form,
+  (newForm) => {
+    props.formItems.forEach((item) => {
+      if (item.type === 'daterange' && item.startField && item.endField) {
+        const startVal = newForm[item.startField];
+        const endVal = newForm[item.endField];
+        if (startVal || endVal) {
+          dateRangeValues[item.field] = [startVal || '', endVal || ''];
+        } else {
+          dateRangeValues[item.field] = null;
+        }
+      }
+    });
+  },
+  { immediate: true, deep: true }
+);
+
+// 处理日期范围变化，将值分别赋给 startField 和 endField
+function handleDateRangeChange(item, val) {
+  if (item.startField && item.endField) {
+    if (val && val.length === 2) {
+      props.form[item.startField] = val[0];
+      props.form[item.endField] = val[1];
+    } else {
+      props.form[item.startField] = null;
+      props.form[item.endField] = null;
+    }
+  }
+}
 
 function onSimpleSelectChange(val, field, options) {
   emit('simple-select-change', val, field, options);

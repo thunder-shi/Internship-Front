@@ -363,7 +363,5 @@ defineExpose({
 .dlg-drag-wrapper {
   display: contents;
 }
-.view-dialog {
-  // 全屏对话框样式已在 dialog.scss 中统一处理
-}
+
 </style>

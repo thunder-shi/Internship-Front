@@ -11,7 +11,7 @@
 <template>
   <DlgBasic
     ref="dlgBasicRef"
-    v-model:default-props="defaultProps.defaultDBProps"
+    :default-props="mergedDefaultDBProps"
     :dlgbasic-confirm="confirm"
     :dlgbasic-submit="submit"
     :dlgbasic-spec-confirm="specConfirm"
@@ -80,6 +80,7 @@ const props = defineProps({
         labelWidth: '',
         keyWord: ' ',
         autoSaveClose: true, // 是否根据当前form变化状态自动关闭窗口，如果存储涉及多表需要多次保存，则将其设为false
+        audit: false, // 是否启用审核模式：启用后显示提交按钮，保存时 isAudit=-1，提交时 isAudit=1
         formItems: [],
         formRules: {},
         defaultDBProps: {
@@ -140,6 +141,26 @@ const formRules = computed(() => {
   return props.defaultProps.formRules
     ? props.defaultProps.formRules
     : { name: [{ required: true, message: '名称不能为空', trigger: 'blur' }] };
+});
+
+// 是否启用审核模式
+const isAuditMode = computed(() => {
+  return props.defaultProps.audit === true;
+});
+
+// 动态合并 footButtons 配置，审核模式下显示提交按钮
+const mergedDefaultDBProps = computed(() => {
+  const dbProps = props.defaultProps.defaultDBProps || {};
+  if (isAuditMode.value) {
+    return {
+      ...dbProps,
+      footButtons: {
+        ...dbProps.footButtons,
+        submit: { show: true, name: '提 交', type: 'success' },
+      },
+    };
+  }
+  return dbProps;
 });
 
 // watch
@@ -272,7 +293,7 @@ function verifyValid(showMessage = true) {
 
 // #region 点击确认按钮，
 // 1, 如果不想执行数据是否修改判断，直接外层spec-confirm; 2, 如果执行数据修改判断后再特殊操作，外层on-confirm；3，如果执行通用保存后外层再有操作，外层执行confirm-more
-async function _confirm(option, type, formData = null) {
+async function _confirm(option, type, formData = null, auditValue = null) {
   if (formData != null) {
     Object.assign(form, formData);
   }
@@ -284,6 +305,12 @@ async function _confirm(option, type, formData = null) {
     parentId = form.parentId;
     allNodeNames = form ? form.allNodeNames : '全部';
   }
+
+  // 审核模式下设置 isAudit 值
+  if (isAuditMode.value && auditValue !== null) {
+    form.isAudit = auditValue;
+  }
+
   const userId = store.getters.userInfo.id;
   var res = await dlgAPI.commonSubmitDlg(
     formPanelRef.value,
@@ -318,8 +345,14 @@ async function _confirm(option, type, formData = null) {
 async function confirm(option, type) {
   try {
     if (!(props.simpledialogConfirm && typeof props.simpledialogConfirm === 'function')) {
-      await _confirm(option, type);
+      // 审核模式下，保存按钮设置 isAudit = -1
+      const auditValue = isAuditMode.value ? -1 : null;
+      await _confirm(option, type, null, auditValue);
     } else {
+      // 自定义确认函数，传递 isAudit 值
+      if (isAuditMode.value) {
+        form.isAudit = -1;
+      }
       await props.simpledialogConfirm(option, type, form);
     }
   } catch (error) {
@@ -360,8 +393,14 @@ const fileTypes = ref([]);
 
 async function submit() {
   if (!(props.simpledialogSubmit && typeof props.simpledialogSubmit === 'function')) {
-    await _confirm('submit', 'stop');
+    // 审核模式下，提交按钮设置 isAudit = 0（未审核/待审核）
+    const auditValue = isAuditMode.value ? 0 : null;
+    await _confirm('submit', 'stop', null, auditValue);
   } else {
+    // 自定义提交函数，传递 isAudit 值
+    if (isAuditMode.value) {
+      form.isAudit = 0;
+    }
     await props.simpledialogSubmit(form);
   }
 }

@@ -13,7 +13,7 @@
     </slot>
     <slot name="batch">
       <!-- 批量录入窗口 -->
-      <DlgBatchImport ref="batchAppendDlg" :default-props="defaultDBIProps" @ex-material="exMaterial" />
+      <DlgBatchImport ref="batchAppendDlg" :default-props="defaultDBIProps" />
     </slot>
   </div>
 </template>
