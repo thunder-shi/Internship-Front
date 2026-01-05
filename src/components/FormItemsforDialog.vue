@@ -7,7 +7,7 @@
     :label-width="labelWidth"
   >
     <slot name="upItems" />
-    <div v-for="(item, index) in formItems" :key="index">
+    <div v-for="(item, index) in formItems" :key="index" v-show="!item.hidden">
       <el-form-item v-if="item.type !== 'textarea'" :prop="item.field" :label="item.name">
         <!-- 简单显示 -->
         <div v-if="item.type === 'label'"><span v-html="form[item.field]" /></div>
@@ -226,7 +226,7 @@
     </div>
     <!-- 其他特殊项 -->
     <slot name="otherItems" />
-    <div v-for="(item, index) in formItems" :key="'area' + index">
+    <div v-for="(item, index) in formItems" :key="'area' + index" v-show="!item.hidden">
       <el-form-item v-if="item.type === 'textarea'" :prop="item.field" :label="item.name">
         <!-- 文本域输入框，始终出现在最下面 -->
         <el-input

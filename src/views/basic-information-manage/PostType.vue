@@ -44,7 +44,7 @@ const defaultProps = reactive({
         field: 'companyId',
         type: 'cascader',
         keyWords: 'BaseDepartment',
-        searchKeys: { departmentType: 1 },
+        searchKeys: { typeId: 1 },
       },
       { name: '岗位代码', field: 'code', type: 'input' },
       { name: '岗位名称', field: 'name', type: 'input' },
@@ -70,7 +70,7 @@ function getOptions() {
   return new Promise((resolve) => {
     const resp = listAPI.getSomeRecords({
       keyWords: 'BaseDepartment',
-      searchKey: { departmentType: 1 },
+      searchKey: { typeId: 1 },
     });
     resolve(resp);
   });

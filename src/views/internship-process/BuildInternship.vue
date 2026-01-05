@@ -19,7 +19,7 @@ const defaultProps = reactive({
         delete: { show: true },
         export: { show: true }
       },
-      keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
+      keyWord: { edit: 'MainInternship', view: 'MainInternship' },
       allTableColumns: [
         { id: 1, showName: '实习项目名称', theOrder: 1, tableColumnName: 'name' },
         { id: 2, showName: '实习开始时间', theOrder: 2, tableColumnName: 'startTime', sortable: true },

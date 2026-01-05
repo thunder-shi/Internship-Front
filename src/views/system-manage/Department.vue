@@ -47,7 +47,7 @@ const defaultProps = reactive({
       { name: '电话', field: 'departmentPhone',type:'input'},
       { name: '传真', field: 'departmentFax' , type:'input'},
       { name: '电子邮箱', field: 'departmentEmail', type:'input'},
-      { name: '入学年份', field: 'startYear', type: 'input', disabled: true }
+      { name: '入学年份', field: 'startYear', type: 'input' }
     ],
 
     formRules: {
@@ -66,49 +66,48 @@ const defaultProps = reactive({
   }
 })
 
-function handleDisabled(val, form) {
+function handleVisibility(val, form) {
   const startYearItem = defaultProps.defaultSDProps.formItems.find(i => i.field === 'startYear')
   const majorIdItem = defaultProps.defaultSDProps.formItems.find(i => i.field === 'majorId')
   const areaIdItem = defaultProps.defaultSDProps.formItems.find(i => i.field === 'areaId')
 
-  // 企业(1) 或 学校(2)：majorId 自动填 0，禁用
-  // 班级(3)：areaId 自动填 0，禁用
+  // 企业(1) 或 学校(2)：隐藏专业选择框和入学年份输入框
+  // 班级(3)：隐藏省市区选择框
   if (val === 1 || val === 2) {
-    // 学校或企业
+    // 学校或企业：隐藏专业和入学年份，显示省市区
     if (majorIdItem) {
-      majorIdItem.disabled = true
+      majorIdItem.hidden = true
       form.majorId = 0
     }
+    if (startYearItem) {
+      startYearItem.hidden = true
+      form.startYear = ''
+    }
     if (areaIdItem) {
-      areaIdItem.disabled = false
+      areaIdItem.hidden = false
     }
   } else if (val === 3) {
-    // 班级
+    // 班级：隐藏省市区，显示专业和入学年份
     if (areaIdItem) {
-      areaIdItem.disabled = true
+      areaIdItem.hidden = true
       form.areaId = 0
     }
     if (majorIdItem) {
-      majorIdItem.disabled = false
+      majorIdItem.hidden = false
+    }
+    if (startYearItem) {
+      startYearItem.hidden = false
     }
   } else {
-    // 其他类型，都启用
+    // 其他类型，都显示
     if (majorIdItem) {
-      majorIdItem.disabled = false
+      majorIdItem.hidden = false
     }
     if (areaIdItem) {
-      areaIdItem.disabled = false
+      areaIdItem.hidden = false
     }
-  }
-
-  if (startYearItem) {
-    // 如果选的不是"班级"，禁用并清空值
-    if (val !== 3) {
-      startYearItem.disabled = true;
-      form.startYear = ''; // 清空入学年份的值
-    } else {
-      // 如果是班级，启用输入
-      startYearItem.disabled = false;
+    if (startYearItem) {
+      startYearItem.hidden = false
     }
   }
 }
@@ -120,12 +119,14 @@ function handleDisabled(val, form) {
 const handleSelectChange = (val, field, form, options) => {
   // 如果是部门类型选择框
   if (field === 'typeId') {
-    handleDisabled(val, form)
+    handleVisibility(val, form)
   }
 }
 
 function onSimpleSelectInitFinish(field, options, form) {
-  handleDisabled(form[field], form)
+  if (field === 'typeId') {
+    handleVisibility(form[field], form)
+  }
 }
 
 
