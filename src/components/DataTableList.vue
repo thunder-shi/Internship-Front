@@ -12,6 +12,7 @@
     @more1-click="more1Click"
     @more2-click="more2Click"
     @upload-finish="uploadFinish"
+    @upload="upload"
   >
     <template #searchPanel>
       <!-- v-model="searchName" -->
@@ -159,7 +160,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, useAttrs, useSlots, nextTick, getCurrentInstance } from 'vue';
+import {
+  ref,
+  reactive,
+  computed,
+  watch,
+  onMounted,
+  useAttrs,
+  useSlots,
+  nextTick,
+  getCurrentInstance,
+} from 'vue';
 import { Edit, Delete, Top, Bottom, Position, Check } from '@element-plus/icons-vue';
 import DataTableHeader from '@/components/DataTableHeader.vue';
 import listAPI from '@/api/list';
@@ -244,6 +255,7 @@ const emit = defineEmits([
   'view-click',
   'spec-remove',
   'spec-move',
+  'batch-import-click',
 ]);
 
 const attrs = useAttrs();
@@ -264,9 +276,7 @@ const selectedColumns = ref([]);
 const dataList = ref([]);
 // 支持通过 defaultProps 设置初始的 pageInfo
 const pageInfo = reactive(
-  props.defaultProps.pageInfo 
-    ? { ...props.defaultProps.pageInfo } 
-    : { page: 1, size: 25 }
+  props.defaultProps.pageInfo ? { ...props.defaultProps.pageInfo } : { page: 1, size: 25 }
 );
 const totalSize = ref(0);
 const loading = ref(false);
@@ -286,9 +296,12 @@ const instance = getCurrentInstance();
 // 辅助方法:判断是否有指定事件的监听器
 const hasListener = (eventName) => {
   // 将事件名转换为驼峰形式，例如: export-click -> onExportClick
-  const camelCaseName = 'on' + eventName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
-    .replace(/^[a-z]/, letter => letter.toUpperCase());
-  
+  const camelCaseName =
+    'on' +
+    eventName
+      .replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+      .replace(/^[a-z]/, (letter) => letter.toUpperCase());
+
   // 检查 vnode.props 中是否存在对应的事件监听器
   return instance?.vnode?.props?.[camelCaseName] !== undefined;
 };
@@ -455,7 +468,6 @@ watch(
 
 // mounted
 onMounted(() => {
-
   nextTick(() => {
     // 计算显示的按钮数量
     let num = 0;
@@ -848,6 +860,10 @@ const handleCurrentChange = async (val) => {
   await initDataList();
   isPageInit.value = false;
 };
+
+function upload() {
+  emit('batch-import-click');
+}
 
 // 暴露方法给父组件
 defineExpose({
