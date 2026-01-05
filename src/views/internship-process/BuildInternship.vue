@@ -19,7 +19,7 @@ const defaultProps = reactive({
         delete: { show: true },
         export: { show: true }
       },
-      keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
+      keyWord: { edit: 'MainInternship', view: 'MainInternship' },
       allTableColumns: [
         { id: 1, showName: '实习项目名称', theOrder: 1, tableColumnName: 'name' },
         { id: 2, showName: '实习开始时间', theOrder: 2, tableColumnName: 'startTime', sortable: true },
@@ -33,16 +33,16 @@ const defaultProps = reactive({
         { id: 10, showName: '备注', theOrder: 10, tableColumnName: 'remarks'}
       ],
     },
-    sortStr: { properties: 'theOrder', direction: 'ASC' },
   },
   defaultSDProps: {
     keyWord: 'MainInternship',
+    audit: true,
     formItems: [
       { name: '实习名称', field: 'name', type: 'input' },
       { name: '开始时间', field: 'startTime', type: 'datetime' },
       { name: '结束时间', field: 'endTime', type: 'datetime' },
       { name: '实习模板', field: 'internshipType', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'} },
-      { name: '报告周期', field: 'cron', type: 'input' },
+      { name: '报告周期', field: 'cron', type: 'cron' },
       { name: '上报开始时间', field: 'reportStartTime', type: 'datetime' },
       { name: '上报结束时间', field: 'reportEndTime', type: 'datetime' },
       { name: '备注', field: 'remarks', type: 'textarea' }
