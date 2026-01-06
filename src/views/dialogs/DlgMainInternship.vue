@@ -36,7 +36,7 @@
   <!-- 流程选择窗口 -->
   <DlgProcessSelect
     ref="dlgProcessSelect"
-    :main-internship-id="form.id"
+    :internship-id="form.id"
     :internship-start-time="form.startTime"
     :internship-end-time="form.endTime"
     @update-record="handleProcessSelectSave"
@@ -88,7 +88,7 @@ const formItems = [
   { name: '实习名称', field: 'name', type: 'input' },
   { name: '开始时间', field: 'startTime', type: 'datetime' },
   { name: '结束时间', field: 'endTime', type: 'datetime' },
-  { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' } },
+  { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'ViewBaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' } },
   { name: '报告周期', field: 'cron', type: 'cron', relatedFields: ['reportStartDate', 'reportEndDate'] },
   { name: '上报开始日期', field: 'reportStartDate', type: 'date' },
   { name: '上报结束日期', field: 'reportEndDate', type: 'date' },
@@ -119,7 +119,7 @@ const tableListProps = reactive({
     autoInit: false
   },
   defaultDTHProps: {
-    keyWord: { edit: 'RelProcessMainInternship', view: 'ViewRelProcessMainInternship' },
+    keyWord: { edit: 'RelProcessInternship', view: 'ViewRelProcessInternship' },
     buttonProps: {
       create: { show: true },
       update: { show: true },
@@ -154,7 +154,7 @@ function showDialog(val, formData = {}) {
 
   // 设置 DataTableList 的过滤条件
   if (formData && formData.id != null && formData.id !== 0) {
-    tableListProps.initSearchWords.searchKey = { mainInternshipId: formData.id };
+    tableListProps.initSearchWords.searchKey = { internshipId: formData.id };
   } else {
     tableListProps.initSearchWords.searchKey = {};
   }
@@ -257,7 +257,7 @@ function handleTableAppend() {
 // 处理流程选择窗口的保存
 async function handleProcessSelectSave(processData) {
   const saveData = {
-    mainInternshipId: form.id,
+    internshipId: form.id,
     processTypeId: processData.processTypeId,
     verifyTypeId: processData.verifyTypeId,
     startTime: processData.startTime,
@@ -303,7 +303,10 @@ function handleTableEdit(row) {
       verifySecondRoleId: rowData.verifySecondRoleId,
       verifyThirdRoleId: rowData.verifyThirdRoleId,
       verifyFourthRoleId: rowData.verifyFourthRoleId,
-      verifyFifthRoleId: rowData.verifyFifthRoleId
+      verifyFifthRoleId: rowData.verifyFifthRoleId,
+      // 从视图获取的实习项目时间范围，用于验证
+      internshipStartTime: rowData.internshipStartTime,
+      internshipEndTime: rowData.internshipEndTime
     });
   }
 }

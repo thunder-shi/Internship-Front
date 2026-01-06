@@ -200,47 +200,72 @@ const filterDateTime = (val) => {
   }
 };
 
-// cron 表达式格式化为可读字符串
 const formatCron = (cron) => {
   if (!cron || cron === '--') return '--';
 
-  // 解析 cron 表达式 (秒 分 时 日 月 周)
   const parts = cron.trim().split(/\s+/);
+  // 简单的校验，至少要有 分 时 日 月 周 (5位)
   if (parts.length < 5) return cron;
 
-  // 标准 cron: 分 时 日 月 周 (5位) 或 秒 分 时 日 月 周 (6位)
   let minute, hour, day, month, weekday;
+
+  // 处理 5位 (Linux) 或 6位/7位 (Java Quartz: 秒 分 时 日 月 周 [年])
   if (parts.length === 5) {
     [minute, hour, day, month, weekday] = parts;
-  } else if (parts.length >= 6) {
-    [, minute, hour, day, month, weekday] = parts; // 跳过秒
+  } else {
+    // 6位以上，第0位是秒，跳过
+    [, minute, hour, day, month, weekday] = parts;
   }
 
-  const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+  // 格式化时间辅助函数
+  const formatTime = (h, m) => {
+    const hStr = String(h).padStart(2, '0');
+    const mStr = String(m).padStart(2, '0');
+    return `${hStr}:${mStr}`;
+  };
 
-  // 每天
-  if (day === '*' && month === '*' && weekday === '*') {
+  const weekdayMap = {
+    'SUN': '日', 'MON': '一', 'TUE': '二', 'WED': '三', 'THU': '四', 'FRI': '五', 'SAT': '六'
+  };
+
+  // --- 逻辑判断开始 ---
+
+  // 1. 每天
+  // 逻辑：日期和月份都是 *，星期是 ? 或 *
+  if (day === '*' && month === '*' && (weekday === '*' || weekday === '?')) {
     if (hour === '*' && minute === '*') return '每分钟';
     if (hour === '*') return `每小时第${minute}分钟`;
-    return `每天 ${hour}:${minute.padStart(2, '0')}`;
+    return `每天 ${formatTime(hour, minute)}`;
   }
 
-  // 每周
-  if (day === '*' && month === '*' && weekday !== '*' && weekday !== '?') {
+  // 2. 每周
+  // 逻辑：月份是 *，星期指定了具体值 (不为 * 也不为 ?)。
+  // 注意：在 Java Quartz 中，如果指定星期，day 必须是 ?；但在某些简易实现中可能是 *，这里做兼容处理。
+  if (month === '*' && weekday !== '*' && weekday !== '?') {
+    // 处理多选情况，如 "MON,WED"
     const days = weekday.split(',').map(d => {
-      const num = parseInt(d);
-      return weekdayNames[num] || d;
+      // 移除可能存在的非法字符，统一转大写
+      const key = d.toUpperCase();
+      // 返回映射值，如果找不到则返回原始值 (防止解析出错)
+      return weekdayMap[key] || d;
     }).join('、');
-    return `每周${days} ${hour}:${minute.padStart(2, '0')}`;
+
+    return `每周${days} ${formatTime(hour, minute)}`;
   }
 
-  // 每月
-  if (day !== '*' && month === '*' && (weekday === '*' || weekday === '?')) {
-    return `每月${day}日 ${hour}:${minute.padStart(2, '0')}`;
+  // 3. 每月
+  // 逻辑：日期指定了值，星期忽略 (? 或 *)
+  if (day !== '*' && day !== '?' && month === '*' && (weekday === '*' || weekday === '?')) {
+    return `每月${day}日 ${formatTime(hour, minute)}`;
   }
 
-  // 其他情况返回原始值
-  return cron
+  // 4. 每年 (简单扩展，可选)
+  if (month !== '*' && day !== '*' && (weekday === '*' || weekday === '?')) {
+      return `每年${month}月${day}日 ${formatTime(hour, minute)}`;
+  }
+
+  // 其他复杂情况返回原始值
+  return cron;
 };
 
 const props = defineProps({

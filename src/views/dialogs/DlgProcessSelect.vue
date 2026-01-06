@@ -14,9 +14,15 @@ import SimpleDialog from '@/components/SimpleDialog.vue';
 
 const props = defineProps({
   internshipTypeId: { type: Number, default: null }, // 从父组件传入的 internshipTypeId（模板用）
-  mainInternshipId: { type: Number, default: null }, // 从父组件传入的 mainInternshipId（实习项目用）
-  internshipStartTime: { type: String, default: null }, // 实习项目开始时间
-  internshipEndTime: { type: String, default: null } // 实习项目结束时间
+  internshipId: { type: Number, default: null }, // 从父组件传入的 internshipId（实习项目用）
+  internshipStartTime: { type: String, default: null }, // 实习项目开始时间（新增时从父组件获取）
+  internshipEndTime: { type: String, default: null } // 实习项目结束时间（新增时从父组件获取）
+});
+
+// 当前编辑的表单数据中的实习时间（编辑时从视图获取）
+const currentInternshipTime = reactive({
+  startTime: null,
+  endTime: null
 });
 
 const emit = defineEmits(['update-record', 'close-dialog']);
@@ -35,6 +41,9 @@ const verifyRoleFields = [
   { field: 'verifyFifthRoleId', name: '五审角色', level: 6 }
 ];
 
+// 判断是否需要显示时间字段（internshipId 存在时显示）
+const showTimeFields = () => props.internshipId != null;
+
 const defaultProps = reactive({
   labelWidth: '100px',
   keyWord: ' ', // 不需要自动保存，设置为空字符串
@@ -42,6 +51,8 @@ const defaultProps = reactive({
   formItems: [
     { name: '流程模板', field: 'processTypeId', type: 'select', keyWords: 'BaseProcessType', placeholder: '请选择流程模板' },
     { name: '审核要求', field: 'verifyTypeId', type: 'select', keyWords: 'BaseVerifyType', placeholder: '请选择审核要求' },
+    { name: '流程开始时间', field: 'startTime', type: 'datetime', hidden: true },
+    { name: '流程结束时间', field: 'endTime', type: 'datetime', hidden: true },
     { name: '一审角色', field: 'verifyFirstRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
     { name: '二审角色', field: 'verifySecondRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
     { name: '三审角色', field: 'verifyThirdRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
@@ -61,6 +72,59 @@ const defaultProps = reactive({
     }
   }
 });
+
+// 更新时间字段的显示状态和验证规则
+function updateTimeFields(show) {
+  const startTimeItem = defaultProps.formItems.find(item => item.field === 'startTime');
+  const endTimeItem = defaultProps.formItems.find(item => item.field === 'endTime');
+
+  if (startTimeItem) startTimeItem.hidden = !show;
+  if (endTimeItem) endTimeItem.hidden = !show;
+
+  if (show) {
+    defaultProps.formRules.startTime = [{ required: true, message: '请选择流程开始时间', trigger: 'change' }];
+    defaultProps.formRules.endTime = [{ required: true, message: '请选择流程结束时间', trigger: 'change' }];
+  } else {
+    delete defaultProps.formRules.startTime;
+    delete defaultProps.formRules.endTime;
+  }
+}
+
+// 验证流程时间是否在实习项目时间范围内
+function validateProcessTime(form) {
+  if (!showTimeFields()) return true;
+
+  // 优先使用表单数据中的实习时间（编辑时从视图获取），否则使用 props（新增时从父组件获取）
+  const internshipStartStr = currentInternshipTime.startTime || props.internshipStartTime;
+  const internshipEndStr = currentInternshipTime.endTime || props.internshipEndTime;
+
+  const internshipStart = internshipStartStr ? new Date(internshipStartStr) : null;
+  const internshipEnd = internshipEndStr ? new Date(internshipEndStr) : null;
+  const processStart = form.startTime ? new Date(form.startTime) : null;
+  const processEnd = form.endTime ? new Date(form.endTime) : null;
+
+  if (!processStart || !processEnd) {
+    ElMessage.warning('请选择流程开始和结束时间');
+    return false;
+  }
+
+  if (processStart > processEnd) {
+    ElMessage.warning('流程开始时间不能晚于流程结束时间');
+    return false;
+  }
+
+  if (internshipStart && processStart < internshipStart) {
+    ElMessage.warning('流程开始时间不能早于实习项目开始时间');
+    return false;
+  }
+
+  if (internshipEnd && processEnd > internshipEnd) {
+    ElMessage.warning('流程结束时间不能晚于实习项目结束时间');
+    return false;
+  }
+
+  return true;
+}
 
 // 根据 verifyTypeId 更新审核角色字段的显示和验证规则
 // clearValues: 是否清空显示字段的值（用户主动修改时清空，初始化时保留）
@@ -105,6 +169,19 @@ function showDialog(val, formData = {}) {
   const isEdit = formData && formData.id != null && formData.id !== 0;
   defaultProps.defaultDBProps.dlgTitle = isEdit ? '编辑流程' : '新增流程';
 
+  // 存储编辑时从视图获取的实习时间（用于时间验证）
+  if (isEdit && formData.internshipStartTime) {
+    currentInternshipTime.startTime = formData.internshipStartTime;
+    currentInternshipTime.endTime = formData.internshipEndTime;
+  } else {
+    // 新增时清空，使用 props 中的时间
+    currentInternshipTime.startTime = null;
+    currentInternshipTime.endTime = null;
+  }
+
+  // 更新时间字段的显示状态（仅在实习项目编辑时显示）
+  updateTimeFields(showTimeFields());
+
   // 如果是编辑模式，根据已有的 verifyTypeId 初始化审核角色显示状态
   if (isEdit && formData.verifyTypeId) {
     // 编辑模式：设置初始化标记，防止 SimpleSelect 初始化时清空已有值
@@ -127,6 +204,11 @@ function showDialog(val, formData = {}) {
 }
 
 async function confirm(option, type, form) {
+  // 验证流程时间（仅在实习项目编辑时）
+  if (!validateProcessTime(form)) {
+    return;
+  }
+
   // 确保隐藏的字段值为 17
   verifyRoleFields.forEach((roleConfig) => {
     const formItem = defaultProps.formItems.find(item => item.field === roleConfig.field);
@@ -135,10 +217,11 @@ async function confirm(option, type, form) {
     }
   });
 
-  // 将 internshipTypeId 添加到表单数据中
+  // 将 internshipTypeId 或 internshipId 添加到表单数据中
   const saveData = {
     ...form,
-    internshipTypeId: props.internshipTypeId
+    internshipTypeId: props.internshipTypeId,
+    internshipId: props.internshipId
   };
   // 触发更新事件，将完整的表单数据传递给父组件
   emit('update-record', saveData);
