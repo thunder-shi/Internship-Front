@@ -24,7 +24,12 @@ const defaultProps = reactive({
   autoSaveClose: false, // 自定义保存逻辑，不自动关闭
   formItems: [
     { name: '流程模板', field: 'processTypeId', type: 'select', keyWords: 'BaseProcessType', placeholder: '请选择流程模板' },
-    { name: '审核要求', field: 'verifyTypeId', type: 'select', keyWords: 'BaseVerifyType', placeholder: '请选择审核要求' }
+    { name: '审核要求', field: 'verifyTypeId', type: 'select', keyWords: 'BaseVerifyType', placeholder: '请选择审核要求' },
+    { name: '一审角色', field: 'verifyFirstRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
+    { name: '二审角色', field: 'verifySecondeRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
+    { name: '三审角色', field: 'verifyThirdRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
+    { name: '四审角色', field: 'verifyFourthRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
+    { name: '五审角色', field: 'verifyFifthRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
   ],
   formRules: {
     processTypeId: [{ required: true, message: '请选择流程模板', trigger: 'change' }],
