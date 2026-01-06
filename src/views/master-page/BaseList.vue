@@ -258,8 +258,8 @@ const SimpleSelectChange = (val, field, form, options) => {
 defineExpose({
   initDataList,
   openDlg,
-  _confirm: (option, type, form) => {
-    simpleDialog.value?._confirm(option, type, form);
+  _confirm: async (option, type, form) => {
+    await simpleDialog.value?._confirm(option, type, form);
   },
 });
 </script>
