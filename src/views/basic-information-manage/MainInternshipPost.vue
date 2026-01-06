@@ -1,6 +1,6 @@
 
 <template>
-  <BaseList :default-props="defaultProps" />
+  <BaseList :default-props="defaultProps"  />
 </template>
 <script setup>
 import { reactive, onMounted } from 'vue';
@@ -50,8 +50,24 @@ const defaultProps = reactive({
     ],
     formRules: {
       postTypeId: [{ required: true, message: '岗位类型不能为空', trigger: 'blur' }],
-      allPersonNum: [{ required: true, message: '岗位人数不能为空', trigger: 'blur' },
-                    { }
+      allPersonNum: [
+        { required: true, message: '岗位人数不能为空', trigger: 'blur' },
+        {
+          validator: (rule, value, callback) => {
+            if (value === '' || value === null || value === undefined) {
+              callback();
+              return;
+            }
+            // 确保值是数字类型
+            const numValue = typeof value === 'string' ? Number(value) : value;
+            if (isNaN(numValue) || numValue <= 0 || !Number.isInteger(numValue)) {
+              callback(new Error('岗位人数必须是大于0的整数'));
+            } else {
+              callback();
+            }
+          },
+          trigger: 'blur'
+        }
       ],
       //nowPersonNum: [{ required: true, message: '已选人数不能为空', trigger: 'blur' }],
       internshipId: [{ required: true, message: '实习项目不能为空', trigger: 'blur' }],
@@ -65,23 +81,5 @@ const defaultProps = reactive({
   },
 });
 
-// function getOptions() {
-//   return new Promise((resolve) => {
-//     const resp = listAPI.getSomeRecords({
-//       keyWords: 'BaseDepartment',
-//       searchKey: { departmentType: 1 },
-//     });
-//     resolve(resp);
-//   });
-// }
 
-// function treeSelectChange(val, field, form, node) {
-//   form.address = node[0].data.departmentAdd || '';
-// }
-
-// onMounted(() => {
-//   getOptions().then((res) => {
-//     defaultProps.defaultSDProps.formItems[0].options = res.data.content || [];
-//   });
-// });
 </script>
