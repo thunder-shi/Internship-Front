@@ -1,27 +1,3 @@
-<!-- <template>
-  <BaseList :default-props="defaultProps" />
-</template>
-<script setup>
-import { ref } from 'vue'
-import BaseList from '@/views/master-page/BaseList.vue'
-
-defineOptions({
-  name: 'MainInternshipPost'
-})
-
-const defaultProps = ref({
-  defaultDTLProps: {
-    defaultDTHProps: {
-      keyWord: { edit: 'MainInternshipPost' ,  view :'ViewMainInternshipPost'  }
-    },
-    sortStr: { properties: 'theOrder', direction: 'ASC' }
-  },
-  defaultSDProps: {
-    keyWord: 'MainInternshipPost'
-  }
-})
-</script> -->
-
 
 <template>
   <BaseList :default-props="defaultProps" />
@@ -55,7 +31,7 @@ const defaultProps = reactive({
         },
         { id: 2, showName: '岗位人数', theOrder: 2, tableColumnName: 'allPersonNum', sortable: true },
         { id: 3, showName: '已选人数', theOrder: 3, tableColumnName: 'nowPersonNum', sortable: true },
-        { id: 4, showName: '实习项目', theOrder: 4, tableColumnName: 'internshipName', sortable: true },
+        { id: 4, showName: '实习项目', theOrder: 4, tableColumnName: 'mainInternshipName', sortable: true },
       ],
     },
     defaultDBIProps: {},
