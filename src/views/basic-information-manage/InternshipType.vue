@@ -37,10 +37,9 @@ const defaultProps = reactive({
       },
       keyWord: { edit: 'BaseInternshipType', view: 'ViewBaseInternshipType' },
       allTableColumns: [
-        { id: 1, showName: '所属院系', theOrder: 1, tableColumnName: 'universityName',  sortable: true },
+        { id: 4, showName: '模板名称', theOrder: 4, tableColumnName: 'name', sortable: true },
         { id: 2, showName: '模板类型', theOrder: 2, tableColumnName: 'typeName', autoSelect:true, sortable: true },
-        { id: 3, showName: '模板编码', theOrder: 3, tableColumnName: 'code', sortable: true },
-        { id: 4, showName: '模板名称', theOrder: 4, tableColumnName: 'name', sortable: true }
+        { id: 1, showName: '所属院系', theOrder: 1, tableColumnName: 'universityName',  sortable: true },
       ],
     },
     defaultDBIProps: {},
@@ -67,12 +66,12 @@ const defaultProps = reactive({
 const appendClick = () => {
   const userInfo = store.getters.userInfo || {};
   const formData = {};
-  
+
   // 如果用户有部门ID，则设置为默认值
   if (userInfo.departmentId) {
     formData.universityId = userInfo.departmentId;
   }
-  
+
   // 使用深拷贝确保数据正确传递
   const form = JSON.parse(JSON.stringify(formData));
   // 通过 BaseList 的 openDlg 方法打开新增窗口（会使用默认的 SimpleDialog）
