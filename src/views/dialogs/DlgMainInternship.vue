@@ -17,11 +17,11 @@
             :form-rules="formRules"
             label-width="100px"
             @simple-select-change="onSimpleSelectChange"
-            @tree-select-change="onTreeSelectChange"
+            @cron-change="onCronChange"
           />
         </div>
 
-        <!-- 下半部分：数据列表 -->
+        <!-- 下半部分：流程列表 -->
         <div class="table-section">
           <DataTableList
             ref="dataTableList"
@@ -36,7 +36,9 @@
   <!-- 流程选择窗口 -->
   <DlgProcessSelect
     ref="dlgProcessSelect"
-    :internship-type-id="form.id"
+    :main-internship-id="form.id"
+    :internship-start-time="form.startTime"
+    :internship-end-time="form.endTime"
     @update-record="handleProcessSelectSave"
   />
 </template>
@@ -62,20 +64,20 @@ const dlgProcessSelect = ref(null);
 const formPanelRef = computed(() => formItemsRef.value?.formPanelRef);
 
 const form = reactive({});
-const keyWord = ref('BaseInternshipType');
+const keyWord = ref('MainInternship');
 
 const defaultProps = reactive({
   form: {},
-  width: '50%',
-  dlgTitle: '编辑/查看',
+  width: '60%',
+  dlgTitle: '编辑实习项目',
   footButtons: {
     cancel: { show: true, name: '取 消', type: '' },
     confirm: { show: true, name: '保 存', type: 'primary' }
   },
   someFlags: {
     noFooter: false,
-    autoMax: true,  // 默认最大化
-    needMaxBtn: true,  // 显示最大化按钮
+    autoMax: true,
+    needMaxBtn: true,
     needValidate: true,
     validate: true,
     needVerifyUpdate: true
@@ -83,44 +85,51 @@ const defaultProps = reactive({
 });
 
 const formItems = [
-  { name: '学校院系', field: 'universityId', type: 'cascader', searchKeys: { typeName: "学校" }, keyWords: 'ViewBaseDepartment' },
-  { name: '模板类型', field: 'intTypeId', type: 'select', keyWords: 'BaseIntType' },
-  { name: '模板编码', field: 'code', type: 'input' },
-  { name: '模板名称', field: 'name', type: 'input' },
-  { name: '模板说明', field: 'remarks', type: 'textarea' }
+  { name: '实习名称', field: 'name', type: 'input' },
+  { name: '开始时间', field: 'startTime', type: 'datetime' },
+  { name: '结束时间', field: 'endTime', type: 'datetime' },
+  { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' } },
+  { name: '报告周期', field: 'cron', type: 'cron', relatedFields: ['reportStartDate', 'reportEndDate'] },
+  { name: '上报开始日期', field: 'reportStartDate', type: 'date' },
+  { name: '上报结束日期', field: 'reportEndDate', type: 'date' },
+  { name: '备注', field: 'remarks', type: 'textarea' }
 ];
 
 const formRules = {
-  name: [{ required: true, message: '模板名称不能为空', trigger: 'blur' }]
+  name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],
+  startTime: [{ required: true, message: '开始时间不能为空', trigger: 'blur' }],
+  endTime: [{ required: true, message: '结束时间不能为空', trigger: 'blur' }],
+  internshipTypeId: [{ required: true, message: '请选择实习模板', trigger: 'blur' }]
 };
 
 // DataTableList 的配置
 const tableListProps = reactive({
   keyWord: {},
   title: {},
-  bottomOffset: 0, // 隐藏分页后不需要预留空间
-  sortStr: { properties: 'theOrder', direction: 'ASC' },  // 按照 theOrder 排序
-  pageInfo: { page: 1, size: 100 }, // 设置较大的页面大小，确保所有数据在一页显示
+  bottomOffset: 0,
+  sortStr: { properties: 'theOrder', direction: 'ASC' },
+  pageInfo: { page: 1, size: 100 },
   initSearchWords: {
-    // 初始查询条件：只显示当前实习类型相关的流程
     searchKey: {}
   },
   someFlags: {
     operateShow: true,
     checkFlag: true,
-    showPage: false, // 隐藏分页组件
-    autoInit: false  // 初始时不自动加载数据，等基本信息保存后再加载
+    showPage: false,
+    autoInit: false
   },
   defaultDTHProps: {
-    keyWord: { edit: 'RelProcessInternshipType', view: 'ViewRelProcessInternshipType' },
+    keyWord: { edit: 'RelProcessMainInternship', view: 'ViewRelProcessMainInternship' },
     buttonProps: {
-      create: { show: true },  // 新增按钮
-      update: { show: true },  // 修改按钮
-      delete: { show: true }   // 删除按钮
+      create: { show: true },
+      update: { show: true },
+      delete: { show: true }
     },
     allTableColumns: [
       { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName', sortable: false },
-      { id: 2, showName: '审核要求', theOrder: 2, tableColumnName: 'verifyTypeName', sortable: false }
+      { id: 2, showName: '审核要求', theOrder: 2, tableColumnName: 'verifyTypeName', sortable: false },
+      { id: 3, showName: '流程开始时间', theOrder: 3, tableColumnName: 'startTime', sortable: true },
+      { id: 4, showName: '流程结束时间', theOrder: 4, tableColumnName: 'endTime', sortable: true }
     ]
   }
 });
@@ -136,37 +145,30 @@ watch(
 
 function showDialog(val, formData = {}) {
   if (formData !== null) {
-    // 清空 form 的所有属性
     const formKeys = Object.keys(form);
     formKeys.forEach(key => {
       delete form[key];
     });
-    // 赋值新数据
     Object.assign(form, formData);
   }
 
-  // 设置 DataTableList 的过滤条件：只显示当前实习类型相关的流程
+  // 设置 DataTableList 的过滤条件
   if (formData && formData.id != null && formData.id !== 0) {
-    // 编辑模式：设置过滤条件为 internshipTypeId = form.id
-    tableListProps.initSearchWords.searchKey = { internshipTypeId: formData.id };
+    tableListProps.initSearchWords.searchKey = { mainInternshipId: formData.id };
   } else {
-    // 新增模式：清空过滤条件，避免后端查询错误
     tableListProps.initSearchWords.searchKey = {};
   }
-  // 打开对话框
+
   dlgBasicRef.value?.showDialog(val, form, 'edit');
-  // 设置按钮状态
+
   setTimeout(() => {
     formPanelRef.value?.clearValidate();
     if (formData && formData.id != null && formData.id !== 0) {
-      // 编辑模式，检查表单是否有必填项未填
       verifyValid(false);
-      // 如果有 id，则加载流程列表数据
       setTimeout(() => {
         dataTableList.value?.initDataList(true);
       }, 200);
     } else {
-      // 新增模式，按钮禁用
       dlgBasicRef.value.validate = true;
     }
   }, 100);
@@ -184,12 +186,11 @@ function verifyValid(showMessage = true) {
         dlgBasicRef.value.validate = true;
       });
   } else {
-    const rules = formRules;
-    const fields = Object.keys(rules);
+    const fields = Object.keys(formRules);
     let hasError = false;
 
     fields.forEach((field) => {
-      const ruleArray = rules[field];
+      const ruleArray = formRules[field];
       if (Array.isArray(ruleArray)) {
         const value = form[field];
         const requiredRule = ruleArray.find((r) => r.required === true);
@@ -240,14 +241,12 @@ function onSimpleSelectChange(val, field, options) {
   form[field] = val;
 }
 
-function onTreeSelectChange(val, field, node) {
+function onCronChange(val, field) {
   form[field] = val;
 }
 
 // DataTableList 的事件处理
 function handleTableAppend() {
-  // 表格新增按钮点击事件，打开流程选择窗口
-  // 只有在编辑模式下（有 id）才能添加流程
   if (form.id != null && form.id !== 0) {
     dlgProcessSelect.value?.showDialog(true, {});
   } else {
@@ -257,11 +256,12 @@ function handleTableAppend() {
 
 // 处理流程选择窗口的保存
 async function handleProcessSelectSave(processData) {
-  // 保存流程数据到后端
   const saveData = {
-    internshipTypeId: form.id, // 当前实习类型的 ID
-    processTypeId: processData.processTypeId, // 流程模板 ID
-    verifyTypeId: processData.verifyTypeId, // 审核要求 ID
+    mainInternshipId: form.id,
+    processTypeId: processData.processTypeId,
+    verifyTypeId: processData.verifyTypeId,
+    startTime: processData.startTime,
+    endTime: processData.endTime,
     verifyFirstRoleId: processData.verifyFirstRoleId,
     verifySecondRoleId: processData.verifySecondRoleId,
     verifyThirdRoleId: processData.verifyThirdRoleId,
@@ -269,21 +269,17 @@ async function handleProcessSelectSave(processData) {
     verifyFifthRoleId: processData.verifyFifthRoleId
   };
 
-  // 如果是编辑模式，需要包含 id
   if (processData.id != null && processData.id !== 0) {
     saveData.id = processData.id;
   }
 
   try {
-    // 直接调用 API 保存，因为表单验证已经在 DlgProcessSelect 中完成
-    const resInfo = await listAPI.editOneNode('RelProcessInternshipType', saveData);
+    const resInfo = await listAPI.editOneNode('RelProcessMainInternship', saveData);
 
     if (resInfo && resInfo.message === 'successful') {
       const isEdit = processData.id != null && processData.id !== 0;
       ElMessage.success(isEdit ? '修改成功！' : '新增成功！');
-      // 保存成功后，刷新流程列表
       dataTableList.value?.initDataList(true);
-      // 关闭流程选择窗口
       dlgProcessSelect.value?.showDialog(false, {});
     } else {
       ElMessage.warning(resInfo?.message || '保存失败');
@@ -295,14 +291,14 @@ async function handleProcessSelectSave(processData) {
 }
 
 function handleTableEdit(row) {
-  // 表格编辑按钮点击事件，打开流程选择窗口并传入当前行数据
-  // row 可能是数组（批量编辑）或单个对象（单行编辑）
   const rowData = Array.isArray(row) ? row[0] : row;
   if (rowData) {
     dlgProcessSelect.value?.showDialog(true, {
       id: rowData.id,
       processTypeId: rowData.processTypeId,
       verifyTypeId: rowData.verifyTypeId,
+      startTime: rowData.startTime,
+      endTime: rowData.endTime,
       verifyFirstRoleId: rowData.verifyFirstRoleId,
       verifySecondRoleId: rowData.verifySecondRoleId,
       verifyThirdRoleId: rowData.verifyThirdRoleId,
@@ -312,15 +308,11 @@ function handleTableEdit(row) {
   }
 }
 
-// 关闭所有对话框的方法，用于组件销毁前清理
 function closeAllDialogs() {
-  // 关闭流程选择对话框
   dlgProcessSelect.value?.showDialog?.(false, {});
-  // 关闭主对话框
   dlgBasicRef.value?.showDialog?.(false, {});
 }
 
-// 组件销毁前关闭所有对话框，防止遮罩层残留
 onBeforeUnmount(() => {
   closeAllDialogs();
 });
@@ -330,4 +322,3 @@ defineExpose({
   closeAllDialogs
 });
 </script>
-

@@ -155,7 +155,7 @@
           :select-label="item.selectLabel"
           :multiple="item.multiple"
           :key-words="item.keyWords"
-          :search-key="form[item.searchKeys]"
+          :search-key="typeof item.searchKeys === 'object' ? item.searchKeys : form[item.searchKeys]"
           :reg-key="item.regKey"
           :disabled="item.disabled"
           :placeholder="item.placeholder ? item.placeholder : '请选择'"

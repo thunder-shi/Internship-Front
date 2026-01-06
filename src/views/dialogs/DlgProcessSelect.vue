@@ -3,20 +3,37 @@
     ref="simpleDialogRef"
     :default-props="defaultProps"
     :simpledialog-confirm="confirm"
+    @simple-select-change="onSimpleSelectChange"
   />
 </template>
 
 <script setup>
 import { ref, reactive, onBeforeUnmount } from 'vue';
+import { ElMessage } from 'element-plus';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 
 const props = defineProps({
-  internshipTypeId: { type: Number, default: null } // 从父组件传入的 internshipTypeId
+  internshipTypeId: { type: Number, default: null }, // 从父组件传入的 internshipTypeId（模板用）
+  mainInternshipId: { type: Number, default: null }, // 从父组件传入的 mainInternshipId（实习项目用）
+  internshipStartTime: { type: String, default: null }, // 实习项目开始时间
+  internshipEndTime: { type: String, default: null } // 实习项目结束时间
 });
 
 const emit = defineEmits(['update-record', 'close-dialog']);
 
 const simpleDialogRef = ref(null);
+
+// 标记是否正在初始化（编辑模式打开时不清空已有值）
+let isInitializing = false;
+
+// 审核角色字段配置
+const verifyRoleFields = [
+  { field: 'verifyFirstRoleId', name: '一审角色', level: 2 },
+  { field: 'verifySecondRoleId', name: '二审角色', level: 3 },
+  { field: 'verifyThirdRoleId', name: '三审角色', level: 4 },
+  { field: 'verifyFourthRoleId', name: '四审角色', level: 5 },
+  { field: 'verifyFifthRoleId', name: '五审角色', level: 6 }
+];
 
 const defaultProps = reactive({
   labelWidth: '100px',
@@ -25,11 +42,11 @@ const defaultProps = reactive({
   formItems: [
     { name: '流程模板', field: 'processTypeId', type: 'select', keyWords: 'BaseProcessType', placeholder: '请选择流程模板' },
     { name: '审核要求', field: 'verifyTypeId', type: 'select', keyWords: 'BaseVerifyType', placeholder: '请选择审核要求' },
-    { name: '一审角色', field: 'verifyFirstRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
-    { name: '二审角色', field: 'verifySecondeRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
-    { name: '三审角色', field: 'verifyThirdRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
-    { name: '四审角色', field: 'verifyFourthRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
-    { name: '五审角色', field: 'verifyFifthRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色' },
+    { name: '一审角色', field: 'verifyFirstRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
+    { name: '二审角色', field: 'verifySecondRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
+    { name: '三审角色', field: 'verifyThirdRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
+    { name: '四审角色', field: 'verifyFourthRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
+    { name: '五审角色', field: 'verifyFifthRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
   ],
   formRules: {
     processTypeId: [{ required: true, message: '请选择流程模板', trigger: 'change' }],
@@ -45,14 +62,79 @@ const defaultProps = reactive({
   }
 });
 
+// 根据 verifyTypeId 更新审核角色字段的显示和验证规则
+// clearValues: 是否清空显示字段的值（用户主动修改时清空，初始化时保留）
+function updateVerifyRoleFields(verifyTypeId, form, clearValues = true) {
+  verifyRoleFields.forEach((roleConfig) => {
+    const formItem = defaultProps.formItems.find(item => item.field === roleConfig.field);
+    if (formItem) {
+      // verifyTypeId >= level 时显示该审核角色
+      const shouldShow = verifyTypeId >= roleConfig.level;
+      formItem.hidden = !shouldShow;
+
+      if (shouldShow) {
+        // 显示时添加必填验证
+        defaultProps.formRules[roleConfig.field] = [
+          { required: true, message: `请选择${roleConfig.name}`, trigger: 'change' }
+        ];
+        // 只有 clearValues 为 true 时才清空值（用户主动修改审核要求时）
+        if (form && clearValues) {
+          form[roleConfig.field] = null;
+        }
+      } else {
+        // 隐藏时移除验证规则，并设置默认值为 17
+        delete defaultProps.formRules[roleConfig.field];
+        if (form) {
+          form[roleConfig.field] = 17;
+        }
+      }
+    }
+  });
+}
+
+// 监听下拉框变化
+function onSimpleSelectChange(val, field, form) {
+  if (field === 'verifyTypeId') {
+    // 初始化时不清空已有值，用户主动修改时才清空
+    updateVerifyRoleFields(val, form, !isInitializing);
+  }
+}
+
 function showDialog(val, formData = {}) {
   // 根据是否有 id 来判断是新增还是编辑，更新标题
   const isEdit = formData && formData.id != null && formData.id !== 0;
   defaultProps.defaultDBProps.dlgTitle = isEdit ? '编辑流程' : '新增流程';
+
+  // 如果是编辑模式，根据已有的 verifyTypeId 初始化审核角色显示状态
+  if (isEdit && formData.verifyTypeId) {
+    // 编辑模式：设置初始化标记，防止 SimpleSelect 初始化时清空已有值
+    isInitializing = true;
+    updateVerifyRoleFields(formData.verifyTypeId, null, false);
+  } else {
+    // 新增模式，默认隐藏所有审核角色，并设置默认值为 17
+    isInitializing = false;
+    updateVerifyRoleFields(1, formData);
+  }
+
   simpleDialogRef.value?.showDialog(val, formData);
+
+  // 延迟重置初始化标记，确保 SimpleSelect 初始化完成后用户修改能正常清空值
+  if (isEdit) {
+    setTimeout(() => {
+      isInitializing = false;
+    }, 500);
+  }
 }
 
 async function confirm(option, type, form) {
+  // 确保隐藏的字段值为 17
+  verifyRoleFields.forEach((roleConfig) => {
+    const formItem = defaultProps.formItems.find(item => item.field === roleConfig.field);
+    if (formItem && formItem.hidden) {
+      form[roleConfig.field] = 17;
+    }
+  });
+
   // 将 internshipTypeId 添加到表单数据中
   const saveData = {
     ...form,

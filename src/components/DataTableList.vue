@@ -79,13 +79,18 @@
               <div v-if="item.tableColumnName.endsWith('Time')">
                 {{ filterDateTime(scope.row[item.tableColumnName]) }}
               </div>
+              <!-- cron 表达式格式化 -->
+              <div v-else-if="item.tableColumnName === 'cron'">
+                {{ formatCron(scope.row[item.tableColumnName]) }}
+              </div>
               <!-- 列表自定义显示的内容 tableColumnName 必须以 customize- 开头 -->
               <slot
                 v-else-if="item.tableColumnName.startsWith('customize-')"
                 :name="item.tableColumnName.replace('customize-', '')"
                 :row="scope.row"
               />
-              <div v-else>{{ scope.row[item.tableColumnName] || '--' }}</div>
+              <div v-else-if="scope.row[item.tableColumnName] === null">{{ '--' }}</div>
+              <div v-else>{{ scope.row[item.tableColumnName] }}</div>
             </template>
           </el-table-column>
           <el-table-column v-if="operateShow" fixed="right" label="操作" :width="operateWidth">
@@ -193,6 +198,49 @@ const filterDateTime = (val) => {
   } else {
     return moment(val).format('YYYY-MM-DD HH:mm');
   }
+};
+
+// cron 表达式格式化为可读字符串
+const formatCron = (cron) => {
+  if (!cron || cron === '--') return '--';
+
+  // 解析 cron 表达式 (秒 分 时 日 月 周)
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length < 5) return cron;
+
+  // 标准 cron: 分 时 日 月 周 (5位) 或 秒 分 时 日 月 周 (6位)
+  let minute, hour, day, month, weekday;
+  if (parts.length === 5) {
+    [minute, hour, day, month, weekday] = parts;
+  } else if (parts.length >= 6) {
+    [, minute, hour, day, month, weekday] = parts; // 跳过秒
+  }
+
+  const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+
+  // 每天
+  if (day === '*' && month === '*' && weekday === '*') {
+    if (hour === '*' && minute === '*') return '每分钟';
+    if (hour === '*') return `每小时第${minute}分钟`;
+    return `每天 ${hour}:${minute.padStart(2, '0')}`;
+  }
+
+  // 每周
+  if (day === '*' && month === '*' && weekday !== '*' && weekday !== '?') {
+    const days = weekday.split(',').map(d => {
+      const num = parseInt(d);
+      return weekdayNames[num] || d;
+    }).join('、');
+    return `每周${days} ${hour}:${minute.padStart(2, '0')}`;
+  }
+
+  // 每月
+  if (day !== '*' && month === '*' && (weekday === '*' || weekday === '?')) {
+    return `每月${day}日 ${hour}:${minute.padStart(2, '0')}`;
+  }
+
+  // 其他情况返回原始值
+  return cron
 };
 
 const props = defineProps({
