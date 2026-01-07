@@ -90,10 +90,10 @@ const defaultProps = reactive({
   defaultSDProps: {
     keyWord: 'MainInternship',
     formItems: [
+      { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'} },
       { name: '实习名称', field: 'name', type: 'input' },
       { name: '开始时间', field: 'startTime', type: 'datetime' },
       { name: '结束时间', field: 'endTime', type: 'datetime' },
-      { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'} },
       { name: '报告周期', field: 'cron', type: 'cron', relatedFields: ['reportStartDate', 'reportEndDate'] },
       { name: '上报开始日期', field: 'reportStartDate', type: 'date' },
       { name: '上报结束日期', field: 'reportEndDate', type: 'date' },
