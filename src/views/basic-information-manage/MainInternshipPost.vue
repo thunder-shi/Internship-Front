@@ -41,10 +41,11 @@ const defaultProps = reactive({
   defaultSDProps: {
     keyWord: 'MainInternshipPost',
     formItems: [
-      { name: '岗位名称', field: 'name', type: 'input' },
+      { name: '实习项目', field: 'mainInternshipId', type: 'select', keyWords: 'MainInternship' },  
       { name: '岗位类型', field: 'basePostTypeId', type: 'select', keyWords: 'BasePostType' },
+      { name: '岗位名称', field: 'name', type: 'input' },
       { name: '岗位人数', field: 'allPersonNum', type: 'input' },
-      { name: '实习项目', field: 'mainInternshipId', type: 'select', keyWords: 'MainInternship' },
+        
     ],
     formRules: {
       name: [{ required: true, message: '岗位名称不能为空',trigger:'blur'}],
