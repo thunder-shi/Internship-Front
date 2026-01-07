@@ -1,11 +1,65 @@
 <template>
-  <BaseList :default-props="defaultProps" ref="baseList" />
+  <div class="build-internship-container">
+    <BaseList
+      :default-props="defaultProps"
+      ref="baseList"
+      :baselist-confirm="handleConfirm"
+      @append-click="appendClick"
+      @edit-click="editClick"
+    />
+    <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
+    <DlgMainInternship
+      ref="dlgMainInternship"
+      @update-record="handleUpdateRecord"
+    />
+  </div>
 </template>
 <script setup>
-import { reactive } from 'vue';
+import { reactive, ref, onBeforeUnmount } from 'vue';
+import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
+import DlgMainInternship from '@/views/dialogs/DlgMainInternship.vue';
+
 defineOptions({
   name: 'MainInternship',
+});
+
+const store = useStore();
+const baseList = ref(null);
+const dlgMainInternship = ref(null);
+
+// 自定义确认函数，添加 creator 字段（用于新增）
+const handleConfirm = async (option, type, form) => {
+  // 添加当前用户 ID 作为 creator
+  const userInfo = store.getters.userInfo;
+  if (userInfo && userInfo.id) {
+    form.creatorId = userInfo.id;
+  }
+  form.studentNum = 0;
+  // 调用 BaseList 暴露的原有保存逻辑
+  await baseList.value?._confirm(option, type, form);
+  baseList.value?.initDataList();
+};
+
+// 处理新增按钮点击事件
+const appendClick = () => {
+  // 通过 BaseList 的 openDlg 方法打开新增窗口（使用默认的 SimpleDialog）
+  baseList.value?.openDlg('append', {});
+};
+
+// 处理编辑按钮点击事件，使用自定义的编辑窗口
+const editClick = (row) => {
+  dlgMainInternship.value?.showDialog(true, row);
+};
+
+// 处理更新记录后的回调
+const handleUpdateRecord = () => {
+  baseList.value?.initDataList();
+};
+
+// 组件销毁前关闭所有对话框，防止遮罩层残留
+onBeforeUnmount(() => {
+  dlgMainInternship.value?.closeAllDialogs?.();
 });
 
 const defaultProps = reactive({
@@ -17,17 +71,17 @@ const defaultProps = reactive({
         delete: { show: true },
         export: { show: true }
       },
-      keyWord: { edit: 'MainInternship', view: 'MainInternship' },
+      keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
       allTableColumns: [
         { id: 1, showName: '实习项目名称', theOrder: 1, tableColumnName: 'name' },
+        { id: 4, showName: '实习类型', theOrder: 4, tableColumnName: 'intTypeName' },
+        { id: 4, showName: '实习模板', theOrder: 4, tableColumnName: 'internshipTypeName' },
+        { id: 5, showName: '创建者', theOrder: 5, tableColumnName: 'creatorName' },
         { id: 2, showName: '实习开始时间', theOrder: 2, tableColumnName: 'startTime', sortable: true },
         { id: 3, showName: '实习结束时间', theOrder: 3, tableColumnName: 'endTime', sortable: true },
-        { id: 4, showName: '类型', theOrder: 4, tableColumnName: 'internshipType' },
-        { id: 5, showName: '创建者', theOrder: 5, tableColumnName: 'creatorName' },
         { id: 6, showName: '报告周期', theOrder: 6, tableColumnName: 'cron' },
         { id: 7, showName: '上报开始日期', theOrder: 7, tableColumnName: 'reportStartDate', sortable: true },
         { id: 8, showName: '上报结束日期', theOrder: 8, tableColumnName: 'reportEndDate', sortable: true },
-        { id: 9, showName: '审核状态', theOrder: 9, tableColumnName: 'isAudit', sortable: true },
         { id: 9, showName: '已选学生人数', theOrder: 9, tableColumnName: 'studentNum', sortable: true },
         { id: 10, showName: '备注', theOrder: 10, tableColumnName: 'remarks'}
       ],
@@ -35,12 +89,11 @@ const defaultProps = reactive({
   },
   defaultSDProps: {
     keyWord: 'MainInternship',
-    audit: true,
     formItems: [
       { name: '实习名称', field: 'name', type: 'input' },
       { name: '开始时间', field: 'startTime', type: 'datetime' },
       { name: '结束时间', field: 'endTime', type: 'datetime' },
-      { name: '实习模板', field: 'internshipType', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'} },
+      { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'} },
       { name: '报告周期', field: 'cron', type: 'cron', relatedFields: ['reportStartDate', 'reportEndDate'] },
       { name: '上报开始日期', field: 'reportStartDate', type: 'date' },
       { name: '上报结束日期', field: 'reportEndDate', type: 'date' },
@@ -50,12 +103,11 @@ const defaultProps = reactive({
       name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],
       startTime: [{ required: true, message: '开始时间不能为空', trigger: 'blur' }],
       endTime: [{ required: true, message: '结束时间不能为空', trigger: 'blur' }],
-      internshipType: [{ required: true, message: '请选择实习模板', trigger: 'blur' }],
+      internshipTypeId: [{ required: true, message: '请选择实习模板', trigger: 'blur' }],
     },
     defaultDBProps: {
       dialog: {}
     }
   },
 });
-
 </script>
