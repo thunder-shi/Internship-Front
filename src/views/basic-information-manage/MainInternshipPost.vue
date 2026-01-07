@@ -25,22 +25,15 @@ const defaultProps = reactive({
         update: { show: true },
         create: { show: true },
         delete: { show: true },
-        export: { show: true },
-        batchCreate: { show: true },
+        export: { show: true }
       },
       keyWord: { edit: 'MainInternshipPost', view: 'ViewMainInternshipPost' },
       allTableColumns: [
-        {id: 1,showName:'岗位名称',theOrder: 1, tableColumnName: 'name', sortable:true},
-        {
-          id: 2,
-          showName: '岗位类型',
-          theOrder: 2,
-          tableColumnName: 'basePostTypeName',
-          sortable: true,
-        },
-        { id: 3, showName: '岗位人数', theOrder: 3, tableColumnName: 'allPersonNum', sortable: true },
-        { id: 4, showName: '已选人数', theOrder: 4, tableColumnName: 'nowPersonNum', sortable: true },
-        { id: 5, showName: '实习项目', theOrder: 5, tableColumnName: 'mainInternshipName', sortable: true },
+        { id: 1, showName: '实习项目', theOrder: 1, tableColumnName: 'mainInternshipName', sortable: true },  
+        {id: 2, showName: '岗位类型', theOrder: 2, tableColumnName: 'basePostTypeName', sortable: true },
+        {id: 3, showName:'岗位名称', theOrder: 3, tableColumnName: 'name', sortable:true},
+        { id: 4, showName: '岗位人数', theOrder: 4, tableColumnName: 'allPersonNum', sortable: true },
+        { id: 5, showName: '已选人数', theOrder: 5, tableColumnName: 'nowPersonNum', sortable: true },
       ],
     },
     defaultDBIProps: {},
@@ -48,19 +41,10 @@ const defaultProps = reactive({
   defaultSDProps: {
     keyWord: 'MainInternshipPost',
     formItems: [
-      {
-        name:'岗位名称',
-        field: 'name',
-        type: 'input'
-      },
-      {
-        name: '岗位类型',
-        field: 'basePostTypeId',
-        type: 'select',
-        keyWords: 'BasePostType',
-      },
+      { name: '岗位名称', field: 'name', type: 'input' },
+      { name: '岗位类型', field: 'basePostTypeId', type: 'select', keyWords: 'BasePostType' },
       { name: '岗位人数', field: 'allPersonNum', type: 'input' },
-      { name: '实习项目', field: 'mainInternshipId', type: 'select',  keyWords: 'MainInternship'},
+      { name: '实习项目', field: 'mainInternshipId', type: 'select', keyWords: 'MainInternship' },
     ],
     formRules: {
       name: [{ required: true, message: '岗位名称不能为空',trigger:'blur'}],

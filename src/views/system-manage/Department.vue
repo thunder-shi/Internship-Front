@@ -19,8 +19,7 @@ const defaultProps = reactive({
         delete: { show: true },
         export: { show: true },
         up: { show: true },
-        down: { show: true },
-        batchCreate: { show: true }
+        down: { show: true }
       },
       keyWord: { edit: 'BaseDepartment', view: 'ViewBaseDepartment' },
       allTableColumns: {}
@@ -36,12 +35,7 @@ const defaultProps = reactive({
       { name: '类型', field: 'typeId', type: 'select', keyWords: 'BaseDepartType'},
       { name: '备注', field: 'remarks', type: 'textarea' },
       { name: '专业名称', field: 'majorId', type: 'cascader', keyWords: 'BaseMajor' },
-      {
-        name: '省市县',
-        field: 'areaId',
-        type: 'cascader',
-        keyWords: 'SysArea'
-      },
+      { name: '省市县', field: 'areaId', type: 'cascader', keyWords: 'SysArea' },
       { name: '详细地址', field: 'departmentAdd',type:'input'},
       { name: '邮政编码', field: 'departmentPostalCode',type:'input'},
       { name: '电话', field: 'departmentPhone',type:'input'},
@@ -136,17 +130,18 @@ const allTableColumns = defaultProps.defaultDTTProps.defaultDTHProps.allTableCol
 Object.assign(allTableColumns, [
   { id: 1, showName: '编码', theOrder: 1, tableColumnName: 'code', sortable: true },
   { id: 2, showName: '名称', theOrder: 2, tableColumnName: 'name', sortable: true },
-  { id: 3, showName: '完整名称', theOrder: 3, tableColumnName: 'allNodeNames' },
-  { id: 4, showName: '专业名称', theOrder: 4, tableColumnName: 'majorName' },
+  // { id: 3, showName: '完整名称', theOrder: 3, tableColumnName: 'allNodeNames' },
+  // { id: 4, showName: '专业名称', theOrder: 4, tableColumnName: 'majorName' },
+  { id: 3, showName: '类型', theOrder: 3, tableColumnName: 'typeName' },
   { id: 5, showName: '省市县', theOrder: 5, tableColumnName: 'areaName' },
-  { id: 6, showName: '详细地址', theOrder: 5, tableColumnName: 'departmentAdd' },
+  //{ id: 6, showName: '详细地址', theOrder: 5, tableColumnName: 'departmentAdd' },
   { id: 7, showName: '邮政编码', theOrder: 5, tableColumnName: 'departmentPostalCode' },
   { id: 8, showName: '电话', theOrder: 5, tableColumnName: 'departmentPhone' },
   { id: 9, showName: '传真', theOrder: 5, tableColumnName: 'departmentFax' },
   { id: 10, showName: '电子邮箱', theOrder: 5, tableColumnName: 'departmentEmail' },
-  { id: 11, showName: '类型', theOrder: 6, tableColumnName: 'typeName' },
-  { id: 12, showName: '入学年份', theOrder: 7, tableColumnName: 'startYear' },
-  { id: 13, showName: '备注', theOrder: 8, tableColumnName: 'remarks' },
+  
+  // { id: 12, showName: '入学年份', theOrder: 7, tableColumnName: 'startYear' },
+  // { id: 13, showName: '备注', theOrder: 8, tableColumnName: 'remarks' },
 
 ])
 </script>
