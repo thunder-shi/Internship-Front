@@ -34,6 +34,7 @@
         @simple-select-init-finish="simpleSelectInitFinish"
         @tree-select-change="onTreeSelectChange"
         @cron-change="onCronChange"
+        
       >
         <template #upItems>
           <slot name="upItems" />
@@ -296,6 +297,7 @@ function verifyValid(showMessage = true) {
 // #region 点击确认按钮，
 // 1, 如果不想执行数据是否修改判断，直接外层spec-confirm; 2, 如果执行数据修改判断后再特殊操作，外层on-confirm；3，如果执行通用保存后外层再有操作，外层执行confirm-more
 async function _confirm(option, type, formData = null, auditValue = null) {
+  emit("confirm-click",formData)
   if (formData != null) {
     Object.assign(form, formData);
   }

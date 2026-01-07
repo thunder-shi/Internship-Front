@@ -85,7 +85,8 @@
                 :name="item.tableColumnName.replace('customize-', '')"
                 :row="scope.row"
               />
-              <div v-else>{{ scope.row[item.tableColumnName] || '--' }}</div>
+              <div v-else-if="scope.row[item.tableColumnName] === null">{{ '--' }}</div>
+              <div v-else>{{  scope.row[item.tableColumnName] }}</div>
             </template>
           </el-table-column>
           <el-table-column v-if="operateShow" fixed="right" label="操作" :width="operateWidth">
