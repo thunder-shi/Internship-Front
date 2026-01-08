@@ -74,6 +74,7 @@ const defaultProps = reactive({
       keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
       allTableColumns: [
         { id: 1, showName: '实习项目名称', theOrder: 1, tableColumnName: 'name' },
+        { id: 1, showName: '所属院系', theOrder: 1, tableColumnName: 'universityName' },
         { id: 2, showName: '实习类型', theOrder: 2, tableColumnName: 'typeName' },
         { id: 3, showName: '实习模板', theOrder: 3, tableColumnName: 'internshipTypeName' },
         { id: 4, showName: '创建者', theOrder: 4, tableColumnName: 'creatorName' },
