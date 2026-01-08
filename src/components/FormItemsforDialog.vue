@@ -30,18 +30,16 @@
           v-else-if="item.type === 'password'"
           v-model="form[item.field]"
           :placeholder="item.placeholder ? item.placeholder : '请输入'"
+          :disabled="item.disabled"
           @input="resetPass"
         />
         <!-- 开关 -->
         <el-switch v-else-if="item.type === 'switch'" v-model="form[item.field]" />
         <!-- 单选 -->
         <el-radio-group v-else-if="item.type === 'radio'" v-model="form[item.field]">
-          <el-radio
-            v-for="(citem, cindex) in item.options"
-            :key="cindex + 'A'"
-            :label="citem.id"
-            >{{ citem.value }}</el-radio
-          >
+          <el-radio v-for="(citem, cindex) in item.options" :key="cindex + 'A'" :label="citem.id">{{
+            citem.value
+          }}</el-radio>
         </el-radio-group>
         <!-- 多选 -->
         <el-checkbox-group v-else-if="item.type === 'checkbox'" v-model="form[item.field]">
@@ -155,7 +153,9 @@
           :select-label="item.selectLabel"
           :multiple="item.multiple"
           :key-words="item.keyWords"
-          :search-key="typeof item.searchKeys === 'object' ? item.searchKeys : form[item.searchKeys]"
+          :search-key="
+            typeof item.searchKeys === 'object' ? item.searchKeys : form[item.searchKeys]
+          "
           :reg-key="item.regKey"
           :disabled="item.disabled"
           :placeholder="item.placeholder ? item.placeholder : '请选择'"
@@ -259,47 +259,47 @@ import _ from 'lodash';
 const props = defineProps({
   form: {
     type: Object,
-    required: true
+    required: true,
   },
   formItems: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   formRules: {
     type: Object,
-    default: () => ({})
+    default: () => ({}),
   },
   labelWidth: {
     type: String,
-    default: '100px'
+    default: '100px',
   },
   handleSelectChange: {
     type: Function,
-    default: null
+    default: null,
   },
   resetPass: {
     type: Function,
-    default: null
+    default: null,
   },
   downloadLinkClick: {
     type: Function,
-    default: null
+    default: null,
   },
   beforeUpload: {
     type: Function,
-    default: null
+    default: null,
   },
   fileTypes: {
     type: Array,
-    default: () => []
-  }
+    default: () => [],
+  },
 });
 
 const emit = defineEmits([
   'simple-select-change',
   'simple-select-init-finish',
   'tree-select-change',
-  'cron-change'
+  'cron-change',
 ]);
 
 const formPanelRef = ref(null);
@@ -327,8 +327,8 @@ watch(
       if (item.type === 'cron' && item.relatedFields) {
         const cronVal = newForm[item.field];
         const shouldHide = !cronVal;
-        item.relatedFields.forEach(relatedField => {
-          const relatedItem = props.formItems.find(i => i.field === relatedField);
+        item.relatedFields.forEach((relatedField) => {
+          const relatedItem = props.formItems.find((i) => i.field === relatedField);
           if (relatedItem) {
             relatedItem.hidden = shouldHide;
           }
@@ -367,12 +367,12 @@ function onTreeSelectChange(val, field, node) {
 
 function onCronChange(val, field) {
   // 找到当前 cron 项的配置
-  const cronItem = props.formItems.find(item => item.field === field);
+  const cronItem = props.formItems.find((item) => item.field === field);
   // 如果配置了关联字段，根据 cron 值控制它们的显示/隐藏
   if (cronItem && cronItem.relatedFields) {
     const shouldHide = !val; // cron 为空时（选择"无"）隐藏关联字段
-    cronItem.relatedFields.forEach(relatedField => {
-      const relatedItem = props.formItems.find(item => item.field === relatedField);
+    cronItem.relatedFields.forEach((relatedField) => {
+      const relatedItem = props.formItems.find((item) => item.field === relatedField);
       if (relatedItem) {
         relatedItem.hidden = shouldHide;
       }
@@ -393,7 +393,6 @@ function remove() {
 }
 
 defineExpose({
-  formPanelRef
+  formPanelRef,
 });
 </script>
-

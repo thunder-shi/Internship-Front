@@ -4,8 +4,15 @@
     :default-props="defaultProps"
     @append-click="appendClick"
     @edit-click="editClick"
+    @set-type="handleSetType"
   >
-    <template #dlg> <DlgUserInfo ref="dlgUser" @update-record="initDataList" /> </template>
+    <template #dlg>
+      <DlgUserInfo
+        ref="dlgUser"
+        @update-record="initDataList"
+        :props-info="defaultProps.otherInfo"
+      />
+    </template>
   </BaseTreeList>
 </template>
 <script setup>
@@ -36,7 +43,7 @@ const defaultProps = reactive({
       allTableColumns: {},
       buttonProps: {
         update: { show: true },
-        create: { show: false },
+        create: { show: true },
         delete: { show: true },
         export: { show: false },
         search: { show: true },
@@ -51,6 +58,10 @@ const defaultProps = reactive({
   defaultDBIProps: {
     keyWords: 'BaseUser',
   },
+  otherInfo: {
+    majorId: 0,
+    type: null,
+  },
 });
 
 const allTableColumns = defaultProps.defaultDTLProps.defaultDTHProps.allTableColumns;
@@ -64,18 +75,22 @@ Object.assign(allTableColumns, [
 const form = reactive({ id: null, workId: null, name: '' });
 
 const initDataList = async () => {
-  console.log(1);
-
   await baseTreeList.value?.initDataList();
 };
 
 const appendClick = () => {
-  Object.assign(form, { id: null, workId: null, name: '' });
-  dlgUser.value?.showDialog(true, form);
+  defaultProps.otherInfo.type = 'append';
+  dlgUser.value?.showDialog(true, {});
 };
 
 const editClick = (val) => {
+  defaultProps.otherInfo.type = 'edit';
   Object.assign(form, val);
+  console.log(form, '++++++++++++++');
   dlgUser.value?.showDialog(true, form);
+};
+
+const handleSetType = async (val) => {
+  defaultProps.otherInfo.majorId = val.majorId;
 };
 </script>

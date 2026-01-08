@@ -97,7 +97,7 @@ const handleNodeClick = (val) => {
     treeNodeId: val.id,
     treeRelColName: props.defaultProps.treeRelColName,
   });
-  emit('set-type', val.id);
+  emit('set-type', val);
   initDataList();
 };
 

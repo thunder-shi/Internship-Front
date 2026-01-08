@@ -185,7 +185,6 @@ onMounted(() => {
 function showDialog(val, formData = {}, bind = false) {
   // 判断是编辑还是新增
   const isEdit = formData && formData.id != null && formData.id !== 0;
-  
   if (formData !== null) {
     if (isEdit) {
       // 编辑模式：先重置 form，然后赋值新数据
@@ -199,7 +198,7 @@ function showDialog(val, formData = {}, bind = false) {
       // 新增模式：先清除 form 中的所有属性，然后只赋值 formData 中的属性
       // 这样可以确保不会保留之前编辑时的数据
       const formKeys = Object.keys(form);
-      formKeys.forEach(key => {
+      formKeys.forEach((key) => {
         Reflect.deleteProperty(form, key);
       });
       // 然后赋值新数据
@@ -233,7 +232,7 @@ function showDialog(val, formData = {}, bind = false) {
 
 // 窗口打开
 async function openDialog(row) {
-  emit('open-dialog', row);
+  emit('open-dialog', row, form);
 }
 
 async function resetPass(password) {
@@ -278,8 +277,12 @@ function verifyValid(showMessage = true) {
             const requiredRule = ruleArray.find((r) => r.required === true);
             if (requiredRule) {
               // 检查值是否为空
-              if (value === undefined || value === null || value === '' ||
-                  (Array.isArray(value) && value.length === 0)) {
+              if (
+                value === undefined ||
+                value === null ||
+                value === '' ||
+                (Array.isArray(value) && value.length === 0)
+              ) {
                 hasError = true;
               }
             }
@@ -425,7 +428,7 @@ function onSimpleSelectChange(val, field, options) {
 }
 
 function simpleSelectInitFinish(field, options) {
-  const formData = _.cloneDeep(form)
+  const formData = _.cloneDeep(form);
   emit('simple-select-init-finish', field, options, formData);
 }
 
