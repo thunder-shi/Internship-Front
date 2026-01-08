@@ -27,6 +27,7 @@
         @submit-more="submitMore"
         @simple-select-change="SimpleSelectChange"
         @tree-select-change="treeSelectChange"
+        @confirm-click="confirmClick"
       />
     </slot>
   </div>
@@ -96,6 +97,7 @@ const emit = defineEmits([
   'simple-select-change',
   'simple-select-init-finish',
   'tree-select-change',
+  'confirm-click',
 ]);
 
 const attrs = useAttrs();
@@ -258,8 +260,14 @@ const SimpleSelectChange = (val, field, form, options) => {
 defineExpose({
   initDataList,
   openDlg,
-  _confirm: async (option, type, form) => {
+  _confirm: async(option, type, form) => {
+    if (form) {
+      emit('confirm-click', form);
+    }
     await simpleDialog.value?._confirm(option, type, form);
+    initDataList()
   },
 });
+
+
 </script>

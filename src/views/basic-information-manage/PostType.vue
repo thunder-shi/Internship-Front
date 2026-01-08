@@ -39,13 +39,7 @@ const defaultProps = reactive({
   defaultSDProps: {
     keyWord: 'BasePostType',
     formItems: [
-      {
-        name: '所属企业',
-        field: 'companyId',
-        type: 'cascader',
-        keyWords: 'BaseDepartment',
-        searchKeys: { typeId: 1 },
-      },
+      { name: '所属企业', field: 'companyId', type: 'cascader', keyWords: 'BaseDepartment', searchKeys: { typeId: 1 } },
       { name: '岗位代码', field: 'code', type: 'input' },
       { name: '岗位名称', field: 'name', type: 'input' },
       { name: '岗位薪资', field: 'salary', type: 'input' },
