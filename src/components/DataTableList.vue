@@ -797,7 +797,7 @@ const _move = async (row, up) => {
       moveSearchWords.value.searchKey,
       moveSearchWords.value.regKey
     );
-    await initDataList();
+    await initDataList(true);
     const { ElMessage } = await import('element-plus');
     ElMessage.success('移动成功！');
     return true;
@@ -882,7 +882,7 @@ const more2Click = async (row) => {
 // 刷新操作
 const refreshInit = () => {
   // 注意：nowSearchWords 是 computed，不能直接修改
-  initDataList();
+  initDataList(true);
 };
 
 // 自定义排序

@@ -37,8 +37,6 @@
   <DlgProcessSelect
     ref="dlgProcessSelect"
     :internship-id="form.id"
-    :internship-start-time="form.startTime"
-    :internship-end-time="form.endTime"
     @update-record="handleProcessSelectSave"
   />
 </template>
@@ -84,19 +82,15 @@ const defaultProps = reactive({
   }
 });
 
-const formItems = [
+const formItems = reactive([
   { name: '实习名称', field: 'name', type: 'input' },
   { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'ViewBaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' } },
-  { name: '报告周期', field: 'cron', type: 'cron', relatedFields: ['reportStartDate', 'reportEndDate'] },
-  { name: '上报开始日期', field: 'reportStartDate', type: 'date' },
-  { name: '上报结束日期', field: 'reportEndDate', type: 'date' },
+  { name: '报告周期', field: 'cron', type: 'cron' },
   { name: '备注', field: 'remarks', type: 'textarea' }
-];
+]);
 
 const formRules = {
   name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],
-  startTime: [{ required: true, message: '开始时间不能为空', trigger: 'blur' }],
-  endTime: [{ required: true, message: '结束时间不能为空', trigger: 'blur' }],
   internshipTypeId: [{ required: true, message: '请选择实习模板', trigger: 'blur' }]
 };
 
@@ -110,6 +104,9 @@ const tableListProps = reactive({
   initSearchWords: {
     searchKey: {}
   },
+  moveSearchWords: {
+    searchKey: {}
+  },
   someFlags: {
     operateShow: true,
     checkFlag: true,
@@ -121,7 +118,9 @@ const tableListProps = reactive({
     buttonProps: {
       create: { show: true },
       update: { show: true },
-      delete: { show: true }
+      delete: { show: true },
+      up: { show: true },
+      down: { show: true }
     },
     allTableColumns: [
       { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName', sortable: false },
@@ -150,11 +149,13 @@ function showDialog(val, formData = {}) {
     Object.assign(form, formData);
   }
 
-  // 设置 DataTableList 的过滤条件
+  // 设置 DataTableList 的过滤条件和移动范围
   if (formData && formData.id != null && formData.id !== 0) {
     tableListProps.initSearchWords.searchKey = { internshipId: formData.id };
+    tableListProps.moveSearchWords.searchKey = { internshipId: formData.id };
   } else {
     tableListProps.initSearchWords.searchKey = {};
+    tableListProps.moveSearchWords.searchKey = {};
   }
 
   dlgBasicRef.value?.showDialog(val, form, 'edit');
@@ -272,7 +273,7 @@ async function handleProcessSelectSave(processData) {
   }
 
   try {
-    const resInfo = await listAPI.editOneNode('RelProcessMainInternship', saveData);
+    const resInfo = await listAPI.editOneNode('RelProcessInternship', saveData);
 
     if (resInfo && resInfo.message === 'successful') {
       const isEdit = processData.id != null && processData.id !== 0;
@@ -301,10 +302,7 @@ function handleTableEdit(row) {
       verifySecondRoleId: rowData.verifySecondRoleId,
       verifyThirdRoleId: rowData.verifyThirdRoleId,
       verifyFourthRoleId: rowData.verifyFourthRoleId,
-      verifyFifthRoleId: rowData.verifyFifthRoleId,
-      // 从视图获取的实习项目时间范围，用于验证
-      internshipStartTime: rowData.internshipStartTime,
-      internshipEndTime: rowData.internshipEndTime
+      verifyFifthRoleId: rowData.verifyFifthRoleId
     });
   }
 }

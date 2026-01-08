@@ -116,7 +116,9 @@ const tableListProps = reactive({
     buttonProps: {
       create: { show: true },  // 新增按钮
       update: { show: true },  // 修改按钮
-      delete: { show: true }   // 删除按钮
+      delete: { show: true },   // 删除按钮
+      up: { show: true },
+      down: { show: true }
     },
     allTableColumns: [
       { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName', sortable: false },

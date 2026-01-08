@@ -14,15 +14,7 @@ import SimpleDialog from '@/components/SimpleDialog.vue';
 
 const props = defineProps({
   internshipTypeId: { type: Number, default: null }, // 从父组件传入的 internshipTypeId（模板用）
-  internshipId: { type: Number, default: null }, // 从父组件传入的 internshipId（实习项目用）
-  internshipStartTime: { type: String, default: null }, // 实习项目开始时间（新增时从父组件获取）
-  internshipEndTime: { type: String, default: null } // 实习项目结束时间（新增时从父组件获取）
-});
-
-// 当前编辑的表单数据中的实习时间（编辑时从视图获取）
-const currentInternshipTime = reactive({
-  startTime: null,
-  endTime: null
+  internshipId: { type: Number, default: null } // 从父组件传入的 internshipId（实习项目用）
 });
 
 const emit = defineEmits(['update-record', 'close-dialog']);
@@ -41,12 +33,12 @@ const verifyRoleFields = [
   { field: 'verifyFifthRoleId', name: '五审角色', level: 6 }
 ];
 
-// 判断是否需要显示时间字段（internshipId 存在时显示）
-const showTimeFields = () => props.internshipId != null;
+// 判断是否为实习项目模式（有 internshipId 时为实习项目，否则为模板）
+const isInternshipMode = () => props.internshipId != null;
 
 const defaultProps = reactive({
   labelWidth: '100px',
-  keyWord: ' ', // 不需要自动保存，设置为空字符串
+  keyWord: ' ', // 动态设置，不自动保存
   autoSaveClose: false, // 自定义保存逻辑，不自动关闭
   formItems: [
     { name: '流程模板', field: 'processTypeId', type: 'select', keyWords: 'BaseProcessType', placeholder: '请选择流程模板' },
@@ -73,7 +65,7 @@ const defaultProps = reactive({
   }
 });
 
-// 更新时间字段的显示状态和验证规则
+// 更新时间字段的显示状态和验证规则（仅在实习项目模式下显示）
 function updateTimeFields(show) {
   const startTimeItem = defaultProps.formItems.find(item => item.field === 'startTime');
   const endTimeItem = defaultProps.formItems.find(item => item.field === 'endTime');
@@ -90,16 +82,10 @@ function updateTimeFields(show) {
   }
 }
 
-// 验证流程时间是否在实习项目时间范围内
+// 验证流程时间（仅在实习项目模式下验证）
 function validateProcessTime(form) {
-  if (!showTimeFields()) return true;
+  if (!isInternshipMode()) return true;
 
-  // 优先使用表单数据中的实习时间（编辑时从视图获取），否则使用 props（新增时从父组件获取）
-  const internshipStartStr = currentInternshipTime.startTime || props.internshipStartTime;
-  const internshipEndStr = currentInternshipTime.endTime || props.internshipEndTime;
-
-  const internshipStart = internshipStartStr ? new Date(internshipStartStr) : null;
-  const internshipEnd = internshipEndStr ? new Date(internshipEndStr) : null;
   const processStart = form.startTime ? new Date(form.startTime) : null;
   const processEnd = form.endTime ? new Date(form.endTime) : null;
 
@@ -110,16 +96,6 @@ function validateProcessTime(form) {
 
   if (processStart > processEnd) {
     ElMessage.warning('流程开始时间不能晚于流程结束时间');
-    return false;
-  }
-
-  if (internshipStart && processStart < internshipStart) {
-    ElMessage.warning('流程开始时间不能早于实习项目开始时间');
-    return false;
-  }
-
-  if (internshipEnd && processEnd > internshipEnd) {
-    ElMessage.warning('流程结束时间不能晚于实习项目结束时间');
     return false;
   }
 
@@ -169,18 +145,11 @@ function showDialog(val, formData = {}) {
   const isEdit = formData && formData.id != null && formData.id !== 0;
   defaultProps.defaultDBProps.dlgTitle = isEdit ? '编辑流程' : '新增流程';
 
-  // 存储编辑时从视图获取的实习时间（用于时间验证）
-  if (isEdit && formData.internshipStartTime) {
-    currentInternshipTime.startTime = formData.internshipStartTime;
-    currentInternshipTime.endTime = formData.internshipEndTime;
-  } else {
-    // 新增时清空，使用 props 中的时间
-    currentInternshipTime.startTime = null;
-    currentInternshipTime.endTime = null;
-  }
+  // 根据模式设置 keyWord：实习项目用 RelProcessInternship，模板用 RelProcessInternshipType
+  defaultProps.keyWord = isInternshipMode() ? 'RelProcessInternship' : 'RelProcessInternshipType';
 
-  // 更新时间字段的显示状态（仅在实习项目编辑时显示）
-  updateTimeFields(showTimeFields());
+  // 更新时间字段的显示状态（仅在实习项目模式下显示）
+  updateTimeFields(isInternshipMode());
 
   // 如果是编辑模式，根据已有的 verifyTypeId 初始化审核角色显示状态
   if (isEdit && formData.verifyTypeId) {
@@ -204,7 +173,7 @@ function showDialog(val, formData = {}) {
 }
 
 async function confirm(option, type, form) {
-  // 验证流程时间（仅在实习项目编辑时）
+  // 验证流程时间
   if (!validateProcessTime(form)) {
     return;
   }
