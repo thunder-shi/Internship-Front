@@ -115,13 +115,7 @@ const tableListProps = reactive({
   },
   defaultDTHProps: {
     keyWord: { edit: 'RelProcessInternship', view: 'ViewRelProcessInternship' },
-    buttonProps: {
-      create: { show: true },
-      update: { show: true },
-      delete: { show: true },
-      up: { show: true },
-      down: { show: true }
-    },
+    buttonProps: { create: { show: true }, update: { show: true }, delete: { show: true }, up: { show: true }, down: { show: true } },
     allTableColumns: [
       { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName', sortable: false },
       { id: 2, showName: '审核要求', theOrder: 2, tableColumnName: 'verifyTypeName', sortable: false },

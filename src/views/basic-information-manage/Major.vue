@@ -12,15 +12,7 @@ defineOptions({
 const defaultProps = reactive({
   defaultDTTProps: {
     defaultDTHProps: {
-      buttonProps: {
-        update: { show: true },
-        create: { show: true },
-        delete: { show: true },
-        export: { show: true },
-        up: { show: true },
-        down: { show: true },
-        batchCreate: { show: true },
-      },
+      buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true }, up: { show: true }, down: { show: true }, batchCreate: { show: true } },
       keyWord: { edit: 'BaseMajor' },
       allTableColumns: { },
     },

@@ -21,12 +21,7 @@ const defaultProps = reactive({
   defaultDTLProps: {
     title: { mainTitle: '' },
     defaultDTHProps: {
-      buttonProps: {
-        update: { show: true },
-        create: { show: true },
-        delete: { show: true },
-        export: { show: true }
-      },
+      buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true } },
       keyWord: { edit: 'MainInternshipPost', view: 'ViewMainInternshipPost' },
       allTableColumns: [
         { id: 1, showName: '实习项目', theOrder: 1, tableColumnName: 'mainInternshipName', sortable: true },  

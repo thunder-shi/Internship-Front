@@ -1,5 +1,5 @@
 <template>
-  <div class="build-internship-container">
+  <div class="internship-verify-container">
     <BaseList
       :default-props="defaultProps"
       ref="baseList"
@@ -21,7 +21,7 @@ import BaseList from '@/views/master-page/BaseList.vue';
 import DlgMainInternship from '@/views/dialogs/DlgMainInternship.vue';
 
 defineOptions({
-  name: 'MainInternship',
+  name: 'InternshipVerify',
 });
 
 const store = useStore();

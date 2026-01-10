@@ -29,12 +29,7 @@ const defaultProps = reactive({
   defaultDTLProps: {
     // title: { mainTitle: '实习项目模板管理' },
     defaultDTHProps: {
-      buttonProps: {
-        update: { show: true },
-        create: { show: true },
-        delete: { show: true },
-        export: { show: true }
-      },
+      buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true } },
       keyWord: { edit: 'BaseInternshipType', view: 'ViewBaseInternshipType' },
       allTableColumns: [
         { id: 4, showName: '模板名称', theOrder: 4, tableColumnName: 'name', sortable: true },

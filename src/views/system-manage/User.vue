@@ -41,14 +41,7 @@ const defaultProps = reactive({
     defaultDTHProps: {
       keyWord: { edit: 'BaseUser', view: 'ViewBaseUser' },
       allTableColumns: {},
-      buttonProps: {
-        update: { show: true },
-        create: { show: true },
-        delete: { show: true },
-        export: { show: false },
-        search: { show: true },
-        batchCreate: { show: true },
-      },
+      buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: false }, search: { show: true }, batchCreate: { show: true } },
     },
   },
   defaultDTProps: {
