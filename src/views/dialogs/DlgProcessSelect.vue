@@ -37,7 +37,7 @@ const verifyRoleFields = [
 const isInternshipMode = () => props.internshipId != null;
 
 const defaultProps = reactive({
-  labelWidth: '100px',
+  labelWidth: '110px',
   keyWord: ' ', // 动态设置，不自动保存
   autoSaveClose: false, // 自定义保存逻辑，不自动关闭
   formItems: [
