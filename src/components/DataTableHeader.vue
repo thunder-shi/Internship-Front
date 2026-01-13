@@ -79,7 +79,6 @@
               <el-dropdown-menu>
                 <el-dropdown-item v-if="button.audit.showPass" :command="CONSTANT.AUDIT_STATUS.PASS">批量审核通过</el-dropdown-item>
                 <el-dropdown-item v-if="button.audit.showNotPass" :command="CONSTANT.AUDIT_STATUS.NOTPASS">批量审核不通过</el-dropdown-item>
-                <el-dropdown-item v-if="button.audit.showSave" :command="CONSTANT.AUDIT_STATUS.SAVE">批量打回</el-dropdown-item>
                 <el-dropdown-item v-if="button.audit.showBack" :command="CONSTANT.AUDIT_STATUS.BACK">批量审核退回</el-dropdown-item>
               </el-dropdown-menu>
             </template>
