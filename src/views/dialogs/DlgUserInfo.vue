@@ -10,14 +10,14 @@
       @open-dialog="openDialog"
     >
       <template #otherItems>
-        <!-- <el-form-item label="角色"
+        <el-form-item label="角色"
           ><SimpleSelect
             ref="spsRole"
             v-model="form.roleIds"
             multiple
             key-words="SysRole"
             @update-value="onSelRoles"
-        /></el-form-item> -->
+        /></el-form-item>
       </template>
     </SimpleDialog>
   </div>
@@ -127,7 +127,10 @@ const confirm = async (option, type, dlgForm) => {
   if (option === 'append') {
     let password = '000000';
     if (!!dlgForm.password) password = dlgForm.password;
-    await listAPI.editOneNode('BaseUser', { ...dlgForm, password });
+    const res = await listAPI.editOneNode('BaseUser', { ...dlgForm, password });
+    if (res.message === 'successful') {
+      userAPI.saveUserRoles(res.data.id, form.roleIds);
+    }
   } else if (option === 'edit') {
     await userAPI.editUserInfo(dlgForm.id, dlgForm);
     await confirmMore(dlgForm);

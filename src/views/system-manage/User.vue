@@ -41,7 +41,14 @@ const defaultProps = reactive({
     defaultDTHProps: {
       keyWord: { edit: 'BaseUser', view: 'ViewBaseUser' },
       allTableColumns: {},
-      buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: false }, search: { show: true }, batchCreate: { show: true } },
+      buttonProps: {
+        update: { show: true },
+        create: { show: true },
+        delete: { show: true },
+        export: { show: false },
+        search: { show: true },
+        batchCreate: { show: true },
+      },
     },
   },
   defaultDTProps: {
@@ -79,7 +86,6 @@ const appendClick = () => {
 const editClick = (val) => {
   defaultProps.otherInfo.type = 'edit';
   Object.assign(form, val);
-  console.log(form, '++++++++++++++');
   dlgUser.value?.showDialog(true, form);
 };
 
