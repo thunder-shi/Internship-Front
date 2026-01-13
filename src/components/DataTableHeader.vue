@@ -65,6 +65,28 @@
           @click="handleUpload"
           >{{ button.batchCreate.name }}</el-button
         >
+        <div v-if="button.audit.show" style="padding-left:10px;padding-right:10px;">
+          <el-dropdown
+            ref="auditButton"
+            split-button
+            size="mini"
+            :type="button.audit.type"
+            :disabled="selectedColumns.length < 1"
+            @command="auditDropdownSelect"
+            @click="auditDropdownClick(selectedColumns)"
+            >{{ auditButtonName }}
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="button.audit.showPass" :command="CONSTANT.AUDIT_STATUS.PASS">批量审核通过</el-dropdown-item>
+                <el-dropdown-item v-if="button.audit.showNotPass" :command="CONSTANT.AUDIT_STATUS.NOTPASS">批量审核不通过</el-dropdown-item>
+                <el-dropdown-item v-if="button.audit.showSave" :command="CONSTANT.AUDIT_STATUS.SAVE">批量打回</el-dropdown-item>
+                <el-dropdown-item v-if="button.audit.showBack" :command="CONSTANT.AUDIT_STATUS.BACK">批量审核退回</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+
+
       </el-row>
       <!--列表上方的业务模块插槽-->
       <slot v-if="$slots.topOperate" name="topOperate" />
@@ -154,6 +176,8 @@ const emit = defineEmits([
   'show-search',
   'init-click',
   'upload-finish',
+  'audit-click',
+  'audit-command',
 ]);
 
 const instance = getCurrentInstance();
@@ -168,6 +192,7 @@ const tableColumnItem = ref([]);
 const checkAll = ref(true);
 const indeterminate = ref(false);
 const showSearchPanel = ref(false);
+const currentAuditStatus = ref(CONSTANT.AUDIT_STATUS.PASS); // 初始状态为"批量审核通过"
 
 // 辅助方法:判断是否有指定事件的监听器
 const hasListener = (eventName) => {
@@ -221,7 +246,7 @@ const buttonProps = computed(() => {
         delete: { show: true },
         export: { show: true },
         up: { show: true },
-        down: { show: true },
+        down: { show: true }
       };
 });
 
@@ -245,9 +270,23 @@ const button = computed(() => {
     // batchExport: { show: false, name: '全部导出', type:'warning' },
     more1: { show: false, name: '更多操作1', type: 'info' },
     more2: { show: false, name: '更多操作2', type: 'info' },
+    audit: { show: false, name: '审核', type: 'info', showPass: false, showNotPass: false, showSave: false, showBack: false },
     buttonGroup: { show: true },
   };
   return arrangeButton(buttonProps.value, btn);
+});
+
+// 审核按钮名称映射
+const auditStatusNameMap = {
+  [CONSTANT.AUDIT_STATUS.PASS]: '批量审核通过',
+  [CONSTANT.AUDIT_STATUS.NOTPASS]: '批量审核不通过',
+  [CONSTANT.AUDIT_STATUS.SAVE]: '批量打回',
+  [CONSTANT.AUDIT_STATUS.BACK]: '批量审核退回',
+};
+
+// 审核按钮名称
+const auditButtonName = computed(() => {
+  return auditStatusNameMap[currentAuditStatus.value] || button.value.audit?.name || '审核';
 });
 
 
@@ -329,6 +368,18 @@ function remove(row) {
       })
       .catch((error) => error);
   }
+}
+
+// 审核下拉菜单选择
+function auditDropdownSelect(command) {
+  // 更新当前选择的审核状态
+  currentAuditStatus.value = command;
+  emit('audit-command', command, props.selectedColumns);
+}
+
+// 审核按钮点击
+function auditDropdownClick(selectedColumns) {
+  emit('audit-click', selectedColumns);
 }
 
 // 导出数据

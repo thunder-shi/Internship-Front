@@ -65,7 +65,7 @@ onBeforeUnmount(() => {
 const defaultProps = reactive({
   defaultDTLProps: {
     defaultDTHProps: {
-      buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true } },
+      buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, audit: { show: true, showPass: true, showNotPass: true, showSave: true, showBack: true } },
       keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
       allTableColumns: [
         { id: 1, showName: '实习项目名称', theOrder: 1, tableColumnName: 'name' },
