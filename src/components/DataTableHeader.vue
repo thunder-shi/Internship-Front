@@ -79,7 +79,7 @@
               <el-dropdown-menu>
                 <el-dropdown-item v-if="button.audit.showPass" :command="CONSTANT.AUDIT_STATUS.PASS">批量审核通过</el-dropdown-item>
                 <el-dropdown-item v-if="button.audit.showNotPass" :command="CONSTANT.AUDIT_STATUS.NOTPASS">批量审核不通过</el-dropdown-item>
-                <el-dropdown-item v-if="button.audit.showBack" :command="CONSTANT.AUDIT_STATUS.BACK">批量审核退回</el-dropdown-item>
+                x<el-dropdown-item v-if="button.audit.showBack" :command="CONSTANT.AUDIT_STATUS.BACK">批量审核退回</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -269,7 +269,7 @@ const button = computed(() => {
     // batchExport: { show: false, name: '全部导出', type:'warning' },
     more1: { show: false, name: '更多操作1', type: 'info' },
     more2: { show: false, name: '更多操作2', type: 'info' },
-    audit: { show: false, name: '审核', type: 'info', showPass: false, showNotPass: false, showSave: false, showBack: false },
+    audit: { show: false, name: '审核', type: 'danger', showPass: false, showNotPass: false, showSave: false, showBack: false },
     buttonGroup: { show: true },
   };
   return arrangeButton(buttonProps.value, btn);

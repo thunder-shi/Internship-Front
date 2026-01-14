@@ -4,12 +4,11 @@
       :default-props="defaultProps"
       ref="baseList"
       :baselist-confirm="handleConfirm"
-      @append-click="appendClick"
-      @edit-click="editClick"
+      @audit-click="handleAuditClick"
     />
-    <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
-    <DlgMainInternship
-      ref="dlgMainInternship"
+    <!-- 审核对话框 -->
+    <DlgInternshipVerify
+      ref="dlgInternshipVerify"
       @update-record="handleUpdateRecord"
     />
   </div>
@@ -18,7 +17,8 @@
 import { reactive, ref, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
-import DlgMainInternship from '@/views/dialogs/DlgMainInternship.vue';
+import DlgInternshipVerify from '@/views/dialogs/DlgInternshipVerify.vue';
+
 
 defineOptions({
   name: 'InternshipVerify',
@@ -26,7 +26,8 @@ defineOptions({
 
 const store = useStore();
 const baseList = ref(null);
-const dlgMainInternship = ref(null);
+
+const dlgInternshipVerify = ref(null);
 
 // 自定义确认函数，添加 creator 字段（用于新增）
 const handleConfirm = async (option, type, form) => {
@@ -41,25 +42,24 @@ const handleConfirm = async (option, type, form) => {
   baseList.value?.initDataList();
 };
 
-// 处理新增按钮点击事件
-const appendClick = () => {
-  // 通过 BaseList 的 openDlg 方法打开新增窗口（使用默认的 SimpleDialog）
-  baseList.value?.openDlg('append', {});
-};
-
-// 处理编辑按钮点击事件，使用自定义的编辑窗口
-const editClick = (row) => {
-  dlgMainInternship.value?.showDialog(true, row);
-};
-
 // 处理更新记录后的回调
 const handleUpdateRecord = () => {
   baseList.value?.initDataList();
 };
 
+// 处理审核按钮点击事件
+const handleAuditClick = (row) => {
+  // row 可能是数组（多选）或单个对象（单选）
+  // 取第一个选中的项目进行审核
+  const selectedRow = Array.isArray(row) ? row[0] : row;
+  if (selectedRow) {
+    dlgInternshipVerify.value?.showDialog(true, selectedRow);
+  }
+};
+
 // 组件销毁前关闭所有对话框，防止遮罩层残留
 onBeforeUnmount(() => {
-  dlgMainInternship.value?.closeAllDialogs?.();
+  dlgInternshipVerify.value?.closeAllDialogs?.();
 });
 
 const defaultProps = reactive({

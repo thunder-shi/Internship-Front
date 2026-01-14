@@ -114,6 +114,15 @@
               >
                 <el-icon><Edit /></el-icon>
               </el-button>
+              <el-button
+                v-if="button?.audit?.show"
+                :type="button.audit.type"
+                size="small"
+                :title="button.audit.name"
+                @click="auditClick(scope.row)"
+              >
+                <svg-icon icon-class="verCode" />
+              </el-button>
               <!--列表数据右方的操作按钮-->
               <slot name="rightOperate" :row="scope.row" />
               <el-button
@@ -176,7 +185,7 @@ import {
   nextTick,
   getCurrentInstance,
 } from 'vue';
-import { Edit, Delete, Top, Bottom, Position, Check } from '@element-plus/icons-vue';
+import { Edit, Delete, Top, Bottom, Position } from '@element-plus/icons-vue';
 import DataTableHeader from '@/components/DataTableHeader.vue';
 import listAPI from '@/api/list';
 import BtnSearch from '@/components/BtnSearch.vue';
@@ -329,6 +338,7 @@ const emit = defineEmits([
   'spec-remove',
   'spec-move',
   'batch-import-click',
+  'audit-click',
 ]);
 
 const attrs = useAttrs();
@@ -547,6 +557,7 @@ onMounted(() => {
     const arr = [
       button.value?.visible?.show,
       button.value?.update?.show,
+      button.value?.audit?.show,
       button.value?.delete?.show,
       button.value?.up?.show,
       button.value?.down?.show,
@@ -722,6 +733,11 @@ const appendClick = async () => {
 // 按钮修改
 const editClick = async (row) => {
   emit('edit-click', row);
+};
+
+// 按钮审核
+const auditClick = async (row) => {
+  emit('audit-click', row);
 };
 
 // #region 按钮删除
