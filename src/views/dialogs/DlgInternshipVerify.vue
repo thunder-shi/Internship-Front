@@ -50,9 +50,9 @@
         <div class="audit-section">
           <el-form-item label="审核结果" prop="auditResult" style="margin-top: 20px;">
             <el-radio-group v-model="form.auditResult">
-              <el-radio :label="1">审核通过</el-radio>
-              <el-radio :label="2">审核不通过</el-radio>
-              <el-radio :label="3">审核退回</el-radio>
+              <el-radio :label="CONSTANT.AUDIT_STATUS.PASS">{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-radio>
+              <el-radio :label="CONSTANT.AUDIT_STATUS.NOTPASS">{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-radio>
+              <el-radio :label="CONSTANT.AUDIT_STATUS.BACK">{{ CONSTANT.AUDIT_STATUS.BACKNAME }}</el-radio>
             </el-radio-group>
           </el-form-item>
           <el-form-item label="审核理由" prop="auditReason">
@@ -77,6 +77,7 @@ import { ElMessage } from 'element-plus';
 import DlgBasic from '@/components/DlgBasic.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import _ from 'lodash';
+import CONSTANT from '@/utils/constant';
 
 const emit = defineEmits(['update-record', 'close-dialog']);
 
@@ -106,7 +107,7 @@ const form = reactive({
   internshipTypeName: '',
   creatorName: '',
   remarks: '',
-  auditResult: null, // 1: 审核通过, 2: 审核不通过, 3: 审核退回
+  auditResult: null, // CONSTANT.AUDIT_STATUS.PASS: 审核通过, CONSTANT.AUDIT_STATUS.NOTPASS: 审核不通过, CONSTANT.AUDIT_STATUS.BACK: 审核退回
   auditReason: '',
 });
 
@@ -149,6 +150,24 @@ const tableListProps = reactive({
   // 设置固定高度，使表格高度与基本信息区域一致
   height: 300,
 });
+
+// 审核结果对应的文本映射
+const auditResultTextMap = {
+  [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
+  [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
+  [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
+};
+
+// 监听审核结果变化，自动填充审核理由
+watch(
+  () => form.auditResult,
+  (newVal) => {
+    if (newVal !== null && newVal !== undefined) {
+      // 当审核结果变化时，自动填充对应的文本到审核理由
+      form.auditReason = auditResultTextMap[newVal] || '';
+    }
+  }
+);
 
 // 监听表单变化，更新按钮状态
 watch(
@@ -265,9 +284,9 @@ async function confirm(option, type) {
 
   // 暂时使用提示信息
   const resultText = {
-    1: '审核通过',
-    2: '审核不通过',
-    3: '审核退回',
+    [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
+    [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
+    [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
   }[form.auditResult] || '未知';
 
   ElMessage.success(`审核完成：${resultText}`);

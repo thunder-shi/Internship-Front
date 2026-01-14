@@ -59,7 +59,7 @@ const AUDIT_STATUS = Object.freeze({
   PASS: 1,
   PASSNAME: '审核通过',
   NOTPASS: 2,
-  NOTPASSNAME: '审核未通过',
+  NOTPASSNAME: '审核不通过',
   BACK: 3,
   BACKNAME: '审核退回'
 })

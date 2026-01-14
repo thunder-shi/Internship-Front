@@ -77,9 +77,9 @@
             >{{ auditButtonName }}
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="button.audit.showPass" :command="CONSTANT.AUDIT_STATUS.PASS">批量审核通过</el-dropdown-item>
-                <el-dropdown-item v-if="button.audit.showNotPass" :command="CONSTANT.AUDIT_STATUS.NOTPASS">批量审核不通过</el-dropdown-item>
-                x<el-dropdown-item v-if="button.audit.showBack" :command="CONSTANT.AUDIT_STATUS.BACK">批量审核退回</el-dropdown-item>
+                <el-dropdown-item v-if="button.audit.showPass" :command="CONSTANT.AUDIT_STATUS.PASS">批量{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-dropdown-item>
+                <el-dropdown-item v-if="button.audit.showNotPass" :command="CONSTANT.AUDIT_STATUS.NOTPASS">批量{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-dropdown-item>
+                x<el-dropdown-item v-if="button.audit.showBack" :command="CONSTANT.AUDIT_STATUS.BACK">批量{{ CONSTANT.AUDIT_STATUS.BACKNAME }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -277,10 +277,10 @@ const button = computed(() => {
 
 // 审核按钮名称映射
 const auditStatusNameMap = {
-  [CONSTANT.AUDIT_STATUS.PASS]: '批量审核通过',
-  [CONSTANT.AUDIT_STATUS.NOTPASS]: '批量审核不通过',
+  [CONSTANT.AUDIT_STATUS.PASS]: `批量${CONSTANT.AUDIT_STATUS.PASSNAME}`,
+  [CONSTANT.AUDIT_STATUS.NOTPASS]: `批量${CONSTANT.AUDIT_STATUS.NOTPASSNAME}`,
   [CONSTANT.AUDIT_STATUS.SAVE]: '批量打回',
-  [CONSTANT.AUDIT_STATUS.BACK]: '批量审核退回',
+  [CONSTANT.AUDIT_STATUS.BACK]: `批量${CONSTANT.AUDIT_STATUS.BACKNAME}`,
 };
 
 // 审核按钮名称
