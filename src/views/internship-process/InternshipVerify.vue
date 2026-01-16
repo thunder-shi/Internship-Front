@@ -66,34 +66,17 @@ const defaultProps = reactive({
   defaultDTLProps: {
     defaultDTHProps: {
       buttonProps: { audit: { show: true, showPass: true, showNotPass: true, showBack: true } },
-      keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
+      keyWord: { edit: 'MainInternship', view: 'ViewInternshipVerifyProcess' },
       allTableColumns: [
-        { id: 1, showName: '实习项目名称', theOrder: 1, tableColumnName: 'name' },
-        { id: 1, showName: '所属院系', theOrder: 1, tableColumnName: 'universityName' },
-        { id: 2, showName: '实习类型', theOrder: 2, tableColumnName: 'typeName' },
-        { id: 3, showName: '实习模板', theOrder: 3, tableColumnName: 'internshipTypeName' },
-        { id: 4, showName: '创建者', theOrder: 4, tableColumnName: 'creatorName' },
-        { id: 5, showName: '报告周期', theOrder: 5, tableColumnName: 'cron' },
-        { id: 8, showName: '已选学生人数', theOrder: 8, tableColumnName: 'studentNum', sortable: true },
-        { id: 9, showName: '备注', theOrder: 9, tableColumnName: 'remarks'}
+        { id: 1, showName: '实习项目名称', theOrder: 1, tableColumnName: 'internshipName' },
+        { id: 2, showName: '所属院系', theOrder: 2, tableColumnName: 'universityName' },
+        { id: 3, showName: '实习类型', theOrder: 3, tableColumnName: 'typeName' },
+        { id: 4, showName: '实习模板', theOrder: 4, tableColumnName: 'internshipTypeName' },
+        { id: 5, showName: '上级审核人', theOrder: 5, tableColumnName: 'createUserName' },
+        { id: 6, showName: '当前状态', theOrder: 6, tableColumnName: 'isAudit' },
+        { id: 7, showName: '审核理由', theOrder: 7, tableColumnName: 'reason' }
       ],
     },
-  },
-  defaultSDProps: {
-    keyWord: 'MainInternship',
-    formItems: [
-      { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'} },
-      { name: '实习名称', field: 'name', type: 'input' },
-      { name: '报告周期', field: 'cron', type: 'cron' },
-      { name: '备注', field: 'remarks', type: 'textarea' }
-    ],
-    formRules: {
-      name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],
-      internshipTypeId: [{ required: true, message: '请选择实习模板', trigger: 'blur' }],
-    },
-    defaultDBProps: {
-      dialog: {}
-    }
-  },
+  }
 });
 </script>
