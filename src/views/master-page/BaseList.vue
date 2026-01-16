@@ -11,6 +11,7 @@
       @more1-click="more1Click"
       @more2-click="more2Click"
       @after-init-data="afterInitData"
+      @audit-click="auditClick"
     >
       <!--数据操作按钮类 -->
       <!-- <template #searchPanel>
@@ -98,6 +99,7 @@ const emit = defineEmits([
   'simple-select-init-finish',
   'tree-select-change',
   'confirm-click',
+  'audit-click',
 ]);
 
 const attrs = useAttrs();
@@ -202,6 +204,17 @@ const more1Click = async (row) => {
 // 更多内容2
 const more2Click = async (row) => {
   emit('more2-click', row);
+};
+
+// 审核按钮点击
+const auditClick = async (row) => {
+  if (hasListener('audit-click')) {
+    // 有监听器:只触发事件,交给父组件处理
+    emit('audit-click', row);
+  } else {
+    // 无监听器:可以执行默认逻辑（如果需要）
+    // 暂时不做任何处理，由父组件处理
+  }
 };
 // #endregion
 
