@@ -127,9 +127,10 @@ const confirm = async (option, type, dlgForm) => {
   if (option === 'append') {
     let password = '000000';
     if (!!dlgForm.password) password = dlgForm.password;
-    const res = await listAPI.editOneNode('BaseUser', { ...dlgForm, password });
+    const res = await listAPI.editOneNode('BaseUser', dlgForm);
     if (res.message === 'successful') {
-      userAPI.saveUserRoles(res.data.id, form.roleIds);
+      await userAPI.editPassword(res.data.id, password);
+      userAPI.saveUserRoles(res.data.id, form.roleIds || []);
     }
   } else if (option === 'edit') {
     await userAPI.editUserInfo(dlgForm.id, dlgForm);
