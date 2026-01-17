@@ -24,6 +24,7 @@
         ref="simpleDialog"
         :default-props="defaultProps.defaultSDProps"
         :simpledialog-confirm="confirm"
+        :simpledialog-submit="submit"
         @update-record="initDataList"
         @submit-more="submitMore"
         @simple-select-change="SimpleSelectChange"
@@ -82,6 +83,9 @@ const props = defineProps({
   },
   baselistSpecConfirm: { type: Function, default: null },
   baselistConfirm: { type: Function, default: null },
+  baselistSubmit: { type: Function, default: null },
+  checkRowEdit: { type: Function, default: null },
+  checkRowDelete: { type: Function, default: null },
   searchPlaceholder: { type: String, default: '请输入名称' },
 });
 
@@ -158,6 +162,12 @@ const appendClick = () => {
 };
 
 const editClick = async (row) => {
+  // 检查是否可编辑
+  if (props.checkRowEdit && typeof props.checkRowEdit === 'function') {
+    if (!props.checkRowEdit(row)) {
+      return;
+    }
+  }
   if (hasListener('edit-click')) {
     // 有监听器:只触发事件,交给父组件处理
     emit('edit-click', row);
@@ -172,6 +182,12 @@ const treeSelectChange = async (val, field, form, node) => {
 };
 
 const deleteClick = async (row) => {
+  // 检查是否可删除
+  if (props.checkRowDelete && typeof props.checkRowDelete === 'function') {
+    if (!props.checkRowDelete(row)) {
+      return;
+    }
+  }
   if (hasListener('delete-click')) {
     // 有监听器:只触发事件,交给父组件处理
     emit('delete-click', row);
@@ -227,6 +243,16 @@ const confirm = async (option, type) => {
   }
 };
 
+// 提交按钮处理
+const submit = async () => {
+  if (props.baselistSubmit && typeof props.baselistSubmit === 'function') {
+    await props.baselistSubmit(form);
+  } else {
+    // 默认提交逻辑
+    await simpleDialog.value?._confirm('append', 'stop', form);
+  }
+};
+
 const submitMore = (row) => {
   emit('submit-more', row);
 };
@@ -266,6 +292,10 @@ const openDlg = (option, row) => {
 
 const SimpleSelectChange = (val, field, form, options) => {
   emit('simple-select-change', val, field, form, options);
+};
+
+const confirmClick = (formData) => {
+  emit('confirm-click', formData);
 };
 // #endregion
 

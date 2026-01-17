@@ -3,6 +3,7 @@
     ref="dlgBasicRef"
     v-model:default-props="defaultProps"
     :dlgbasic-confirm="confirm"
+    :dlgbasic-spec-submit="submit"
     @close-dialog="onCloseDialog"
     @open-dialog="openDialog"
   >
@@ -28,6 +29,7 @@
             :default-props="tableListProps"
             @append-click="handleTableAppend"
             @edit-click="handleTableEdit"
+            @after-init-data="handleAfterInitData"
           />
         </div>
       </div>
@@ -44,7 +46,7 @@
 <script setup>
 import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import DlgBasic from '@/components/DlgBasic.vue';
 import FormItemsforDialog from '@/components/FormItemsforDialog.vue';
 import DataTableList from '@/components/DataTableList.vue';
@@ -63,6 +65,7 @@ const formPanelRef = computed(() => formItemsRef.value?.formPanelRef);
 
 const form = reactive({});
 const keyWord = ref('MainInternship');
+const processList = ref([]);
 
 const defaultProps = reactive({
   form: {},
@@ -70,7 +73,8 @@ const defaultProps = reactive({
   dlgTitle: '编辑实习项目',
   footButtons: {
     cancel: { show: true, name: '取 消', type: '' },
-    confirm: { show: true, name: '保 存', type: 'primary' }
+    confirm: { show: true, name: '暂 存', type: 'primary' },
+    submit: { show: true, name: '提 交', type: 'success' }
   },
   someFlags: {
     noFooter: false,
@@ -200,8 +204,13 @@ function verifyValid(showMessage = true) {
   }
 }
 
+// 暂存（isAudit 保持不变或设为 -1）
 async function confirm(option, type) {
   const userId = store.getters.userInfo?.id;
+  // 暂存时保持 isAudit = -1
+  if (form.isAudit === undefined || form.isAudit === null) {
+    form.isAudit = -1;
+  }
   const resInfo = await dlgAPI.commonSubmitDlg(
     formPanelRef.value,
     form,
@@ -216,6 +225,69 @@ async function confirm(option, type) {
     if (type === 'stop') {
       dlgBasicRef.value?.showDialog(false, form);
     }
+  }
+}
+
+// 提交（根据"实习项目创建"流程的审核要求决定 isAudit 值）
+async function submit() {
+  // 检查是否所有流程都已规定起止时间
+  if (processList.value.length === 0) {
+    ElMessage.warning('请至少添加一个流程');
+    return;
+  }
+
+  const invalidProcess = processList.value.find(
+    (p) => !p.startTime || !p.endTime
+  );
+  if (invalidProcess) {
+    ElMessage.warning(`流程"${invalidProcess.processTypeName || '未命名'}"未设置起止时间，请先完善流程信息`);
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      '提交后无法修改，是否确认提交？',
+      '提示',
+      {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+  } catch {
+    // 用户点击取消，不执行提交
+    return;
+  }
+
+  const userId = store.getters.userInfo?.id;
+
+  // 查找"实习项目创建"流程，根据审核要求决定 isAudit 值
+  const createProcess = processList.value.find(
+    (p) => p.processTypeName === '实习项目创建'
+  );
+  if (createProcess) {
+    if (createProcess.verifyTypeId >= 2) {
+      // 需要审核：isAudit = 0（提交未审核）
+      form.isAudit = 0;
+    } else {
+      // 无需审核：isAudit = 1（审核通过）
+      form.isAudit = 1;
+    }
+  }
+  // 没有"实习项目创建"流程时，不传递 isAudit
+  const resInfo = await dlgAPI.commonSubmitDlg(
+    formPanelRef.value,
+    form,
+    keyWord.value,
+    'edit',
+    false,
+    false,
+    userId
+  );
+  if (resInfo && resInfo.message === 'successful') {
+    ElMessage.success('提交成功');
+    emit('update-record', form);
+    dlgBasicRef.value?.showDialog(false, form);
   }
 }
 
@@ -239,6 +311,10 @@ function onCronChange(val, field) {
 }
 
 // DataTableList 的事件处理
+function handleAfterInitData(data) {
+  processList.value = data || [];
+}
+
 function handleTableAppend() {
   if (form.id != null && form.id !== 0) {
     dlgProcessSelect.value?.showDialog(true, {});

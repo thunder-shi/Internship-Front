@@ -83,6 +83,13 @@
               <div v-else-if="item.tableColumnName === 'cron'">
                 {{ formatCron(scope.row[item.tableColumnName]) }}
               </div>
+              <!-- 审核状态格式化 -->
+              <el-tag
+                v-else-if="item.tableColumnName === 'isAudit'"
+                :type="getAuditTagType(scope.row[item.tableColumnName])"
+              >
+                {{ formatAuditStatus(scope.row[item.tableColumnName]) }}
+              </el-tag>
               <!-- 列表自定义显示的内容 tableColumnName 必须以 customize- 开头 -->
               <slot
                 v-else-if="item.tableColumnName.startsWith('customize-')"
@@ -275,6 +282,28 @@ const formatCron = (cron) => {
 
   // 其他复杂情况返回原始值
   return cron;
+};
+
+// 审核状态映射: -1 保存未提交, 0 未审核, 1 审核通过, 2 审核退回
+const formatAuditStatus = (status) => {
+  const statusMap = {
+    '-1': '保存未提交',
+    '0': '未审核',
+    '1': '审核通过',
+    '2': '审核退回'
+  };
+  return statusMap[String(status)] || '--';
+};
+
+// 审核状态对应的 Tag 类型
+const getAuditTagType = (status) => {
+  const typeMap = {
+    '-1': 'info',
+    '0': 'warning',
+    '1': 'success',
+    '2': 'danger'
+  };
+  return typeMap[String(status)] || 'info';
 };
 
 const props = defineProps({

@@ -154,6 +154,7 @@ const openDialog = (row, formData) => {
       } else {
         formData.majorId = props.propsInfo.majorId;
       }
+      formData.themeColor = '#1890ff';
     }
   }, 200);
 };
