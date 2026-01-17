@@ -79,6 +79,10 @@
               <div v-if="item.tableColumnName.endsWith('Time')">
                 {{ filterDateTime(scope.row[item.tableColumnName]) }}
               </div>
+              <!-- 审核状态格式化 -->
+              <div v-else-if="item.tableColumnName === 'auditStatus' || item.tableColumnName === 'isAudit'">
+                {{ filterIsAudit(scope.row[item.tableColumnName]) }}
+              </div>
               <!-- cron 表达式格式化 -->
               <div v-else-if="item.tableColumnName === 'cron'">
                 {{ formatCron(scope.row[item.tableColumnName]) }}
@@ -206,6 +210,22 @@ const filterDateTime = (val) => {
     return '--';
   } else {
     return moment(val).format('YYYY-MM-DD HH:mm');
+  }
+};
+
+// 审核状态过滤器
+const filterIsAudit = (val) => {
+  switch (val) {
+    case CONSTANT.AUDIT_STATUS.SUBMIT:
+      return CONSTANT.AUDIT_STATUS.SUBMITNAME;
+    case CONSTANT.AUDIT_STATUS.PASS:
+      return CONSTANT.AUDIT_STATUS.PASSNAME;
+    case CONSTANT.AUDIT_STATUS.NOTPASS:
+      return CONSTANT.AUDIT_STATUS.NOTPASSNAME;
+    case CONSTANT.AUDIT_STATUS.BACK:
+      return CONSTANT.AUDIT_STATUS.BACKNAME;
+    default:
+      return CONSTANT.AUDIT_STATUS.SAVENAME;
   }
 };
 
