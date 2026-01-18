@@ -3,6 +3,7 @@
     ref="dlgBasicRef"
     v-model:default-props="defaultProps"
     :dlgbasic-confirm="confirm"
+    :dlgbasic-spec-submit="submit"
     @close-dialog="onCloseDialog"
     @open-dialog="openDialog"
   >
@@ -28,6 +29,7 @@
             :default-props="tableListProps"
             @append-click="handleTableAppend"
             @edit-click="handleTableEdit"
+            @after-init-data="handleAfterInitData"
           />
         </div>
       </div>
@@ -44,13 +46,18 @@
 <script setup>
 import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import DlgBasic from '@/components/DlgBasic.vue';
 import FormItemsforDialog from '@/components/FormItemsforDialog.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import DlgProcessSelect from '@/views/dialogs/DlgProcessSelect.vue';
 import dlgAPI from '@/utils/forDialog';
 import listAPI from '@/api/list';
+
+const props = defineProps({
+  userDepartmentId: { type: [Number, String], default: null },
+  isSuperAdmin: { type: Boolean, default: false }
+});
 
 const emit = defineEmits(['update-record', 'close-dialog']);
 
@@ -63,6 +70,7 @@ const formPanelRef = computed(() => formItemsRef.value?.formPanelRef);
 
 const form = reactive({});
 const keyWord = ref('MainInternship');
+const processList = ref([]);
 
 const defaultProps = reactive({
   form: {},
@@ -70,7 +78,8 @@ const defaultProps = reactive({
   dlgTitle: '编辑实习项目',
   footButtons: {
     cancel: { show: true, name: '取 消', type: '' },
-    confirm: { show: true, name: '保 存', type: 'primary' }
+    confirm: { show: true, name: '暂 存', type: 'primary' },
+    submit: { show: true, name: '提 交', type: 'success' }
   },
   someFlags: {
     noFooter: false,
@@ -82,9 +91,20 @@ const defaultProps = reactive({
   }
 });
 
-const formItems = reactive([
+// 计算实习模板下拉框的查询条件（非超级管理员只能选择自己院系的模板）
+const templateSearchKey = computed(() => {
+  if (props.isSuperAdmin) {
+    return {};
+  }
+  if (props.userDepartmentId) {
+    return { universityId: props.userDepartmentId };
+  }
+  return {};
+});
+
+const formItems = computed(() => [
   { name: '实习名称', field: 'name', type: 'input' },
-  { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'ViewBaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' } },
+  { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'ViewBaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' }, searchKeys: templateSearchKey.value },
   { name: '报告周期', field: 'cron', type: 'cron' },
   { name: '备注', field: 'remarks', type: 'textarea' }
 ]);
@@ -119,8 +139,8 @@ const tableListProps = reactive({
     allTableColumns: [
       { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName', sortable: false },
       { id: 2, showName: '审核要求', theOrder: 2, tableColumnName: 'verifyTypeName', sortable: false },
-      { id: 3, showName: '流程开始时间', theOrder: 3, tableColumnName: 'startTime', sortable: true },
-      { id: 4, showName: '流程结束时间', theOrder: 4, tableColumnName: 'endTime', sortable: true }
+      { id: 3, showName: '流程开始时间', theOrder: 3, tableColumnName: 'startTime', sortable: false },
+      { id: 4, showName: '流程结束时间', theOrder: 4, tableColumnName: 'endTime', sortable: false }
     ]
   }
 });
@@ -200,8 +220,13 @@ function verifyValid(showMessage = true) {
   }
 }
 
+// 暂存（isAudit 保持不变或设为 -1）
 async function confirm(option, type) {
   const userId = store.getters.userInfo?.id;
+  // 暂存时保持 isAudit = -1
+  if (form.isAudit === undefined || form.isAudit === null) {
+    form.isAudit = -1;
+  }
   const resInfo = await dlgAPI.commonSubmitDlg(
     formPanelRef.value,
     form,
@@ -216,6 +241,72 @@ async function confirm(option, type) {
     if (type === 'stop') {
       dlgBasicRef.value?.showDialog(false, form);
     }
+  }
+}
+
+// 提交（根据"实习计划制定"流程的审核要求决定 isAudit 值）
+async function submit() {
+  // 检查是否所有流程都已规定起止时间
+  if (processList.value.length === 0) {
+    ElMessage.warning('请至少添加一个流程');
+    return;
+  }
+
+  // 检查是否包含"实习计划制定"流程
+  const createProcess = processList.value.find(
+    (p) => p.processTypeName === '实习计划制定'
+  );
+  if (!createProcess) {
+    ElMessage.warning('流程列表中必须包含"实习计划制定"流程');
+    return;
+  }
+
+  const invalidProcess = processList.value.find(
+    (p) => !p.startTime || !p.endTime
+  );
+  if (invalidProcess) {
+    ElMessage.warning(`流程"${invalidProcess.processTypeName || '未命名'}"未设置起止时间，请先完善流程信息`);
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      '提交后无法修改，是否确认提交？',
+      '提示',
+      {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+  } catch {
+    // 用户点击取消，不执行提交
+    return;
+  }
+
+  const userId = store.getters.userInfo?.id;
+
+  // 根据"实习计划制定"流程的审核要求决定 isAudit 值
+  if (createProcess.verifyTypeId >= 2) {
+    // 需要审核：isAudit = 0（提交未审核）
+    form.isAudit = 0;
+  } else {
+    // 无需审核：isAudit = 1（审核通过）
+    form.isAudit = 1;
+  }
+  const resInfo = await dlgAPI.commonSubmitDlg(
+    formPanelRef.value,
+    form,
+    keyWord.value,
+    'edit',
+    false,
+    false,
+    userId
+  );
+  if (resInfo && resInfo.message === 'successful') {
+    ElMessage.success('提交成功');
+    emit('update-record', form);
+    dlgBasicRef.value?.showDialog(false, form);
   }
 }
 
@@ -239,6 +330,10 @@ function onCronChange(val, field) {
 }
 
 // DataTableList 的事件处理
+function handleAfterInitData(data) {
+  processList.value = data || [];
+}
+
 function handleTableAppend() {
   if (form.id != null && form.id !== 0) {
     dlgProcessSelect.value?.showDialog(true, {});

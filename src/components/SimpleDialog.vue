@@ -457,5 +457,6 @@ async function downloadLinkClick(id, fileName) {
 defineExpose({
   showDialog,
   _confirm,
+  form,
 });
 </script>

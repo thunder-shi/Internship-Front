@@ -3,8 +3,10 @@
     <DataTableList
       ref="dataTableList"
       :default-props="defaultProps.defaultDTLProps"
+      :button-condition="buttonCondition"
       @append-click="appendClick"
       @edit-click="editClick"
+      @view-click="viewClick"
       @update-column="updateColumn"
       @delete-click="deleteClick"
       @export-click="exportClick"
@@ -17,6 +19,10 @@
       <!-- <template #searchPanel>
       <slot name="searchPanel" />
     </template> -->
+      <!-- 传递自定义列的插槽 -->
+      <template v-for="(_, slotName) in $slots" :key="slotName" #[slotName]="slotProps">
+        <slot :name="slotName" v-bind="slotProps" />
+      </template>
     </DataTableList>
     <slot name="dlg">
       <!-- 简单窗口 -->
@@ -24,6 +30,7 @@
         ref="simpleDialog"
         :default-props="defaultProps.defaultSDProps"
         :simpledialog-confirm="confirm"
+        :simpledialog-submit="submit"
         @update-record="initDataList"
         @submit-more="submitMore"
         @simple-select-change="SimpleSelectChange"
@@ -80,8 +87,16 @@ const props = defineProps({
       };
     },
   },
+  // 按钮条件配置：控制各按钮在不同行数据条件下的显示/隐藏
+  buttonCondition: {
+    type: Object,
+    default: () => ({})
+  },
   baselistSpecConfirm: { type: Function, default: null },
   baselistConfirm: { type: Function, default: null },
+  baselistSubmit: { type: Function, default: null },
+  checkRowEdit: { type: Function, default: null },
+  checkRowDelete: { type: Function, default: null },
   searchPlaceholder: { type: String, default: '请输入名称' },
 });
 
@@ -90,6 +105,7 @@ const emit = defineEmits([
   'after-init-data',
   'append-click',
   'edit-click',
+  'view-click',
   'delete-click',
   'export-click',
   'more1-click',
@@ -158,6 +174,12 @@ const appendClick = () => {
 };
 
 const editClick = async (row) => {
+  // 检查是否可编辑
+  if (props.checkRowEdit && typeof props.checkRowEdit === 'function') {
+    if (!props.checkRowEdit(row)) {
+      return;
+    }
+  }
   if (hasListener('edit-click')) {
     // 有监听器:只触发事件,交给父组件处理
     emit('edit-click', row);
@@ -167,11 +189,28 @@ const editClick = async (row) => {
   }
 };
 
+// 查看按钮点击
+const viewClick = async (row) => {
+  if (hasListener('view-click')) {
+    // 有监听器:只触发事件,交给父组件处理
+    emit('view-click', row);
+  } else {
+    // 无监听器:执行默认逻辑（以只读方式打开编辑窗口）
+    openDlg('view', row);
+  }
+};
+
 const treeSelectChange = async (val, field, form, node) => {
   emit('tree-select-change', val, field, form, node);
 };
 
 const deleteClick = async (row) => {
+  // 检查是否可删除
+  if (props.checkRowDelete && typeof props.checkRowDelete === 'function') {
+    if (!props.checkRowDelete(row)) {
+      return;
+    }
+  }
   if (hasListener('delete-click')) {
     // 有监听器:只触发事件,交给父组件处理
     emit('delete-click', row);
@@ -227,6 +266,16 @@ const confirm = async (option, type) => {
   }
 };
 
+// 提交按钮处理
+const submit = async () => {
+  if (props.baselistSubmit && typeof props.baselistSubmit === 'function') {
+    await props.baselistSubmit(form);
+  } else {
+    // 默认提交逻辑
+    await simpleDialog.value?._confirm('append', 'stop', form);
+  }
+};
+
 const submitMore = (row) => {
   emit('submit-more', row);
 };
@@ -266,6 +315,10 @@ const openDlg = (option, row) => {
 
 const SimpleSelectChange = (val, field, form, options) => {
   emit('simple-select-change', val, field, form, options);
+};
+
+const confirmClick = (formData) => {
+  emit('confirm-click', formData);
 };
 // #endregion
 
