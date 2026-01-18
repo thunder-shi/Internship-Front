@@ -287,7 +287,9 @@ async function submit() {
   const userId = store.getters.userInfo?.id;
 
   // 根据"实习计划制定"流程的审核要求决定 isAudit 值
-  if (createProcess.verifyTypeId >= 2) {
+  // verifyTypeId: 1-一级审核, 2-二级审核, 3-三级审核, ...
+  // verifyFirstRoleId 有值表示需要审核
+  if (createProcess.verifyFirstRoleId && createProcess.verifyFirstRoleId > 0) {
     // 需要审核：isAudit = 0（提交未审核）
     form.isAudit = 0;
   } else {

@@ -56,13 +56,13 @@
               </div>
 
               <!-- 审核理由 -->
-              <div v-if="record.remarks" class="info-row remarks">
+              <div v-if="record.reason" class="info-row remarks">
                 <span class="label">审核意见:</span>
-                <span class="value">{{ record.remarks }}</span>
+                <span class="value">{{ record.reason }}</span>
               </div>
 
-              <!-- 审核时间 -->
-              <div v-if="record.isAudit === 1 || record.isAudit === 2" class="info-row">
+              <!-- 审核时间（通过、不通过、退回都显示） -->
+              <div v-if="record.isAudit === 1 || record.isAudit === 2 || record.isAudit === 3" class="info-row">
                 <span class="label">审核时间:</span>
                 <span class="value">{{ formatTime(record.updateTime) }}</span>
               </div>
@@ -127,9 +127,11 @@ const currentStatusText = computed(() => {
     return `${roleName}审核中`;
   } else if (lastRecord.isAudit === 1) {
     // 检查是否还有下一级审核
+    // stepNum: 当前审核记录数（已完成的级数）
+    // verifyTypeId: 需要几级审核（如2表示二级审核）
     const stepNum = verifyRecords.value.length;
     const verifyTypeId = props.processInfo?.verifyTypeId || 1;
-    if (stepNum >= verifyTypeId - 1) {
+    if (stepNum >= verifyTypeId) {
       return '审核通过';
     } else {
       return `${getStepRoleName(stepNum + 1)}审核中`;
@@ -153,7 +155,7 @@ const currentStatusType = computed(() => {
   } else if (lastRecord.isAudit === 1) {
     const stepNum = verifyRecords.value.length;
     const verifyTypeId = props.processInfo?.verifyTypeId || 1;
-    if (stepNum >= verifyTypeId - 1) {
+    if (stepNum >= verifyTypeId) {
       return 'success';
     }
     return 'warning';
@@ -217,6 +219,39 @@ function formatTime(time) {
   return moment(time).format('YYYY-MM-DD HH:mm:ss');
 }
 
+// 解析 verifyUserId 字符串为ID数组
+function parseVerifyUserIds(verifyUserIdStr) {
+  if (!verifyUserIdStr || verifyUserIdStr === '-1') {
+    return [];
+  }
+  return verifyUserIdStr.split('|').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+}
+
+// 批量获取用户名称
+async function fetchUserNames(userIds) {
+  if (!userIds || userIds.length === 0) {
+    return {};
+  }
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'BaseUser',
+      pageInfo: { page: 1, size: 100 },
+      searchKey: { id: userIds },
+      reg: { id: '()' }  // IN 查询
+    });
+    if (res && res.data && res.data.content) {
+      const userMap = {};
+      res.data.content.forEach(user => {
+        userMap[user.id] = user.name;
+      });
+      return userMap;
+    }
+  } catch (error) {
+    console.error('获取用户名称失败:', error);
+  }
+  return {};
+}
+
 // 加载审核进度数据
 async function loadVerifyProgress() {
   if (!props.mainInternshipId) {
@@ -226,16 +261,38 @@ async function loadVerifyProgress() {
 
   loading.value = true;
   try {
-    // 使用传统的 getSomeRecords 接口查询审核记录
+    // 使用 ViewInternshipVerifyProcess 视图查询审核记录
     const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewMainVerifyProcess',
+      keyWords: 'ViewInternshipVerifyProcess',
       pageInfo: { page: 1, size: 100 },
-      searchKey: { mainInternshipId: props.mainInternshipId },
+      searchKey: { internshipId: props.mainInternshipId },
       sort: { properties: 'id', direction: 'ASC' }
     });
     if (res && res.data && res.data.content) {
-      // 按 id 升序排列（创建顺序）
-      verifyRecords.value = res.data.content.sort((a, b) => a.id - b.id);
+      const records = res.data.content.sort((a, b) => a.id - b.id);
+
+      // 收集所有待审核人的ID（isAudit为-1或0时，verifyUserId是多人ID）
+      const pendingUserIds = new Set();
+      records.forEach(record => {
+        if (record.isAudit === 0 || record.isAudit === -1) {
+          const ids = parseVerifyUserIds(record.verifyUserId);
+          ids.forEach(id => pendingUserIds.add(id));
+        }
+      });
+
+      // 批量查询用户名称
+      const userMap = await fetchUserNames(Array.from(pendingUserIds));
+
+      // 填充 verifyUserNames 字段
+      records.forEach(record => {
+        if (record.isAudit === 0 || record.isAudit === -1) {
+          const ids = parseVerifyUserIds(record.verifyUserId);
+          const names = ids.map(id => userMap[id] || `用户${id}`);
+          record.verifyUserNames = names.join('、');
+        }
+      });
+
+      verifyRecords.value = records;
     } else {
       verifyRecords.value = [];
     }

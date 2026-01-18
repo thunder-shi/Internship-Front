@@ -16,15 +16,6 @@
         <el-tag :type="getAuditTagType(row.isAudit)" size="small">
           {{ getAuditStatusText(row) }}
         </el-tag>
-        <el-button
-          v-if="row.isAudit !== -1"
-          type="primary"
-          link
-          size="small"
-          @click="showVerifyProgress(row)"
-        >
-          查看进度
-        </el-button>
       </template>
     </BaseList>
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
@@ -157,12 +148,11 @@ const showVerifyProgress = (row) => {
   verifyProgressVisible.value = true;
 };
 
-// 查看按钮点击事件（查看已提交的数据）
+// 查看按钮点击事件（小眼睛按钮，打开审核进度弹窗）
 const viewClick = (rows) => {
   const row = Array.isArray(rows) ? rows[0] : rows;
   if (row) {
-    // 打开编辑窗口查看详情（由于是已提交状态，窗口会以只读方式显示）
-    dlgMainInternship.value?.showDialog(true, row);
+    showVerifyProgress(row);
   }
 };
 
