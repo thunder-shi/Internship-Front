@@ -286,10 +286,15 @@ async function submit() {
 
   const userId = store.getters.userInfo?.id;
 
+  // 默认占位角色ID（表示该级审核未配置）
+  const DEFAULT_PLACEHOLDER_ROLE_ID = 17;
+
   // 根据"实习计划制定"流程的审核要求决定 isAudit 值
-  // verifyTypeId: 1-一级审核, 2-二级审核, 3-三级审核, ...
-  // verifyFirstRoleId 有值表示需要审核
-  if (createProcess.verifyFirstRoleId && createProcess.verifyFirstRoleId > 0) {
+  // verifyFirstRoleId 有效（非空、非0、非默认占位角色17）表示需要审核
+  const verifyFirstRoleId = createProcess.verifyFirstRoleId;
+  const needsAudit = verifyFirstRoleId && verifyFirstRoleId > 0 && verifyFirstRoleId !== DEFAULT_PLACEHOLDER_ROLE_ID;
+
+  if (needsAudit) {
     // 需要审核：isAudit = 0（提交未审核）
     form.isAudit = 0;
   } else {

@@ -9,6 +9,9 @@
     <div v-loading="loading" class="verify-progress-container">
       <!-- 当前状态概览 -->
       <div class="status-overview">
+        <div class="status-info">
+          <span class="creator-label">创建者: {{ internshipCreatorName }}</span>
+        </div>
         <el-tag :type="currentStatusType" size="large">
           {{ currentStatusText }}
         </el-tag>
@@ -24,7 +27,7 @@
           :timestamp="formatTime(record.createTime)"
           placement="top"
         >
-          <el-card shadow="hover" class="timeline-card">
+          <el-card shadow="never" class="timeline-card">
             <template #header>
               <div class="card-header">
                 <span class="step-title">
@@ -37,35 +40,31 @@
             </template>
 
             <div class="card-content">
-              <!-- 创建人信息 -->
-              <div v-if="record.createUserName" class="info-row">
-                <span class="label">提交人:</span>
-                <span class="value">{{ record.createUserName }}</span>
-              </div>
-
-              <!-- 待审核状态 -->
+              <!-- 待审核状态：不显示待审核人信息 -->
               <div v-if="record.isAudit === 0 || record.isAudit === -1" class="info-row">
-                <span class="label">待审核人:</span>
-                <span class="value">{{ record.verifyUserNames || '未指定' }}</span>
+                <span class="label">状态:</span>
+                <span class="value pending-text">等待审核中...</span>
               </div>
 
-              <!-- 已审核状态 -->
-              <div v-else class="info-row">
-                <span class="label">审核人:</span>
-                <span class="value">{{ record.verifyUserName || '系统自动' }}</span>
-              </div>
+              <!-- 已审核状态：显示审核人和审核信息 -->
+              <template v-else>
+                <div class="info-row">
+                  <span class="label">审核人:</span>
+                  <span class="value">{{ record.verifyUserName || '系统自动' }}</span>
+                </div>
 
-              <!-- 审核理由 -->
-              <div v-if="record.reason" class="info-row remarks">
-                <span class="label">审核意见:</span>
-                <span class="value">{{ record.reason }}</span>
-              </div>
+                <!-- 审核理由 -->
+                <div v-if="record.reason" class="info-row">
+                  <span class="label">审核意见:</span>
+                  <span class="value reason-text">{{ record.reason }}</span>
+                </div>
 
-              <!-- 审核时间（通过、不通过、退回都显示） -->
-              <div v-if="record.isAudit === 1 || record.isAudit === 2 || record.isAudit === 3" class="info-row">
-                <span class="label">审核时间:</span>
-                <span class="value">{{ formatTime(record.updateTime) }}</span>
-              </div>
+                <!-- 审核时间 -->
+                <div class="info-row">
+                  <span class="label">审核时间:</span>
+                  <span class="value">{{ formatTime(record.updateTime) }}</span>
+                </div>
+              </template>
             </div>
           </el-card>
         </el-timeline-item>
@@ -114,28 +113,66 @@ const dialogVisible = computed({
 const loading = ref(false);
 const verifyRecords = ref([]);
 
-// 当前状态文本
+// 实习项目创建者名称（从第一条记录获取）
+const internshipCreatorName = computed(() => {
+  if (verifyRecords.value.length > 0) {
+    return verifyRecords.value[0].creatorName || '--';
+  }
+  return '--';
+});
+
+// 统计已通过的审核数
+const passedCount = computed(() => {
+  return verifyRecords.value.filter(r => r.isAudit === 1).length;
+});
+
+// 获取审核级数（从记录中获取，优先级高于 props）
+const actualVerifyTypeId = computed(() => {
+  // 优先从审核记录中获取
+  if (verifyRecords.value.length > 0 && verifyRecords.value[0].verifyTypeId) {
+    return verifyRecords.value[0].verifyTypeId;
+  }
+  // 其次从 props 获取
+  if (props.processInfo?.verifyTypeId) {
+    return props.processInfo.verifyTypeId;
+  }
+  // 默认1级审核
+  return 1;
+});
+
+// 当前状态文本（直接使用 processInfo 中传入的 isAudit，与 datalist 保持一致）
 // isAudit: -1 保存未提交, 0 提交待审核, 1 审核通过, 2 审核不通过, 3 审核退回
 const currentStatusText = computed(() => {
+  // 优先使用 props 传入的 isAudit（来自 datalist 的 ViewMainInternship）
+  const auditStatus = props.processInfo?.isAudit;
+  if (auditStatus !== undefined && auditStatus !== null) {
+    const statusMap = {
+      '-1': '保存未提交',
+      '0': '待审核',
+      '1': '审核通过',
+      '2': '审核不通过',
+      '3': '审核退回'
+    };
+    return statusMap[String(auditStatus)] || '未知状态';
+  }
+
+  // 兜底逻辑：如果没有传入 isAudit，则使用审核记录计算
   if (verifyRecords.value.length === 0) {
     return '暂无审核记录';
   }
+
+  if (passedCount.value >= actualVerifyTypeId.value) {
+    return '审核通过';
+  }
+
   const lastRecord = verifyRecords.value[verifyRecords.value.length - 1];
   if (lastRecord.isAudit === 0 || lastRecord.isAudit === -1) {
-    const stepNum = verifyRecords.value.length;
-    const roleName = getStepRoleName(stepNum);
+    const currentStep = passedCount.value + 1;
+    const roleName = getStepRoleName(currentStep);
     return `${roleName}审核中`;
   } else if (lastRecord.isAudit === 1) {
-    // 检查是否还有下一级审核
-    // stepNum: 当前审核记录数（已完成的级数）
-    // verifyTypeId: 需要几级审核（如2表示二级审核）
-    const stepNum = verifyRecords.value.length;
-    const verifyTypeId = props.processInfo?.verifyTypeId || 1;
-    if (stepNum >= verifyTypeId) {
-      return '审核通过';
-    } else {
-      return `${getStepRoleName(stepNum + 1)}审核中`;
-    }
+    const nextStep = passedCount.value + 1;
+    return `${getStepRoleName(nextStep)}审核中`;
   } else if (lastRecord.isAudit === 2) {
     return '审核不通过';
   } else if (lastRecord.isAudit === 3) {
@@ -144,39 +181,70 @@ const currentStatusText = computed(() => {
   return '未知状态';
 });
 
-// 当前状态类型
+// 当前状态类型（直接使用 processInfo 中传入的 isAudit，与 datalist 保持一致）
 const currentStatusType = computed(() => {
+  // 优先使用 props 传入的 isAudit（来自 datalist 的 ViewMainInternship）
+  const auditStatus = props.processInfo?.isAudit;
+  if (auditStatus !== undefined && auditStatus !== null) {
+    const typeMap = {
+      '-1': 'info',
+      '0': 'warning',
+      '1': 'success',
+      '2': 'danger',
+      '3': ''  // 默认样式
+    };
+    return typeMap[String(auditStatus)] || 'info';
+  }
+
+  // 兜底逻辑：如果没有传入 isAudit，则使用审核记录计算
   if (verifyRecords.value.length === 0) {
     return 'info';
   }
+
+  if (passedCount.value >= actualVerifyTypeId.value) {
+    return 'success';
+  }
+
   const lastRecord = verifyRecords.value[verifyRecords.value.length - 1];
   if (lastRecord.isAudit === 0 || lastRecord.isAudit === -1) {
     return 'warning';
   } else if (lastRecord.isAudit === 1) {
-    const stepNum = verifyRecords.value.length;
-    const verifyTypeId = props.processInfo?.verifyTypeId || 1;
-    if (stepNum >= verifyTypeId) {
-      return 'success';
-    }
     return 'warning';
   } else if (lastRecord.isAudit === 2) {
     return 'danger';
   } else if (lastRecord.isAudit === 3) {
-    return '';  // 默认样式
+    return '';
   }
   return 'info';
 });
 
 // 获取步骤对应的角色名称
 function getStepRoleName(stepNumber) {
-  const roleMap = {
+  // 优先从审核记录中获取角色名称
+  const firstRecord = verifyRecords.value[0];
+  const recordRoleMap = firstRecord ? {
+    1: firstRecord.verifyFirstRoleName,
+    2: firstRecord.verifySecondRoleName,
+    3: firstRecord.verifyThirdRoleName,
+    4: firstRecord.verifyFourthRoleName,
+    5: firstRecord.verifyFifthRoleName
+  } : {};
+
+  // 其次从 props 获取
+  const propsRoleMap = {
     1: props.processInfo?.verifyFirstRole,
     2: props.processInfo?.verifySecondRole,
     3: props.processInfo?.verifyThirdRole,
     4: props.processInfo?.verifyFourthRole,
     5: props.processInfo?.verifyFifthRole
   };
-  return roleMap[stepNumber] || `第${stepNumber}级审核`;
+
+  const roleName = recordRoleMap[stepNumber] || propsRoleMap[stepNumber];
+  // 过滤掉无效的角色名称（空、'--' 等默认占位值）
+  if (!roleName || roleName === '--' || roleName.trim() === '') {
+    return `第${stepNumber}级审核`;
+  }
+  return roleName;
 }
 
 // 获取时间线节点类型
@@ -213,43 +281,11 @@ function getStatusText(isAudit) {
   return textMap[String(isAudit)] || '未知';
 }
 
-// 格式化时间
+// 格式化时间（使用北京时间 UTC+8）
 function formatTime(time) {
   if (!time) return '--';
-  return moment(time).format('YYYY-MM-DD HH:mm:ss');
-}
-
-// 解析 verifyUserId 字符串为ID数组
-function parseVerifyUserIds(verifyUserIdStr) {
-  if (!verifyUserIdStr || verifyUserIdStr === '-1') {
-    return [];
-  }
-  return verifyUserIdStr.split('|').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-}
-
-// 批量获取用户名称
-async function fetchUserNames(userIds) {
-  if (!userIds || userIds.length === 0) {
-    return {};
-  }
-  try {
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'BaseUser',
-      pageInfo: { page: 1, size: 100 },
-      searchKey: { id: userIds },
-      reg: { id: '()' }  // IN 查询
-    });
-    if (res && res.data && res.data.content) {
-      const userMap = {};
-      res.data.content.forEach(user => {
-        userMap[user.id] = user.name;
-      });
-      return userMap;
-    }
-  } catch (error) {
-    console.error('获取用户名称失败:', error);
-  }
-  return {};
+  // 如果后端返回的是 UTC 时间，转换为北京时间（UTC+8）
+  return moment.utc(time).utcOffset(8).format('YYYY-MM-DD HH:mm:ss');
 }
 
 // 加载审核进度数据
@@ -269,28 +305,19 @@ async function loadVerifyProgress() {
       sort: { properties: 'id', direction: 'ASC' }
     });
     if (res && res.data && res.data.content) {
-      const records = res.data.content.sort((a, b) => a.id - b.id);
+      // 按 id 升序排列
+      let records = res.data.content.sort((a, b) => a.id - b.id);
 
-      // 收集所有待审核人的ID（isAudit为-1或0时，verifyUserId是多人ID）
-      const pendingUserIds = new Set();
-      records.forEach(record => {
-        if (record.isAudit === 0 || record.isAudit === -1) {
-          const ids = parseVerifyUserIds(record.verifyUserId);
-          ids.forEach(id => pendingUserIds.add(id));
-        }
-      });
+      // 获取审核级数
+      const verifyTypeId = records.length > 0 ? (records[0].verifyTypeId || 1) : 1;
 
-      // 批量查询用户名称
-      const userMap = await fetchUserNames(Array.from(pendingUserIds));
+      // 统计已通过的审核数
+      const passedNum = records.filter(r => r.isAudit === 1).length;
 
-      // 填充 verifyUserNames 字段
-      records.forEach(record => {
-        if (record.isAudit === 0 || record.isAudit === -1) {
-          const ids = parseVerifyUserIds(record.verifyUserId);
-          const names = ids.map(id => userMap[id] || `用户${id}`);
-          record.verifyUserNames = names.join('、');
-        }
-      });
+      // 如果已通过数 >= 审核级数，过滤掉多余的待审核记录（历史错误数据）
+      if (passedNum >= verifyTypeId) {
+        records = records.filter(r => r.isAudit === 1).slice(0, verifyTypeId);
+      }
 
       verifyRecords.value = records;
     } else {
@@ -330,16 +357,21 @@ defineExpose({
 <style lang="scss" scoped>
 .verify-progress-container {
   min-height: 200px;
-  max-height: 500px;
-  overflow-y: auto;
 }
 
 .status-overview {
   text-align: center;
   margin-bottom: 20px;
-  padding: 10px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
+  padding: 12px 0;
+
+  .status-info {
+    margin-bottom: 10px;
+
+    .creator-label {
+      color: #606266;
+      font-size: 14px;
+    }
+  }
 }
 
 .verify-timeline {
@@ -377,14 +409,16 @@ defineExpose({
       .value {
         color: #303133;
         flex: 1;
-      }
 
-      &.remarks {
-        .value {
+        &.pending-text {
+          color: #e6a23c;
+          font-style: italic;
+        }
+
+        &.reason-text {
           color: #606266;
-          background-color: #f5f7fa;
-          padding: 4px 8px;
-          border-radius: 4px;
+          border-left: 3px solid #409eff;
+          padding-left: 8px;
           white-space: pre-wrap;
         }
       }

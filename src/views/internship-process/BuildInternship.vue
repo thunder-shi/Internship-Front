@@ -138,12 +138,13 @@ const showVerifyProgress = (row) => {
   // 需要根据实际的数据结构调整
   currentVerifyId.value = row.id;
   currentProcessInfo.value = {
+    isAudit: row.isAudit,  // 直接使用 datalist 中的审核状态
     verifyTypeId: row.verifyTypeId,
-    verifyFirstRole: row.verifyFirstRole || '第一级审核',
-    verifySecondRole: row.verifySecondRole || '第二级审核',
-    verifyThirdRole: row.verifyThirdRole || '第三级审核',
-    verifyFourthRole: row.verifyFourthRole || '第四级审核',
-    verifyFifthRole: row.verifyFifthRole || '第五级审核'
+    verifyFirstRole: row.verifyFirstRole,
+    verifySecondRole: row.verifySecondRole,
+    verifyThirdRole: row.verifyThirdRole,
+    verifyFourthRole: row.verifyFourthRole,
+    verifyFifthRole: row.verifyFifthRole
   };
   verifyProgressVisible.value = true;
 };

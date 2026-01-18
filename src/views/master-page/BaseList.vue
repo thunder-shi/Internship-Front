@@ -4,6 +4,7 @@
       ref="dataTableList"
       :default-props="defaultProps.defaultDTLProps"
       :button-condition="buttonCondition"
+      :client-filter-fn="clientFilterFn"
       @append-click="appendClick"
       @edit-click="editClick"
       @view-click="viewClick"
@@ -98,6 +99,8 @@ const props = defineProps({
   checkRowEdit: { type: Function, default: null },
   checkRowDelete: { type: Function, default: null },
   searchPlaceholder: { type: String, default: '请输入名称' },
+  // 客户端过滤函数：在数据加载后进行前端过滤
+  clientFilterFn: { type: Function, default: null },
 });
 
 const emit = defineEmits([

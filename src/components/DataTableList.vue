@@ -79,21 +79,18 @@
               <div v-if="item.tableColumnName.endsWith('Time')">
                 {{ filterDateTime(scope.row[item.tableColumnName]) }}
               </div>
-              <!-- 审核状态格式化 -->
-              <div v-else-if="item.tableColumnName === 'auditStatus' || item.tableColumnName === 'isAudit'">
-                {{ filterIsAudit(scope.row[item.tableColumnName]) }}
-              </div>
+              <!-- 审核状态标签显示 -->
+              <el-tag
+                v-else-if="item.tableColumnName === 'isAudit' || item.tableColumnName === 'auditStatus'"
+                :type="getAuditTagType(scope.row[item.tableColumnName])"
+                size="small"
+              >
+                {{ formatAuditStatus(scope.row[item.tableColumnName]) }}
+              </el-tag>
               <!-- cron 表达式格式化 -->
               <div v-else-if="item.tableColumnName === 'cron'">
                 {{ formatCron(scope.row[item.tableColumnName]) }}
               </div>
-              <!-- 审核状态格式化 -->
-              <el-tag
-                v-else-if="item.tableColumnName === 'isAudit'"
-                :type="getAuditTagType(scope.row[item.tableColumnName])"
-              >
-                {{ formatAuditStatus(scope.row[item.tableColumnName]) }}
-              </el-tag>
               <!-- 列表自定义显示的内容 tableColumnName 必须以 customize- 开头 -->
               <slot
                 v-else-if="item.tableColumnName.startsWith('customize-')"
@@ -378,6 +375,13 @@ const props = defineProps({
   buttonCondition: {
     type: Object,
     default: () => ({})
+  },
+  // 客户端过滤函数：在数据加载后进行前端过滤
+  // 格式: (dataList) => filteredDataList
+  // 用于无法通过后端查询精确过滤的场景（如 verifyUserId 的精确匹配）
+  clientFilterFn: {
+    type: Function,
+    default: null
   }
 });
 
@@ -788,9 +792,15 @@ const _initDataList = async () => {
         return 0;
       });
     }
+
+    // 应用客户端过滤函数（如果有）
+    if (props.clientFilterFn && typeof props.clientFilterFn === 'function') {
+      sortedContent = props.clientFilterFn(sortedContent);
+    }
+
     dataList.value = sortedContent;
     totalSize.value =
-      filteredContent.length > 0 ? resp.data.totalElements || filteredContent.length : 0;
+      sortedContent.length > 0 ? sortedContent.length : 0;
     emit('after-init-data', dataList.value);
     emit('total-size', totalSize.value);
   } catch (error) {

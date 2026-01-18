@@ -4,8 +4,8 @@
       :default-props="defaultProps"
       ref="baseList"
       :baselist-confirm="handleConfirm"
+      :client-filter-fn="clientFilterFn"
       @audit-click="handleAuditClick"
-      @after-init-data="handleAfterInitData"
     />
     <!-- 审核对话框 -->
     <DlgInternshipVerify
@@ -54,7 +54,7 @@ const getInitSearchWords = () => {
   const andor = {};
   
   // 注意：verifyUserId 字段不在这里查询，因为 LIKE 查询会有误匹配问题（如 ID=3 会匹配 "|33|"）
-  // verifyUserId 的精确过滤将在 handleAfterInitData 中进行
+  // verifyUserId 的精确过滤将在 clientFilterFn 中进行
   
   // 获取当前时间字符串（格式：YYYY-MM-DD HH:mm:ss）
   const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
@@ -78,28 +78,21 @@ const getInitSearchWords = () => {
   };
 };
 
-// 处理数据初始化后的精确过滤
-const handleAfterInitData = (dataList) => {
+// 客户端过滤函数：精确过滤 verifyUserId 包含当前用户ID 的记录
+const clientFilterFn = (dataList) => {
   const userInfo = store.getters.userInfo;
   const userId = userInfo?.id;
-  
+
   if (!userId || !dataList || !Array.isArray(dataList)) {
     return dataList;
   }
-  
+
   // 精确过滤：只保留 verifyUserId 中精确包含当前用户ID 的记录
   // 这样可以避免误匹配（如 ID=3 不会匹配 "|33|"）
-  const filteredList = dataList.filter(item => {
+  return dataList.filter(item => {
     if (!item || !item.verifyUserId) return false;
     return isUserIdInVerifyUserId(item.verifyUserId, userId);
   });
-  
-  // 更新 BaseList 的数据（如果有办法更新的话）
-  // 注意：这里返回的数据可能无法直接更新到 BaseList，因为它是内部管理的
-  // 如果 BaseList 不暴露更新方法，这个过滤可能需要在 DataTableList 层面处理
-  // 暂时先返回过滤后的数据，看是否会影响显示
-  
-  return filteredList;
 };
 
 // 自定义确认函数，添加 creator 字段（用于新增）
@@ -145,11 +138,12 @@ const defaultProps = reactive({
         { id: 2, showName: '所属院系', theOrder: 2, tableColumnName: 'universityName' },
         { id: 3, showName: '实习类型', theOrder: 3, width: 100, tableColumnName: 'typeName' },
         { id: 4, showName: '实习模板', theOrder: 4, tableColumnName: 'internshipTypeName' },
-        { id: 5, showName: '上级审核人', theOrder: 5, width: 100, tableColumnName: 'creatorName' },
-        { id: 6, showName: '流程开始时间', theOrder: 6,width: 150, tableColumnName: 'startTime' },
-        { id: 7, showName: '流程结束时间', theOrder: 7,width: 150, tableColumnName: 'endTime' },
-        { id: 8, showName: '当前状态', theOrder: 8,width: 100, tableColumnName: 'isAudit' },
-        { id: 9, showName: '审核理由', theOrder: 9, tableColumnName: 'reason' }
+        { id: 5, showName: '创建者', theOrder: 5, width: 100, tableColumnName: 'creatorName' },
+        { id: 6, showName: '上级提交人', theOrder: 6, width: 100, tableColumnName: 'createUserName' },
+        { id: 7, showName: '流程开始时间', theOrder: 7, width: 150, tableColumnName: 'startTime' },
+        { id: 8, showName: '流程结束时间', theOrder: 8, width: 150, tableColumnName: 'endTime' },
+        { id: 9, showName: '当前状态', theOrder: 9, width: 100, tableColumnName: 'isAudit' },
+        { id: 10, showName: '审核理由', theOrder: 10, tableColumnName: 'reason' }
       ],
     },
     // 设置初始查询条件
