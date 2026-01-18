@@ -59,9 +59,9 @@ const getInitSearchWords = () => {
   // 获取当前时间字符串（格式：YYYY-MM-DD HH:mm:ss）
   const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
   
-  // 条件1: isAudit 不等于"保存未提交"状态 (CONSTANT.AUDIT_STATUS.SAVE = -1)
-  searchKey.isAudit = CONSTANT.AUDIT_STATUS.SAVE;
-  regKey.isAudit = CONSTANT.SEARCH_OPERATOR.NE;
+  // 条件1: isAudit 等于"提交待审核"状态 (CONSTANT.AUDIT_STATUS.SAVE = 0)
+  searchKey.isAudit = CONSTANT.AUDIT_STATUS.SUBMIT;
+  regKey.isAudit = CONSTANT.SEARCH_OPERATOR.EQ;
   
   // 条件2: startTime <= 当前时间
   searchKey.startTime = currentTime;
