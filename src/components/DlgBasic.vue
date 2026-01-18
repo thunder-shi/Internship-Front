@@ -241,8 +241,13 @@ const onConfirm = async () => {
       await props.dlgbasicSpecConfirm(option.value, type.value)
     }
   } catch (error) {
-    console.error('保存操作失败:', error)
-    ElMessage.error('保存失败，请重试')
+    // 如果是验证错误（已在 confirm 函数中显示警告），不显示通用错误消息
+    if (error.message && error.message.startsWith('缺少')) {
+      console.log('验证未通过:', error.message)
+    } else {
+      console.error('保存操作失败:', error)
+      ElMessage.error('保存失败，请重试')
+    }
   } finally {
     buttonLoading.confirm = false
   }
@@ -273,8 +278,19 @@ const onModalRepeatAdd = async () => {
 const onModalSubmit = async () => {
   buttonLoading.submit = true
   if (props.dlgbasicSpecSubmit && typeof props.dlgbasicSpecSubmit === 'function') {
-    await props.dlgbasicSpecSubmit()
-    buttonLoading.submit = false
+    try {
+      await props.dlgbasicSpecSubmit()
+    } catch (error) {
+      // 如果是验证错误，不显示通用错误消息
+      if (error.message && error.message.startsWith('缺少')) {
+        console.log('验证未通过:', error.message)
+      } else {
+        console.error('提交操作失败:', error)
+        ElMessage.error('提交失败，请重试')
+      }
+    } finally {
+      buttonLoading.submit = false
+    }
   } else {
     ElMessageBox.confirm(
       '提交以后不能修改，确定提交吗？',

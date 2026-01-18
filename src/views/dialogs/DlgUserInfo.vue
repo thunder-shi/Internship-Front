@@ -10,7 +10,7 @@
       @open-dialog="openDialog"
     >
       <template #otherItems>
-        <el-form-item label="角色"
+        <el-form-item label="角色" prop="roleIds"
           ><SimpleSelect
             ref="spsRole"
             v-model="form.roleIds"
@@ -93,6 +93,7 @@ const defaultMainSDProps = reactive({
     majorId: [{ required: true, message: '专业不能为空', trigger: 'blur' }],
     jobId: [{ required: true, message: '身份类型不能为空', trigger: 'blur' }],
     departmentId: [{ required: true, message: '单位部门不能为空', trigger: 'blur' }],
+    roleIds: [{ required: true, message: '角色不能为空', trigger: 'change', type: 'array' }],
   },
   defaultDBProps: {},
 });
@@ -144,6 +145,10 @@ const confirmMore = async (data) => {
 
 const onSelRoles = (val) => {
   form.roleIds = val;
+  // 同步更新 SimpleDialog 内部的 form，确保验证能正确检测到值
+  if (simpleDlg.value?.form) {
+    simpleDlg.value.form.roleIds = val;
+  }
 };
 
 const openDialog = (row, formData) => {

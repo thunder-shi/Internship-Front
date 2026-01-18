@@ -28,6 +28,7 @@
             :default-props="tableListProps"
             @append-click="handleTableAppend"
             @edit-click="handleTableEdit"
+            @after-init-data="handleAfterInitData"
           />
         </div>
       </div>
@@ -63,6 +64,7 @@ const formPanelRef = computed(() => formItemsRef.value?.formPanelRef);
 
 const form = reactive({});
 const keyWord = ref('BaseInternshipType');
+const processList = ref([]);
 
 const defaultProps = reactive({
   form: {},
@@ -203,6 +205,17 @@ function verifyValid(showMessage = true) {
 }
 
 async function confirm(option, type) {
+  // 编辑模式下验证是否包含"实习计划制定"流程
+  if (form.id != null && form.id !== 0) {
+    const createProcess = processList.value.find(
+      (p) => p.processTypeName === '实习计划制定'
+    );
+    if (!createProcess) {
+      ElMessage.warning('流程列表中必须包含"实习计划制定"流程');
+      throw new Error('缺少实习计划制定流程');
+    }
+  }
+
   const userId = store.getters.userInfo?.id;
   const resInfo = await dlgAPI.commonSubmitDlg(
     formPanelRef.value,
@@ -241,6 +254,10 @@ function onTreeSelectChange(val, field, node) {
 }
 
 // DataTableList 的事件处理
+function handleAfterInitData(data) {
+  processList.value = data || [];
+}
+
 function handleTableAppend() {
   // 表格新增按钮点击事件，打开流程选择窗口
   // 只有在编辑模式下（有 id）才能添加流程

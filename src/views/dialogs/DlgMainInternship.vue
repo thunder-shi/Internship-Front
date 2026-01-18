@@ -54,6 +54,11 @@ import DlgProcessSelect from '@/views/dialogs/DlgProcessSelect.vue';
 import dlgAPI from '@/utils/forDialog';
 import listAPI from '@/api/list';
 
+const props = defineProps({
+  userDepartmentId: { type: [Number, String], default: null },
+  isSuperAdmin: { type: Boolean, default: false }
+});
+
 const emit = defineEmits(['update-record', 'close-dialog']);
 
 const store = useStore();
@@ -86,9 +91,20 @@ const defaultProps = reactive({
   }
 });
 
-const formItems = reactive([
+// 计算实习模板下拉框的查询条件（非超级管理员只能选择自己院系的模板）
+const templateSearchKey = computed(() => {
+  if (props.isSuperAdmin) {
+    return {};
+  }
+  if (props.userDepartmentId) {
+    return { universityId: props.userDepartmentId };
+  }
+  return {};
+});
+
+const formItems = computed(() => [
   { name: '实习名称', field: 'name', type: 'input' },
-  { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'ViewBaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' } },
+  { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'ViewBaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' }, searchKeys: templateSearchKey.value },
   { name: '报告周期', field: 'cron', type: 'cron' },
   { name: '备注', field: 'remarks', type: 'textarea' }
 ]);
@@ -123,8 +139,8 @@ const tableListProps = reactive({
     allTableColumns: [
       { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName', sortable: false },
       { id: 2, showName: '审核要求', theOrder: 2, tableColumnName: 'verifyTypeName', sortable: false },
-      { id: 3, showName: '流程开始时间', theOrder: 3, tableColumnName: 'startTime', sortable: true },
-      { id: 4, showName: '流程结束时间', theOrder: 4, tableColumnName: 'endTime', sortable: true }
+      { id: 3, showName: '流程开始时间', theOrder: 3, tableColumnName: 'startTime', sortable: false },
+      { id: 4, showName: '流程结束时间', theOrder: 4, tableColumnName: 'endTime', sortable: false }
     ]
   }
 });
@@ -228,11 +244,20 @@ async function confirm(option, type) {
   }
 }
 
-// 提交（根据"实习项目创建"流程的审核要求决定 isAudit 值）
+// 提交（根据"实习计划制定"流程的审核要求决定 isAudit 值）
 async function submit() {
   // 检查是否所有流程都已规定起止时间
   if (processList.value.length === 0) {
     ElMessage.warning('请至少添加一个流程');
+    return;
+  }
+
+  // 检查是否包含"实习计划制定"流程
+  const createProcess = processList.value.find(
+    (p) => p.processTypeName === '实习计划制定'
+  );
+  if (!createProcess) {
+    ElMessage.warning('流程列表中必须包含"实习计划制定"流程');
     return;
   }
 
@@ -261,20 +286,14 @@ async function submit() {
 
   const userId = store.getters.userInfo?.id;
 
-  // 查找"实习项目创建"流程，根据审核要求决定 isAudit 值
-  const createProcess = processList.value.find(
-    (p) => p.processTypeName === '实习项目创建'
-  );
-  if (createProcess) {
-    if (createProcess.verifyTypeId >= 2) {
-      // 需要审核：isAudit = 0（提交未审核）
-      form.isAudit = 0;
-    } else {
-      // 无需审核：isAudit = 1（审核通过）
-      form.isAudit = 1;
-    }
+  // 根据"实习计划制定"流程的审核要求决定 isAudit 值
+  if (createProcess.verifyTypeId >= 2) {
+    // 需要审核：isAudit = 0（提交未审核）
+    form.isAudit = 0;
+  } else {
+    // 无需审核：isAudit = 1（审核通过）
+    form.isAudit = 1;
   }
-  // 没有"实习项目创建"流程时，不传递 isAudit
   const resInfo = await dlgAPI.commonSubmitDlg(
     formPanelRef.value,
     form,

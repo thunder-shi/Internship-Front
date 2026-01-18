@@ -104,7 +104,7 @@
             <template #default="scope">
               <!--查看and编辑and删除-->
               <el-button
-                v-if="button?.visible?.show"
+                v-if="button?.visible?.show && isButtonVisible('visible', scope.row)"
                 :type="button.visible.type"
                 size="small"
                 :title="button.visible.name"
@@ -113,7 +113,7 @@
                 <svg-icon icon-class="axt-view" />
               </el-button>
               <el-button
-                v-if="button?.update?.show"
+                v-if="button?.update?.show && isButtonVisible('update', scope.row)"
                 :type="button.update.type"
                 size="small"
                 :title="button.update.name"
@@ -122,7 +122,7 @@
                 <el-icon><Edit /></el-icon>
               </el-button>
               <el-button
-                v-if="button?.audit?.show"
+                v-if="button?.audit?.show && isButtonVisible('audit', scope.row)"
                 :type="button.audit.type"
                 size="small"
                 :title="button.audit.name"
@@ -133,7 +133,7 @@
               <!--列表数据右方的操作按钮-->
               <slot name="rightOperate" :row="scope.row" />
               <el-button
-                v-if="button?.delete?.show"
+                v-if="button?.delete?.show && isButtonVisible('delete', scope.row)"
                 :type="button.delete.type"
                 size="small"
                 :title="button.delete.name"
@@ -284,13 +284,14 @@ const formatCron = (cron) => {
   return cron;
 };
 
-// 审核状态映射: -1 保存未提交, 0 未审核, 1 审核通过, 2 审核退回
+// 审核状态映射: -1 保存未提交, 0 提交待审核, 1 审核通过, 2 审核不通过, 3 审核退回
 const formatAuditStatus = (status) => {
   const statusMap = {
     '-1': '保存未提交',
-    '0': '未审核',
+    '0': '待审核',
     '1': '审核通过',
-    '2': '审核退回'
+    '2': '审核不通过',
+    '3': '审核退回'
   };
   return statusMap[String(status)] || '--';
 };
@@ -301,7 +302,8 @@ const getAuditTagType = (status) => {
     '-1': 'info',
     '0': 'warning',
     '1': 'success',
-    '2': 'danger'
+    '2': 'danger',
+    '3': ''  // 默认样式
   };
   return typeMap[String(status)] || 'info';
 };
@@ -350,6 +352,13 @@ const props = defineProps({
       };
     },
   },
+  // 按钮条件配置：控制各按钮在不同行数据条件下的显示/隐藏
+  // 格式: { buttonName: (row) => boolean }
+  // 例如: { update: (row) => row.isAudit === -1 || row.isAudit === 2 }
+  buttonCondition: {
+    type: Object,
+    default: () => ({})
+  }
 });
 
 const emit = defineEmits([
@@ -443,6 +452,20 @@ const hasCardTitle = computed(() => {
 const button = computed(() => {
   return dataTBLMother.value?.button;
 });
+
+// 判断按钮是否可见（基于行数据的条件判断）
+const isButtonVisible = (buttonName, row) => {
+  // 如果没有配置条件函数，默认显示
+  if (!props.buttonCondition || !props.buttonCondition[buttonName]) {
+    return true;
+  }
+  // 调用条件函数判断是否显示
+  const conditionFn = props.buttonCondition[buttonName];
+  if (typeof conditionFn === 'function') {
+    return conditionFn(row);
+  }
+  return true;
+};
 
 // 从 DataTableHeader 获取 tableColumnItem
 const tableColumnItem = computed(() => {
@@ -729,7 +752,23 @@ const _initDataList = async () => {
       return hasValidData;
     });
 
-    dataList.value = _.cloneDeep(filteredContent);
+    // 前端排序：确保数据按 sortStr 排序显示
+    let sortedContent = _.cloneDeep(filteredContent);
+    if (sortStr.value && sortStr.value.properties) {
+      const sortField = sortStr.value.properties;
+      const sortDirection = sortStr.value.direction === 'ASC' ? 1 : -1;
+      sortedContent.sort((a, b) => {
+        const valA = a[sortField];
+        const valB = b[sortField];
+        if (valA == null && valB == null) return 0;
+        if (valA == null) return sortDirection;
+        if (valB == null) return -sortDirection;
+        if (valA < valB) return -sortDirection;
+        if (valA > valB) return sortDirection;
+        return 0;
+      });
+    }
+    dataList.value = sortedContent;
     totalSize.value =
       filteredContent.length > 0 ? resp.data.totalElements || filteredContent.length : 0;
     emit('after-init-data', dataList.value);

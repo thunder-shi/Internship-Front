@@ -3,8 +3,10 @@
     <DataTableList
       ref="dataTableList"
       :default-props="defaultProps.defaultDTLProps"
+      :button-condition="buttonCondition"
       @append-click="appendClick"
       @edit-click="editClick"
+      @view-click="viewClick"
       @update-column="updateColumn"
       @delete-click="deleteClick"
       @export-click="exportClick"
@@ -17,6 +19,10 @@
       <!-- <template #searchPanel>
       <slot name="searchPanel" />
     </template> -->
+      <!-- 传递自定义列的插槽 -->
+      <template v-for="(_, slotName) in $slots" :key="slotName" #[slotName]="slotProps">
+        <slot :name="slotName" v-bind="slotProps" />
+      </template>
     </DataTableList>
     <slot name="dlg">
       <!-- 简单窗口 -->
@@ -81,6 +87,11 @@ const props = defineProps({
       };
     },
   },
+  // 按钮条件配置：控制各按钮在不同行数据条件下的显示/隐藏
+  buttonCondition: {
+    type: Object,
+    default: () => ({})
+  },
   baselistSpecConfirm: { type: Function, default: null },
   baselistConfirm: { type: Function, default: null },
   baselistSubmit: { type: Function, default: null },
@@ -94,6 +105,7 @@ const emit = defineEmits([
   'after-init-data',
   'append-click',
   'edit-click',
+  'view-click',
   'delete-click',
   'export-click',
   'more1-click',
@@ -174,6 +186,17 @@ const editClick = async (row) => {
   } else {
     // 无监听器:执行默认逻辑
     openDlg('edit', row);
+  }
+};
+
+// 查看按钮点击
+const viewClick = async (row) => {
+  if (hasListener('view-click')) {
+    // 有监听器:只触发事件,交给父组件处理
+    emit('view-click', row);
+  } else {
+    // 无监听器:执行默认逻辑（以只读方式打开编辑窗口）
+    openDlg('view', row);
   }
 };
 
