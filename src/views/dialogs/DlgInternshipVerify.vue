@@ -21,7 +21,7 @@
             <el-tab-pane label="项目基本信息" name="basic">
               <div class="internship-info-section">
                 <el-descriptions :column="2" border>
-                  <el-descriptions-item label="项目名称">{{ form.name || '-' }}</el-descriptions-item>
+                  <el-descriptions-item label="项目名称">{{ form.internshipName || '-' }}</el-descriptions-item>
                   <el-descriptions-item label="所属院系">{{ form.universityName || '-' }}</el-descriptions-item>
                   <el-descriptions-item label="实习类型">{{ form.typeName || '-' }}</el-descriptions-item>
                   <el-descriptions-item label="实习模板">{{ form.internshipTypeName || '-' }}</el-descriptions-item>
@@ -74,13 +74,16 @@
 <script setup>
 import { ref, reactive, watch, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
+import { useStore } from 'vuex';
 import DlgBasic from '@/components/DlgBasic.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import _ from 'lodash';
 import CONSTANT from '@/utils/constant';
+import listAPI from '@/api/list';
 
 const emit = defineEmits(['update-record', 'close-dialog']);
 
+const store = useStore();
 const dlgBasicRef = ref(null);
 const formPanelRef = ref(null);
 const dataTableList = ref(null);
@@ -124,10 +127,7 @@ const tableListProps = reactive({
   sortStr: { properties: 'theOrder', direction: 'ASC' },
   pageInfo: { page: 1, size: 100 },
   initSearchWords: {
-    searchKey: {},
-  },
-  moveSearchWords: {
-    searchKey: {},
+    searchKey: {internshipId: form.internshipId},
   },
   someFlags: {
     operateShow: false, // 审核窗口中的流程信息只读，不显示操作按钮
@@ -243,11 +243,9 @@ function showDialog(val, formData = {}) {
 
   // 设置 DataTableList 的过滤条件（通过 internshipId 过滤流程信息）
   if (formData && formData.id != null && formData.id !== 0) {
-    tableListProps.initSearchWords.searchKey = { internshipId: formData.id };
-    tableListProps.moveSearchWords.searchKey = { internshipId: formData.id };
+    tableListProps.initSearchWords.searchKey = { internshipId: formData.internshipId };
   } else {
     tableListProps.initSearchWords.searchKey = {};
-    tableListProps.moveSearchWords.searchKey = {};
   }
 
   dlgBasicRef.value?.showDialog(val, form, 'edit');
@@ -279,22 +277,52 @@ async function confirm(option, type) {
     return;
   }
 
-  // 这里可以调用审核接口
-  // 例如：await auditAPI.verifyInternship(form.id, { auditResult: form.auditResult, auditReason: form.auditReason });
+  // 获取当前用户ID
+  const userInfo = store.getters.userInfo;
+  const verifyUserId = userInfo?.id;
 
-  // 暂时使用提示信息
-  const resultText = {
-    [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
-    [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
-    [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
-  }[form.auditResult] || '未知';
+  if (!verifyUserId) {
+    ElMessage.error('无法获取当前用户信息，请重新登录');
+    return;
+  }
 
-  ElMessage.success(`审核完成：${resultText}`);
+  if (!form.id) {
+    ElMessage.error('缺少主键ID，无法保存');
+    return;
+  }
+  // 构建保存数据对象
+  const saveData = {
+    id: form.id,
+    isAudit: form.auditResult,
+    reason: form.auditReason,
+    verifyUserId: verifyUserId,
+  };
 
-  // 触发更新记录事件，刷新列表
-  emit('update-record', form);
-  if (type === 'stop') {
-    dlgBasicRef.value?.showDialog(false, form);
+
+  try {
+    // 调用 editOneNode 接口保存到 MainVerifyProcess 表
+    const resInfo = await listAPI.editOneNode('MainVerifyProcess', saveData);
+
+    if (resInfo && resInfo.message === 'successful') {
+      const resultText = {
+        [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
+        [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
+        [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
+      }[form.auditResult] || '未知';
+
+      ElMessage.success(`审核完成：${resultText}`);
+
+      // 触发更新记录事件，刷新列表
+      emit('update-record', form);
+      if (type === 'stop') {
+        dlgBasicRef.value?.showDialog(false, form);
+      }
+    } else {
+      ElMessage.warning(resInfo?.message || '保存失败');
+    }
+  } catch (error) {
+    console.error('保存审核数据失败:', error);
+    ElMessage.error('保存失败，请重试');
   }
 }
 

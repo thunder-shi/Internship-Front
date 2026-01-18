@@ -66,7 +66,7 @@ const defaultProps = reactive({
   defaultDTLProps: {
     defaultDTHProps: {
       buttonProps: { audit: { show: true, showPass: true, showNotPass: true, showBack: true } },
-      keyWord: { edit: 'MainInternship', view: 'ViewInternshipVerifyProcess' },
+      keyWord: { edit: 'MainVerifyProcess', view: 'ViewInternshipVerifyProcess' },
       allTableColumns: [
         { id: 1, showName: '实习项目名称', theOrder: 1, tableColumnName: 'internshipName' },
         { id: 2, showName: '所属院系', theOrder: 2, tableColumnName: 'universityName' },
