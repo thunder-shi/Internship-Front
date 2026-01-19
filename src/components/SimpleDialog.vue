@@ -355,12 +355,14 @@ async function confirm(option, type) {
       // 审核模式下，保存按钮设置 isAudit = -1
       const auditValue = isAuditMode.value ? -1 : null;
       await _confirm(option, type, null, auditValue);
+      return true;
     } else {
       // 自定义确认函数，传递 isAudit 值
       if (isAuditMode.value) {
         form.isAudit = -1;
       }
-      await props.simpledialogConfirm(option, type, form);
+      const result = await props.simpledialogConfirm(option, type, form);
+      return result;
     }
   } catch (error) {
     console.error('确认操作失败:', error);

@@ -263,9 +263,9 @@ const auditClick = async (row) => {
 // #region simpleDialog对应的按钮事件
 const confirm = async (option, type) => {
   if (!(props.baselistConfirm && typeof props.baselistConfirm === 'function')) {
-    await simpleDialog.value?._confirm(option, type);
+    return await simpleDialog.value?._confirm(option, type);
   } else {
-    await props.baselistConfirm(option, type, form);
+    return await props.baselistConfirm(option, type, form);
   }
 };
 
@@ -333,8 +333,15 @@ defineExpose({
     if (form) {
       emit('confirm-click', form);
     }
-    await simpleDialog.value?._confirm(option, type, form);
-    initDataList()
+    try {
+      await simpleDialog.value?._confirm(option, type, form);
+      // 只有成功时才刷新列表
+      initDataList();
+      return true;
+    } catch (error) {
+      // 如果失败，不刷新列表
+      throw error;
+    }
   },
 });
 

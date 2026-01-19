@@ -14,6 +14,27 @@
         label-suffix=":"
         label-width="120px"
       >
+        <!-- 审核选项和理由（在 tab 页上方） -->
+        <div class="audit-section-top">
+          <el-form-item label="审核结果" prop="auditResult">
+            <el-radio-group v-model="form.auditResult">
+              <el-radio :label="CONSTANT.AUDIT_STATUS.PASS">{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-radio>
+              <el-radio :label="CONSTANT.AUDIT_STATUS.NOTPASS">{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-radio>
+              <el-radio :label="CONSTANT.AUDIT_STATUS.BACK">{{ CONSTANT.AUDIT_STATUS.BACKNAME }}</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="审核理由" prop="auditReason">
+            <el-input
+              v-model="form.auditReason"
+              type="textarea"
+              :rows="4"
+              placeholder="请输入审核理由"
+              :maxlength="500"
+              show-word-limit
+            />
+          </el-form-item>
+        </div>
+
         <!-- Tab 页和基本信息区域 -->
         <div class="info-wrapper">
           <el-tabs v-model="activeTab" class="audit-tabs">
@@ -43,28 +64,32 @@
                 />
               </div>
             </el-tab-pane>
-          </el-tabs>
-        </div>
 
-        <!-- 审核选项和理由 -->
-        <div class="audit-section">
-          <el-form-item label="审核结果" prop="auditResult" style="margin-top: 20px;">
-            <el-radio-group v-model="form.auditResult">
-              <el-radio :label="CONSTANT.AUDIT_STATUS.PASS">{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-radio>
-              <el-radio :label="CONSTANT.AUDIT_STATUS.NOTPASS">{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-radio>
-              <el-radio :label="CONSTANT.AUDIT_STATUS.BACK">{{ CONSTANT.AUDIT_STATUS.BACKNAME }}</el-radio>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="审核理由" prop="auditReason">
-            <el-input
-              v-model="form.auditReason"
-              type="textarea"
-              :rows="4"
-              placeholder="请输入审核理由"
-              :maxlength="500"
-              show-word-limit
-            />
-          </el-form-item>
+            <!-- 第三页：当前审核情况 -->
+            <el-tab-pane label="当前审核情况" name="audit">
+              <div class="audit-info-section">
+                <div class="audit-header">
+                  <span class="audit-header-item">审核人</span>
+                  <span class="audit-header-item">审核时间</span>
+                  <span class="audit-header-item">审核状态</span>
+                  <span class="audit-header-item">审核理由</span>
+                </div>
+                <div
+                  v-for="(record, index) in auditRecords"
+                  :key="index"
+                  class="audit-record-row"
+                >
+                  <span class="audit-record-item">{{ record.verifyUserName || '-' }}</span>
+                  <span class="audit-record-item">{{ formatAuditTime(record.verifyTime || record.updateTime) }}</span>
+                  <span class="audit-record-item">{{ formatAuditStatus(record.isAudit) }}</span>
+                  <span class="audit-record-item">{{ record.reason || '-' }}</span>
+                </div>
+                <div v-if="!auditRecords || auditRecords.length === 0" class="audit-empty">
+                  暂无审核记录
+                </div>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
         </div>
       </el-form>
     </template>
@@ -72,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, nextTick } from 'vue';
+import { ref, reactive, watch, nextTick, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
 import DlgBasic from '@/components/DlgBasic.vue';
@@ -80,6 +105,7 @@ import DataTableList from '@/components/DataTableList.vue';
 import _ from 'lodash';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
+import moment from 'moment';
 
 const emit = defineEmits(['update-record', 'close-dialog']);
 
@@ -99,6 +125,8 @@ const defaultProps = reactive({
     needValidate: true,
     validate: true,
     needVerifyUpdate: false, // 审核对话框不需要验证数据变更
+    autoMax: true, // 初始打开时最大化
+    needMaxBtn: true, // 显示最大化按钮
   },
 });
 
@@ -112,6 +140,12 @@ const form = reactive({
   remarks: '',
   auditResult: null, // CONSTANT.AUDIT_STATUS.PASS: 审核通过, CONSTANT.AUDIT_STATUS.NOTPASS: 审核不通过, CONSTANT.AUDIT_STATUS.BACK: 审核退回
   auditReason: '',
+  // 审核相关信息
+  verifyUserName: '',
+  verifyTime: '',
+  updateTime: '',
+  isAudit: null,
+  reason: '',
 });
 
 const formRules = {
@@ -157,6 +191,52 @@ const auditResultTextMap = {
   [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
   [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
 };
+
+// 格式化审核状态
+const formatAuditStatus = (isAudit) => {
+  if (isAudit === null || isAudit === undefined) {
+    return '-';
+  }
+  switch (isAudit) {
+    case CONSTANT.AUDIT_STATUS.SAVE:
+      return CONSTANT.AUDIT_STATUS.SAVENAME;
+    case CONSTANT.AUDIT_STATUS.SUBMIT:
+      return CONSTANT.AUDIT_STATUS.SUBMITNAME;
+    case CONSTANT.AUDIT_STATUS.PASS:
+      return CONSTANT.AUDIT_STATUS.PASSNAME;
+    case CONSTANT.AUDIT_STATUS.NOTPASS:
+      return CONSTANT.AUDIT_STATUS.NOTPASSNAME;
+    case CONSTANT.AUDIT_STATUS.BACK:
+      return CONSTANT.AUDIT_STATUS.BACKNAME;
+    default:
+      return '-';
+  }
+};
+
+// 格式化审核时间
+const formatAuditTime = (time) => {
+  if (!time) {
+    return '-';
+  }
+  return moment(time).format('YYYY-MM-DD HH:mm:ss');
+};
+
+// 获取审核记录列表（目前从 form 中获取，后续可以扩展为从其他地方加载多条记录）
+const auditRecords = computed(() => {
+  const records = [];
+  
+  // 如果 form 中有审核信息，添加到记录中
+  if (form.verifyUserName || form.verifyTime || form.updateTime || form.isAudit !== null || form.reason) {
+    records.push({
+      verifyUserName: form.verifyUserName || '',
+      verifyTime: form.verifyTime || form.updateTime || '',
+      isAudit: form.isAudit,
+      reason: form.reason || '',
+    });
+  }
+  
+  return records;
+});
 
 // 监听审核结果变化，自动填充审核理由
 watch(
@@ -237,6 +317,11 @@ function showDialog(val, formData = {}) {
       remarks: '',
       auditResult: null,
       auditReason: '',
+      verifyUserName: '',
+      verifyTime: '',
+      updateTime: '',
+      isAudit: null,
+      reason: '',
     });
     Object.assign(form, _.cloneDeep(formData));
   }
@@ -438,9 +523,56 @@ defineExpose({
   }
 }
 
-.audit-section {
-  margin-top: 0;
-  padding-top: 20px;
-  // 移除基线
+.audit-section-top {
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 4px;
+}
+
+.audit-info-section {
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 4px;
+
+  .audit-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 2fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 2px solid #e4e7ed;
+    font-weight: 600;
+    color: #303133;
+    background-color: #f5f7fa;
+
+    .audit-header-item {
+      padding: 0 8px;
+    }
+  }
+
+  .audit-record-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 2fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+    line-height: 24px;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .audit-record-item {
+      padding: 0 8px;
+      color: #606266;
+      word-break: break-word;
+    }
+  }
+
+  .audit-empty {
+    padding: 40px 0;
+    text-align: center;
+    color: #909399;
+  }
 }
 </style>

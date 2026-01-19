@@ -224,7 +224,11 @@ const _onConfirm = async () => {
   currentSave.value = true
   if (props.dlgbasicConfirm && typeof props.dlgbasicConfirm === 'function') {
     type.value = 'stop'
-    await props.dlgbasicConfirm(option.value, type.value)
+    const result = await props.dlgbasicConfirm(option.value, type.value)
+    // 如果返回 false，表示用户取消了操作，不关闭对话框
+    if (result === false) {
+      return;
+    }
   }
   if (autoSaveClose.value && type.value === 'stop') {
     dialogShow.value = false
