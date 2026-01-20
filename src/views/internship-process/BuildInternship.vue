@@ -88,7 +88,7 @@ const handleConfirm = async (option, type, form) => {
       form.creatorId = userInfo.id;
     }
     form.studentNum = 0;
-    
+    console.log(form)
     // 调用新增实习项目接口
     const resInfo = await otherAPI.addNewInternship(form);
     if (resInfo && resInfo.message === 'successful') {
@@ -135,7 +135,7 @@ const defaultProps = computed(() => ({
         delete: { show: true }
       },
       keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
-      allTableColumns: [        
+      allTableColumns: [
         { id: 1, showName: '所属院系', theOrder: 1, tableColumnName: 'universityName' },
         { id: 2, showName: '实习项目名称', theOrder: 2, tableColumnName: 'name' },
         { id: 3, showName: '实习类型', theOrder: 3, tableColumnName: 'intTypeName' },

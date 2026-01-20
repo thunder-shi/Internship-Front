@@ -265,7 +265,9 @@ const confirm = async (option, type) => {
   if (!(props.baselistConfirm && typeof props.baselistConfirm === 'function')) {
     return await simpleDialog.value?._confirm(option, type);
   } else {
-    return await props.baselistConfirm(option, type, form);
+    // 从 SimpleDialog 获取实际的表单数据
+    const dialogForm = simpleDialog.value?.form || form;
+    return await props.baselistConfirm(option, type, dialogForm);
   }
 };
 
