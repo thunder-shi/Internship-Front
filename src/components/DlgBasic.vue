@@ -1,20 +1,6 @@
 <template>
   <div class="dlg-drag-wrapper" v-dialogDrag="dialogRef">
-    <el-dialog
-      ref="dialogRef"
-      append-to-body
-      v-model="dialogShow"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      :modal-append-to-body="false"
-      :class="autoMax ? 'view-dialog' : ''"
-      :fullscreen="autoMax"
-      :before-close="beforeCloseDlg"
-      :width="width"
-      :height="height"
-      @opened="openFun"
-      @close="closeDlg"
-    >
+    <el-dialog ref="dialogRef" append-to-body v-model="dialogShow" :close-on-click-modal="false" :close-on-press-escape="false" :modal-append-to-body="false" :class="autoMax ? 'view-dialog' : ''" :fullscreen="autoMax" :before-close="beforeCloseDlg" :width="width" :height="height" @opened="openFun" @close="closeDlg">
       <template #title>
         <span>{{ dlgTitle + dlgSuffix }}</span>
         <svg-icon v-if="needMaxBtn" class="fullscreen" icon-class="fullscreen" @click="clickFull" />

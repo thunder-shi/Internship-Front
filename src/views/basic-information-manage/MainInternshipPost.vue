@@ -1,10 +1,6 @@
 
 <template>
-  <BaseList 
-  ref = "baseListRef" 
-  :default-props="defaultProps" 
-  @edit-click="handleEditClick" 
-  @confirm-click="onConfirmClick" />
+  <BaseList ref="baseListRef" :default-props="defaultProps" @edit-click="handleEditClick" @confirm-click="onConfirmClick" />
 </template>
 
 <script setup>

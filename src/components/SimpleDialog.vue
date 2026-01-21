@@ -9,33 +9,9 @@
     ⑦ multiple:是否开启多选（针对下拉框）
   -->
 <template>
-  <DlgBasic
-    ref="dlgBasicRef"
-    :default-props="mergedDefaultDBProps"
-    :dlgbasic-confirm="confirm"
-    :dlgbasic-submit="submit"
-    :dlgbasic-spec-confirm="specConfirm"
-    @close-dialog="onCloseDialog"
-    @open-dialog="openDialog"
-  >
+  <DlgBasic ref="dlgBasicRef" :default-props="mergedDefaultDBProps" :dlgbasic-confirm="confirm" :dlgbasic-submit="submit" :dlgbasic-spec-confirm="specConfirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #mainForm>
-      <FormItemsforDialog
-        ref="formItemsRef"
-        :form="form"
-        :form-items="formItems"
-        :form-rules="formRules"
-        :label-width="labelWidth"
-        :handle-select-change="defaultProps.handleSelectChange"
-        :reset-pass="resetPass"
-        :download-link-click="downloadLinkClick"
-        :before-upload="beforeUpload"
-        :file-types="fileTypes"
-        @simple-select-change="onSimpleSelectChange"
-        @simple-select-init-finish="simpleSelectInitFinish"
-        @tree-select-change="onTreeSelectChange"
-        @cron-change="onCronChange"
-        
-      >
+      <FormItemsforDialog ref="formItemsRef" :form="form" :form-items="formItems" :form-rules="formRules" :label-width="labelWidth" :handle-select-change="defaultProps.handleSelectChange" :reset-pass="resetPass" :download-link-click="downloadLinkClick" :before-upload="beforeUpload" :file-types="fileTypes" @simple-select-change="onSimpleSelectChange" @simple-select-init-finish="simpleSelectInitFinish" @tree-select-change="onTreeSelectChange" @cron-change="onCronChange">
         <template #upItems>
           <slot name="upItems" />
         </template>
@@ -319,15 +295,7 @@ async function _confirm(option, type, formData = null, auditValue = null) {
   }
 
   const userId = store.getters.userInfo.id;
-  var res = await dlgAPI.commonSubmitDlg(
-    formPanelRef.value,
-    form,
-    keyWord.value,
-    option,
-    isTree,
-    false,
-    userId
-  );
+  var res = await dlgAPI.commonSubmitDlg(formPanelRef.value, form, keyWord.value, option, isTree, false, userId);
   if (res.message === 'successful') {
     if (props.simpledialogConfirmMore && typeof props.simpledialogConfirmMore === 'function') {
       await props.simpledialogConfirmMore(res.data);

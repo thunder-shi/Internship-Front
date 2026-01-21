@@ -1,11 +1,5 @@
 <template>
-  <el-dialog
-    v-model="dialogVisible"
-    title="审核进度"
-    width="600px"
-    :close-on-click-modal="false"
-    @close="handleClose"
-  >
+  <el-dialog v-model="dialogVisible" title="审核进度" width="600px" :close-on-click-modal="false" @close="handleClose">
     <div v-loading="loading" class="verify-progress-container">
       <!-- 当前状态概览 -->
       <div class="status-overview">
@@ -19,14 +13,7 @@
 
       <!-- 审核时间线 -->
       <el-timeline v-if="verifyRecords.length > 0" class="verify-timeline">
-        <el-timeline-item
-          v-for="(record, index) in verifyRecords"
-          :key="record.id"
-          :type="getTimelineItemType(record)"
-          :hollow="record.isAudit === 0 || record.isAudit === -1"
-          :timestamp="formatTime(record.createTime)"
-          placement="top"
-        >
+        <el-timeline-item v-for="(record, index) in verifyRecords" :key="record.id" :type="getTimelineItemType(record)" :hollow="record.isAudit === 0 || record.isAudit === -1" :timestamp="formatTime(record.createTime)" placement="top">
           <el-card shadow="never" class="timeline-card">
             <template #header>
               <div class="card-header">

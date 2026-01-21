@@ -1,11 +1,5 @@
 <template>
-  <el-color-picker
-    v-model="theme"
-    :predefine="predefineColors"
-    class="theme-picker"
-    popper-class="theme-picker-dropdown"
-    @change="updatePrimaryColor"
-  />
+  <el-color-picker v-model="theme" :predefine="predefineColors" class="theme-picker" popper-class="theme-picker-dropdown" @change="updatePrimaryColor" />
 </template>
 
 <script setup>

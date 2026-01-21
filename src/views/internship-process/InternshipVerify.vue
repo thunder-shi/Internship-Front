@@ -1,17 +1,8 @@
 <template>
   <div class="internship-verify-container">
-    <BaseList
-      :default-props="defaultProps"
-      ref="baseList"
-      :baselist-confirm="handleConfirm"
-      :client-filter-fn="clientFilterFn"
-      @audit-click="handleAuditClick"
-    />
+    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" :client-filter-fn="clientFilterFn" @audit-click="handleAuditClick" />
     <!-- 审核对话框 -->
-    <DlgInternshipVerify
-      ref="dlgInternshipVerify"
-      @update-record="handleUpdateRecord"
-    />
+    <DlgInternshipVerify ref="dlgInternshipVerify" @update-record="handleUpdateRecord" />
   </div>
 </template>
 <script setup>

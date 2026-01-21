@@ -1,11 +1,5 @@
 <template>
-  <el-form
-    ref="formPanelRef"
-    :rules="formRules"
-    :model="form"
-    label-suffix=":"
-    :label-width="labelWidth"
-  >
+  <el-form ref="formPanelRef" :rules="formRules" :model="form" label-suffix=":" :label-width="labelWidth">
     <slot name="upItems" />
     <div v-for="(item, index) in formItems" :key="index" v-show="!item.hidden">
       <el-form-item v-if="item.type !== 'textarea'" :prop="item.field" :label="item.name">
@@ -14,25 +8,15 @@
         <!-- 双列简单显示 -->
         <el-row v-else-if="item.type === 'doubleLabel'">
           <el-col :span="11">
-            <el-form-item :prop="item.field1" :label="item.name1"
-              ><span v-html="form[item.field1]"
-            /></el-form-item>
+            <el-form-item :prop="item.field1" :label="item.name1"><span v-html="form[item.field1]" /></el-form-item>
           </el-col>
           <el-col :span="2" style="text-align: center">-</el-col>
           <el-col :span="11">
-            <el-form-item :prop="item.field2" :label="item.name2"
-              ><span v-html="form[item.field2]"
-            /></el-form-item>
+            <el-form-item :prop="item.field2" :label="item.name2"><span v-html="form[item.field2]" /></el-form-item>
           </el-col>
         </el-row>
         <!-- 密码框 -->
-        <password
-          v-else-if="item.type === 'password'"
-          v-model="form[item.field]"
-          :placeholder="item.placeholder ? item.placeholder : '请输入'"
-          :disabled="item.disabled"
-          @input="resetPass"
-        />
+        <password v-else-if="item.type === 'password'" v-model="form[item.field]" :placeholder="item.placeholder ? item.placeholder : '请输入'" :disabled="item.disabled" @input="resetPass" />
         <!-- 开关 -->
         <el-switch v-else-if="item.type === 'switch'" v-model="form[item.field]" />
         <!-- 单选 -->
@@ -43,21 +27,10 @@
         </el-radio-group>
         <!-- 多选 -->
         <el-checkbox-group v-else-if="item.type === 'checkbox'" v-model="form[item.field]">
-          <el-checkbox
-            v-for="(citem, cindex) in item.options"
-            :key="cindex + 'B'"
-            :label="citem.id"
-            >{{ citem.value }}</el-checkbox
-          >
+          <el-checkbox v-for="(citem, cindex) in item.options" :key="cindex + 'B'" :label="citem.id">{{ citem.value }}</el-checkbox>
         </el-checkbox-group>
         <!-- 普通输入框 -->
-        <el-input
-          v-else-if="item.type === 'input'"
-          v-model="form[item.field]"
-          :maxlength="CONSTANT.INFO_MAX_LENGTH"
-          :placeholder="item.placeholder ? item.placeholder : '请输入'"
-          :disabled="item.disabled"
-        />
+        <el-input v-else-if="item.type === 'input'" v-model="form[item.field]" :maxlength="CONSTANT.INFO_MAX_LENGTH" :placeholder="item.placeholder ? item.placeholder : '请输入'" :disabled="item.disabled" />
         <!-- 双列普通输入框 -->
         <el-row v-else-if="item.type === 'doubleinput'">
           <el-col :span="11">
@@ -93,124 +66,29 @@
           </el-col>
         </el-row>
         <!-- 单列时间日期框（带时间） -->
-        <el-date-picker
-          v-else-if="item.type === 'datetime'"
-          v-model="form[item.field]"
-          type="datetime"
-          :placeholder="item.placeholder || '选择日期时间'"
-          :disabled="item.disabled"
-          value-format="YYYY-MM-DD HH:mm:ss"
-        />
+        <el-date-picker v-else-if="item.type === 'datetime'" v-model="form[item.field]" type="datetime" :placeholder="item.placeholder || '选择日期时间'" :disabled="item.disabled" value-format="YYYY-MM-DD HH:mm:ss" />
         <!-- 单列日期框（LocalDate，不带时间） -->
-        <el-date-picker
-          v-else-if="item.type === 'date'"
-          v-model="form[item.field]"
-          type="date"
-          :placeholder="item.placeholder || '选择日期'"
-          :disabled="item.disabled"
-          value-format="YYYY-MM-DD"
-        />
+        <el-date-picker v-else-if="item.type === 'date'" v-model="form[item.field]" type="date" :placeholder="item.placeholder || '选择日期'" :disabled="item.disabled" value-format="YYYY-MM-DD" />
         <!-- 日期范围选择（LocalDate） -->
-        <el-date-picker
-          v-else-if="item.type === 'daterange'"
-          v-model="dateRangeValues[item.field]"
-          type="daterange"
-          range-separator="至"
-          :start-placeholder="item.startPlaceholder || '开始日期'"
-          :end-placeholder="item.endPlaceholder || '结束日期'"
-          :disabled="item.disabled"
-          value-format="YYYY-MM-DD"
-          @change="(val) => handleDateRangeChange(item, val)"
-        />
+        <el-date-picker v-else-if="item.type === 'daterange'" v-model="dateRangeValues[item.field]" type="daterange" range-separator="至" :start-placeholder="item.startPlaceholder || '开始日期'" :end-placeholder="item.endPlaceholder || '结束日期'" :disabled="item.disabled" value-format="YYYY-MM-DD" @change="(val) => handleDateRangeChange(item, val)" />
         <!-- Cron 表达式选择器（定时任务周期） -->
-        <SimpleCron
-          v-else-if="item.type === 'cron'"
-          v-model="form[item.field]"
-          :disabled="item.disabled"
-          :show-expression="item.showExpression"
-          @change="(val) => onCronChange(val, item.field)"
-        />
+        <SimpleCron v-else-if="item.type === 'cron'" v-model="form[item.field]" :disabled="item.disabled" :show-expression="item.showExpression" @change="(val) => onCronChange(val, item.field)" />
         <!-- 简单下拉选择框 -->
-        <el-select
-          v-else-if="item.type === 'select_noremote'"
-          v-model="form[item.field]"
-          placeholder="请选择"
-          @change="(val) => handleSelectChange && handleSelectChange(item, val, form)"
-        >
-          <el-option
-            v-for="(sitem, sindex) in item.options"
-            :key="sindex"
-            :label="sitem.name"
-            :value="sitem.id"
-          />
+        <el-select v-else-if="item.type === 'select_noremote'" v-model="form[item.field]" placeholder="请选择" @change="(val) => handleSelectChange && handleSelectChange(item, val, form)">
+          <el-option v-for="(sitem, sindex) in item.options" :key="sindex" :label="sitem.name" :value="sitem.id" />
         </el-select>
         <!-- 关联数据选择框 -->
-        <SimpleSelect
-          v-else-if="item.type === 'select'"
-          :ref="'smpSel' + item.field"
-          v-model="form[item.field]"
-          :field="item.field"
-          :select-label="item.selectLabel"
-          :multiple="item.multiple"
-          :key-words="item.keyWords"
-          :search-key="
-            typeof item.searchKeys === 'object' ? item.searchKeys : form[item.searchKeys]
-          "
-          :reg-key="item.regKey"
-          :disabled="item.disabled"
-          :placeholder="item.placeholder ? item.placeholder : '请选择'"
-          :auto-select="item.autoSelect"
-          :sortJson="item.sortJson"
-          @update-value="onSimpleSelectChange"
-          @init-finish="simpleSelectInitFinish"
-        />
+        <SimpleSelect v-else-if="item.type === 'select'" :ref="'smpSel' + item.field" v-model="form[item.field]" :field="item.field" :select-label="item.selectLabel" :multiple="item.multiple" :key-words="item.keyWords" :search-key="typeof item.searchKeys === 'object' ? item.searchKeys : form[item.searchKeys]" :reg-key="item.regKey" :disabled="item.disabled" :placeholder="item.placeholder ? item.placeholder : '请选择'" :auto-select="item.autoSelect" :sortJson="item.sortJson" @update-value="onSimpleSelectChange" @init-finish="simpleSelectInitFinish" />
         <!-- 级联选择框 -->
-        <SimpleTreeSelect
-          v-else-if="item.type === 'cascader'"
-          v-model="form[item.field]"
-          :field="item.field"
-          :key-words="item.keyWords"
-          :disabled="item.disabled"
-          :check-strictly="item.checkStrictly"
-          :search-keys="item.searchKeys"
-          @update-value="onTreeSelectChange"
-        />
+        <SimpleTreeSelect v-else-if="item.type === 'cascader'" v-model="form[item.field]" :field="item.field" :key-words="item.keyWords" :disabled="item.disabled" :check-strictly="item.checkStrictly" :search-keys="item.searchKeys" @update-value="onTreeSelectChange" />
         <!-- 文件上传框 -->
-        <SimpleUpload
-          v-else-if="item.type === 'uploadFile'"
-          v-model="form[item.field]"
-          :field="item.field"
-          :up-button-info="item.upButtonInfo"
-          :file-max-size="item.fileMaxSize"
-          :file-allowed-types="item.fileAllowedTypes"
-          :multiple="item.allowMultiFiles"
-          :allow-multi-files="item.allowMultiFiles"
-        />
+        <SimpleUpload v-else-if="item.type === 'uploadFile'" v-model="form[item.field]" :field="item.field" :up-button-info="item.upButtonInfo" :file-max-size="item.fileMaxSize" :file-allowed-types="item.fileAllowedTypes" :multiple="item.allowMultiFiles" :allow-multi-files="item.allowMultiFiles" />
         <!-- 文件下载链接 -->
-        <el-button
-          v-else-if="item.type === 'downloadFile'"
-          type="text"
-          @click="downloadLinkClick && downloadLinkClick(form[item.ossFileId], form[item.fileName])"
-          >{{ form[item.fileName] }}</el-button
-        >
+        <el-button v-else-if="item.type === 'downloadFile'" type="text" @click="downloadLinkClick && downloadLinkClick(form[item.ossFileId], form[item.fileName])">{{ form[item.fileName] }}</el-button>
         <!-- 上传--卡片类型 -->
-        <el-upload-self
-          v-else-if="item.type === 'upload-card'"
-          v-model="fileList"
-          :limit="1"
-          show-limit
-          list-type="picture-card"
-          :file-types="item.fileTypes && item.fileTypes.length ? item.fileTypes : fileTypes"
-          @beforeUpload="beforeUpload"
-          @filesRemove="remove"
-        />
+        <el-upload-self v-else-if="item.type === 'upload-card'" v-model="fileList" :limit="1" show-limit list-type="picture-card" :file-types="item.fileTypes && item.fileTypes.length ? item.fileTypes : fileTypes" @beforeUpload="beforeUpload" @filesRemove="remove" />
         <!-- 图标选择 -->
-        <el-popover
-          v-else-if="item.type === 'icon'"
-          placement="bottom-start"
-          width="500"
-          trigger="click"
-        >
+        <el-popover v-else-if="item.type === 'icon'" placement="bottom-start" width="500" trigger="click">
           <IconSelect ref="iconSelectRef" @selected="selected" />
           <template #reference>
             <el-input v-model="form.icon" placeholder="点击选择图标" readonly>
@@ -230,13 +108,7 @@
     <div v-for="(item, index) in formItems" :key="'area' + index" v-show="!item.hidden">
       <el-form-item v-if="item.type === 'textarea'" :prop="item.field" :label="item.name">
         <!-- 文本域输入框，始终出现在最下面 -->
-        <el-input
-          v-if="item.type === 'textarea'"
-          v-model="form[item.field]"
-          type="textarea"
-          :placeholder="item.placeholder || '写点什么...'"
-          :rows="3"
-        />
+        <el-input v-if="item.type === 'textarea'" v-model="form[item.field]" type="textarea" :placeholder="item.placeholder || '写点什么...'" :rows="3" />
       </el-form-item>
     </div>
     <slot name="bottomItems" />

@@ -1,13 +1,7 @@
 <template>
   <el-row class="password" type="flex">
     <div class="input-password-box">
-      <el-input
-        v-model="password"
-        type="password"
-        :maxlength="CONSTANT.INFO_MAX_LENGTH"
-        :placeholder="placeholder"
-        :disabled="props.disabled"
-      />
+      <el-input v-model="password" type="password" :maxlength="CONSTANT.INFO_MAX_LENGTH" :placeholder="placeholder" :disabled="props.disabled" />
     </div>
     <div class="reset" style="text-align: right"><span @click="reset">重置</span></div>
   </el-row>

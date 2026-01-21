@@ -35,9 +35,7 @@
             </el-table-column>
             <el-table-column label="全部">
               <template #default="scope">
-                <el-checkbox v-model="scope.row.authorizationAllFlag" :indeterminate=" (
-                  scope.row.authorizationInfo.visibleFlag | scope.row.authorizationInfo.addFlag ||scope.row.authorizationInfo.modifyFlag || scope.row.authorizationInfo.deleteFlag)
-                  && !scope.row.authorizationAllFlag" @change="handleCheckAllChange(scope.row.authorizationInfo, scope.row)" />
+                <el-checkbox v-model="scope.row.authorizationAllFlag" :indeterminate="(scope.row.authorizationInfo.visibleFlag | scope.row.authorizationInfo.addFlag || scope.row.authorizationInfo.modifyFlag || scope.row.authorizationInfo.deleteFlag) && !scope.row.authorizationAllFlag" @change="handleCheckAllChange(scope.row.authorizationInfo, scope.row)" />
               </template>
             </el-table-column>
           </el-table>

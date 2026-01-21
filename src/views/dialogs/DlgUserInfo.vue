@@ -1,23 +1,9 @@
 <template>
   <div>
     <!-- :simpledialog-confirm-more="confirmMore" -->
-    <SimpleDialog
-      ref="simpleDlg"
-      :default-props="defaultMainSDProps"
-      :simpledialog-confirm="confirm"
-      @update-record="updateRecord"
-      @close-dialog="closeDialog"
-      @open-dialog="openDialog"
-    >
+    <SimpleDialog ref="simpleDlg" :default-props="defaultMainSDProps" :simpledialog-confirm="confirm" @update-record="updateRecord" @close-dialog="closeDialog" @open-dialog="openDialog">
       <template #otherItems>
-        <el-form-item label="角色" prop="roleIds"
-          ><SimpleSelect
-            ref="spsRole"
-            v-model="form.roleIds"
-            multiple
-            key-words="SysRole"
-            @update-value="onSelRoles"
-        /></el-form-item>
+        <el-form-item label="角色" prop="roleIds"><SimpleSelect ref="spsRole" v-model="form.roleIds" multiple key-words="SysRole" @update-value="onSelRoles" /></el-form-item>
       </template>
     </SimpleDialog>
   </div>

@@ -1,45 +1,21 @@
 <template>
-  <DlgBasic
-    ref="dlgBasicRef"
-    v-model:default-props="defaultProps"
-    :dlgbasic-confirm="confirm"
-    @close-dialog="onCloseDialog"
-    @open-dialog="openDialog"
-  >
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #mainForm>
       <div class="dlg-content-wrapper">
         <!-- 上半部分：基本信息表单 -->
         <div class="form-section">
-          <FormItemsforDialog
-            ref="formItemsRef"
-            :form="form"
-            :form-items="formItems"
-            :form-rules="formRules"
-            label-width="100px"
-            @simple-select-change="onSimpleSelectChange"
-            @tree-select-change="onTreeSelectChange"
-          />
+          <FormItemsforDialog ref="formItemsRef" :form="form" :form-items="formItems" :form-rules="formRules" label-width="100px" @simple-select-change="onSimpleSelectChange" @tree-select-change="onTreeSelectChange" />
         </div>
 
         <!-- 下半部分：数据列表 -->
         <div class="table-section">
-          <DataTableList
-            ref="dataTableList"
-            :default-props="tableListProps"
-            @append-click="handleTableAppend"
-            @edit-click="handleTableEdit"
-            @after-init-data="handleAfterInitData"
-          />
+          <DataTableList ref="dataTableList" :default-props="tableListProps" @append-click="handleTableAppend" @edit-click="handleTableEdit" @after-init-data="handleAfterInitData" />
         </div>
       </div>
     </template>
   </DlgBasic>
   <!-- 流程选择窗口 -->
-  <DlgProcessSelect
-    ref="dlgProcessSelect"
-    :internship-type-id="form.id"
-    @update-record="handleProcessSelectSave"
-  />
+  <DlgProcessSelect ref="dlgProcessSelect" :internship-type-id="form.id" @update-record="handleProcessSelectSave" />
 </template>
 
 <script setup>
@@ -160,9 +136,7 @@ function showDialog(val, formData = {}) {
       // 编辑模式，检查表单是否有必填项未填
       verifyValid(false);
       // 如果有 id，则加载流程列表数据
-      setTimeout(() => {
-        dataTableList.value?.initDataList(true);
-      }, 200);
+      setTimeout(() => { dataTableList.value?.initDataList(true); }, 200);
     } else {
       // 新增模式，按钮禁用
       dlgBasicRef.value.validate = true;
@@ -217,15 +191,7 @@ async function confirm(option, type) {
   }
 
   const userId = store.getters.userInfo?.id;
-  const resInfo = await dlgAPI.commonSubmitDlg(
-    formPanelRef.value,
-    form,
-    keyWord.value,
-    'edit',
-    false,
-    false,
-    userId
-  );
+  const resInfo = await dlgAPI.commonSubmitDlg(formPanelRef.value, form, keyWord.value, 'edit', false, false, userId);
   if (resInfo && resInfo.message === 'successful') {
     emit('update-record', form);
     if (type === 'stop') {

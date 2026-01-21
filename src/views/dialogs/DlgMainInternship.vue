@@ -1,45 +1,21 @@
 <template>
-  <DlgBasic
-    ref="dlgBasicRef"
-    v-model:default-props="defaultProps"
-    :dlgbasic-confirm="confirm"
-    :dlgbasic-spec-submit="submit"
-    @close-dialog="onCloseDialog"
-    @open-dialog="openDialog"
-  >
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" :dlgbasic-spec-submit="submit" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #mainForm>
       <div class="dlg-content-wrapper">
         <!-- 上半部分：基本信息表单 -->
         <div class="form-section">
-          <FormItemsforDialog
-            ref="formItemsRef"
-            :form="form"
-            :form-items="formItems"
-            :form-rules="formRules"
-            label-width="100px"
-            @cron-change="onCronChange"
-          />
+          <FormItemsforDialog ref="formItemsRef" :form="form" :form-items="formItems" :form-rules="formRules" label-width="100px" @cron-change="onCronChange" />
         </div>
 
         <!-- 下半部分：流程列表 -->
         <div class="table-section">
-          <DataTableList
-            ref="dataTableList"
-            :default-props="tableListProps"
-            @append-click="handleTableAppend"
-            @edit-click="handleTableEdit"
-            @after-init-data="handleAfterInitData"
-          />
+          <DataTableList ref="dataTableList" :default-props="tableListProps" @append-click="handleTableAppend" @edit-click="handleTableEdit" @after-init-data="handleAfterInitData" />
         </div>
       </div>
     </template>
   </DlgBasic>
   <!-- 流程选择窗口 -->
-  <DlgProcessSelect
-    ref="dlgProcessSelect"
-    :internship-id="form.id"
-    @update-record="handleProcessSelectSave"
-  />
+  <DlgProcessSelect ref="dlgProcessSelect" :internship-id="form.id" @update-record="handleProcessSelectSave" />
 </template>
 
 <script setup>
@@ -167,9 +143,7 @@ function showDialog(val, formData = {}) {
     if (formData && formData.id != null && formData.id !== 0) {
       verifyValid(false);
       // 减少延迟时间，从 200ms 改为 100ms，提升刷新速度
-      setTimeout(() => {
-        dataTableList.value?.initDataList(true);
-      }, 100);
+      setTimeout(() => { dataTableList.value?.initDataList(true); }, 100);
     } else {
       dlgBasicRef.value.validate = true;
     }
@@ -212,19 +186,7 @@ function verifyValid(showMessage = true) {
 // 暂存（isAudit 保持不变或设为 -1）
 async function confirm(option, type) {
   const userId = store.getters.userInfo?.id;
-  // 暂存时保持 isAudit = -1
-  if (form.isAudit === undefined || form.isAudit === null) {
-    form.isAudit = -1;
-  }
-  const resInfo = await dlgAPI.commonSubmitDlg(
-    formPanelRef.value,
-    form,
-    keyWord.value,
-    'edit',
-    false,
-    false,
-    userId
-  );
+  const resInfo = await dlgAPI.commonSubmitDlg(formPanelRef.value, form, keyWord.value, 'edit', false, false, userId);
   if (resInfo && resInfo.message === 'successful') {
     emit('update-record', form);
     if (type === 'stop') {

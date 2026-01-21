@@ -1,20 +1,9 @@
 <template>
   <div class="build-internship-container">
-    <BaseList
-      :default-props="defaultProps"
-      ref="baseList"
-      :baselist-confirm="handleConfirm"
-      @append-click="appendClick"
-      @edit-click="editClick"
-    >
+    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @append-click="appendClick" @edit-click="editClick" @delete-click="handleDeleteClick">
     </BaseList>
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
-    <DlgMainInternship
-      ref="dlgMainInternship"
-      :user-department-id="userDepartmentId"
-      :is-super-admin="isSuperAdmin"
-      @update-record="handleUpdateRecord"
-    />
+    <DlgMainInternship ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin" @update-record="handleUpdateRecord" />
   </div>
 </template>
 <script setup>
@@ -116,6 +105,26 @@ const appendClick = () => {
 // 处理编辑按钮点击事件，使用自定义的编辑窗口
 const editClick = (row) => {
   dlgMainInternship.value?.showDialog(true, row);
+};
+
+// 自定义删除处理
+const handleDeleteClick = async (rows) => {
+  const ids = Array.isArray(rows) ? rows.map(item => item.id) : rows?.id ? [rows.id] : [];
+  if (!ids.length) {
+    ElMessage.warning('未选择要删除的项目');
+    return;
+  }
+  try {
+    const res = await otherAPI.deleteNewInternship(ids);
+    if (res?.message === 'successful') {
+      ElMessage.success('删除成功');
+      baseList.value?.initDataList();
+    } else {
+      ElMessage.error(res?.message || '删除失败');
+    }
+  } catch (error) {
+    ElMessage.error(error?.message || '删除失败');
+  }
 };
 
 // 处理更新记录后的回调

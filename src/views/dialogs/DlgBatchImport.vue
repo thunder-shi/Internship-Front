@@ -1,23 +1,7 @@
 <template>
-  <DlgBasic
-    ref="dlgBasicRef"
-    :default-props="defaultProps"
-    :dlgbasic-spec-confirm="submit"
-    @close-dialog="handleCloseDialog"
-  >
+  <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-spec-confirm="submit" @close-dialog="handleCloseDialog">
     <template #mainForm>
-      <el-upload
-        ref="uploadRef"
-        class="upload-demo"
-        drag
-        action
-        :limit="1"
-        :show-file-list="true"
-        :http-request="() => {}"
-        :on-exceed="handleExceed"
-        :before-upload="beforeUpload"
-        :on-remove="() => (file.value = {})"
-      >
+      <el-upload ref="uploadRef" class="upload-demo" drag action :limit="1" :show-file-list="true" :http-request="() => {}" :on-exceed="handleExceed" :before-upload="beforeUpload" :on-remove="() => (file.value = {})">
         <i class="el-icon-upload" />
         <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
         <template #tip>

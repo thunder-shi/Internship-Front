@@ -6,21 +6,7 @@
           <span>{{ title.mainTitle }}</span>
           <span v-if="title.subTitle">&nbsp;|&nbsp;<strong>{{ title.subTitle || '全部' }}</strong></span>
         </template>
-        <el-tree
-          ref="dataTree"
-          v-adaptive-card
-          v-loading="loading"
-          :lazy="lazy"
-          :load="lazyLoad"
-          highlight-current
-          node-key="id"
-          :show-checkbox="checkFlag"
-          :expand-on-node="false"
-          :default-expanded-keys="[-1]"
-          :data="treeData"
-          :props="defaultDataProps"
-          @node-click="handleNodeClick"
-        />
+        <el-tree ref="dataTree" v-adaptive-card v-loading="loading" :lazy="lazy" :load="lazyLoad" highlight-current node-key="id" :show-checkbox="checkFlag" :expand-on-node="false" :default-expanded-keys="[-1]" :data="treeData" :props="defaultDataProps" @node-click="handleNodeClick" />
       </el-card>
     </transition>
     <div class="collapse-trigger" :class="{ collapsed: isCollapsed }" @click.stop="toggleCollapse">

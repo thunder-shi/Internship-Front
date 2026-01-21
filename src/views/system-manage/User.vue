@@ -1,17 +1,7 @@
 <template>
-  <BaseTreeList
-    ref="baseTreeList"
-    :default-props="defaultProps"
-    @append-click="appendClick"
-    @edit-click="editClick"
-    @set-type="handleSetType"
-  >
+  <BaseTreeList ref="baseTreeList" :default-props="defaultProps" @append-click="appendClick" @edit-click="editClick" @set-type="handleSetType">
     <template #dlg>
-      <DlgUserInfo
-        ref="dlgUser"
-        @update-record="initDataList"
-        :props-info="defaultProps.otherInfo"
-      />
+      <DlgUserInfo ref="dlgUser" @update-record="initDataList" :props-info="defaultProps.otherInfo" />
     </template>
   </BaseTreeList>
 </template>

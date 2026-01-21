@@ -7,74 +7,17 @@
       <el-row type="flex" justify="space-between">
         <!--左侧插槽-->
         <slot v-if="$slots.left" name="left" />
-        <el-button
-          v-if="button.create.show"
-          :type="button.create.type"
-          :icon="Plus"
-          @click="$emit('append-click')"
-          >{{ button.create.name }}</el-button
-        >
-        <el-button
-          v-if="button.update.show"
-          :type="button.update.type"
-          :icon="Edit"
-          :disabled="selectedColumns.length != 1"
-          @click="edit(selectedColumns[0])"
-          >{{ button.update.name }}</el-button
-        >
-        <el-button
-          v-if="button.delete.show"
-          :type="button.delete.type"
-          :icon="Delete"
-          :disabled="selectedColumns.length < 1"
-          @click="remove(selectedColumns)"
-          >{{ button.delete.name }}</el-button
-        >
-        <el-tooltip
-          class="item"
-          effect="dark"
-          content="直接点击会导出当前全部内容，否则请先选择需要导出的项目后再点击。"
-          placement="top"
-        >
-          <el-button
-            v-if="button.export.show"
-            :type="button.export.type"
-            :icon="Upload"
-            @click="exportData"
-            >{{ button.export.name }}</el-button
-          >
+        <el-button v-if="button.create.show" :type="button.create.type" :icon="Plus" @click="$emit('append-click')">{{ button.create.name }}</el-button>
+        <el-button v-if="button.update.show" :type="button.update.type" :icon="Edit" :disabled="selectedColumns.length != 1" @click="edit(selectedColumns[0])">{{ button.update.name }}</el-button>
+        <el-button v-if="button.delete.show" :type="button.delete.type" :icon="Delete" :disabled="selectedColumns.length < 1" @click="remove(selectedColumns)">{{ button.delete.name }}</el-button>
+        <el-tooltip class="item" effect="dark" content="直接点击会导出当前全部内容，否则请先选择需要导出的项目后再点击。" placement="top">
+          <el-button v-if="button.export.show" :type="button.export.type" :icon="Upload" @click="exportData">{{ button.export.name }}</el-button>
         </el-tooltip>
-        <el-button
-          v-if="button.more1.show"
-          :type="button.more1.type"
-          :icon="CirclePlus"
-          @click="more1Click(selectedColumns)"
-          >{{ button.more1.name }}</el-button
-        >
-        <el-button
-          v-if="button.more2.show"
-          :type="button.more2.type"
-          :icon="Promotion"
-          @click="more2Click(selectedColumns)"
-          >{{ button.more2.name }}</el-button
-        >
-        <el-button
-          v-if="button.batchCreate.show"
-          :icon="UploadFilled"
-          :type="button.batchCreate.type"
-          @click="handleUpload"
-          >{{ button.batchCreate.name }}</el-button
-        >
+        <el-button v-if="button.more1.show" :type="button.more1.type" :icon="CirclePlus" @click="more1Click(selectedColumns)">{{ button.more1.name }}</el-button>
+        <el-button v-if="button.more2.show" :type="button.more2.type" :icon="Promotion" @click="more2Click(selectedColumns)">{{ button.more2.name }}</el-button>
+        <el-button v-if="button.batchCreate.show" :icon="UploadFilled" :type="button.batchCreate.type" @click="handleUpload">{{ button.batchCreate.name }}</el-button>
         <div v-if="button.audit.show" style="padding-left:10px;padding-right:10px;">
-          <el-dropdown
-            ref="auditButton"
-            split-button
-            size="mini"
-            :type="button.audit.type"
-            :disabled="selectedColumns.length < 1"
-            @command="auditDropdownSelect"
-            @click="auditDropdownClick(selectedColumns)"
-            >{{ auditButtonName }}
+          <el-dropdown ref="auditButton" split-button size="mini" :type="button.audit.type" :disabled="selectedColumns.length < 1" @command="auditDropdownSelect" @click="auditDropdownClick(selectedColumns)">{{ auditButtonName }}
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="button.audit.showPass" :command="CONSTANT.AUDIT_STATUS.PASS">批量{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-dropdown-item>
@@ -98,21 +41,8 @@
           <template #reference>
             <el-button title="选择性展示" :icon="Grid" />
           </template>
-          <el-checkbox
-            v-model="checkAll"
-            :disabled="!indeterminate"
-            :indeterminate="indeterminate"
-            @change="handleCheckAllChange"
-            >全选</el-checkbox
-          >
-          <el-checkbox
-            v-for="item in allTableColumns"
-            :key="item.id"
-            v-model="item.firstVisible"
-            class="checkbox-item"
-            @change="handleCheckSingleChange(item)"
-            >{{ item.showName }}</el-checkbox
-          >
+          <el-checkbox v-model="checkAll" :disabled="!indeterminate" :indeterminate="indeterminate" @change="handleCheckAllChange">全选</el-checkbox>
+          <el-checkbox v-for="item in allTableColumns" :key="item.id" v-model="item.firstVisible" class="checkbox-item" @change="handleCheckSingleChange(item)">{{ item.showName }}</el-checkbox>
         </el-popover>
       </el-button-group>
     </div>

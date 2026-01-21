@@ -1,21 +1,6 @@
 <template>
   <div>
-    <DataTableList
-      ref="dataTableList"
-      :default-props="defaultProps.defaultDTLProps"
-      :button-condition="buttonCondition"
-      :client-filter-fn="clientFilterFn"
-      @append-click="appendClick"
-      @edit-click="editClick"
-      @view-click="viewClick"
-      @update-column="updateColumn"
-      @delete-click="deleteClick"
-      @export-click="exportClick"
-      @more1-click="more1Click"
-      @more2-click="more2Click"
-      @after-init-data="afterInitData"
-      @audit-click="auditClick"
-    >
+    <DataTableList ref="dataTableList" :default-props="defaultProps.defaultDTLProps" :button-condition="buttonCondition" :client-filter-fn="clientFilterFn" @append-click="appendClick" @edit-click="editClick" @view-click="viewClick" @update-column="updateColumn" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @after-init-data="afterInitData" @audit-click="auditClick">
       <!--数据操作按钮类 -->
       <!-- <template #searchPanel>
       <slot name="searchPanel" />
@@ -27,17 +12,7 @@
     </DataTableList>
     <slot name="dlg">
       <!-- 简单窗口 -->
-      <SimpleDialog
-        ref="simpleDialog"
-        :default-props="defaultProps.defaultSDProps"
-        :simpledialog-confirm="confirm"
-        :simpledialog-submit="submit"
-        @update-record="initDataList"
-        @submit-more="submitMore"
-        @simple-select-change="SimpleSelectChange"
-        @tree-select-change="treeSelectChange"
-        @confirm-click="confirmClick"
-      />
+      <SimpleDialog ref="simpleDialog" :default-props="defaultProps.defaultSDProps" :simpledialog-confirm="confirm" :simpledialog-submit="submit" @update-record="initDataList" @submit-more="submitMore" @simple-select-change="SimpleSelectChange" @tree-select-change="treeSelectChange" @confirm-click="confirmClick" />
     </slot>
   </div>
 </template>

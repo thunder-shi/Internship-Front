@@ -1,23 +1,7 @@
 <template>
   <div class="simple-select-wrapper">
-    <el-select
-      v-model="selectValue"
-      v-loading="loading"
-      class="simple-select"
-      :placeholder="placeholder"
-      :size="size"
-      :multiple="multiple"
-      :disabled="disabled"
-      :filterable="filterable"
-      @change="handleChange"
-    >
-      <el-option
-        v-for="item in options"
-        :key="item.id"
-        :label="item.name"
-        :value="item.id"
-        :value-key="item.id"
-      />
+    <el-select v-model="selectValue" v-loading="loading" class="simple-select" :placeholder="placeholder" :size="size" :multiple="multiple" :disabled="disabled" :filterable="filterable" @change="handleChange">
+      <el-option v-for="item in options" :key="item.id" :label="item.name" :value="item.id" :value-key="item.id" />
     </el-select>
   </div>
 </template>

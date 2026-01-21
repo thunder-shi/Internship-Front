@@ -64,9 +64,7 @@ export default {
   // 元素插入到DOM后调用 - Vue 3 使用 mounted
   mounted(el, binding) {
     // 延迟执行，确保组件实例已挂载
-    setTimeout(() => {
-      doResize(el, binding)
-    }, 100)
+    setTimeout(() => { doResize(el, binding); }, 100)
   },
   // 组件卸载时调用 - Vue 3 使用 unmounted
   unmounted(el) {

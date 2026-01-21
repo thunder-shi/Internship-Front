@@ -1,19 +1,7 @@
 <template>
-  <DlgBasic
-    ref="dlgBasicRef"
-    v-model:default-props="defaultProps"
-    :dlgbasic-confirm="confirm"
-    @close-dialog="onCloseDialog"
-    @open-dialog="openDialog"
-  >
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #mainForm>
-      <el-form
-        ref="formPanelRef"
-        :rules="formRules"
-        :model="form"
-        label-suffix=":"
-        label-width="120px"
-      >
+      <el-form ref="formPanelRef" :rules="formRules" :model="form" label-suffix=":" label-width="120px">
         <!-- 审核选项和理由（在 tab 页上方） -->
         <div class="audit-section-top">
           <el-form-item label="审核结果" prop="auditResult">
@@ -24,14 +12,7 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item label="审核理由" prop="auditReason">
-            <el-input
-              v-model="form.auditReason"
-              type="textarea"
-              :rows="4"
-              placeholder="请输入审核理由"
-              :maxlength="500"
-              show-word-limit
-            />
+            <el-input v-model="form.auditReason" type="textarea" :rows="4" placeholder="请输入审核理由" :maxlength="500" show-word-limit />
           </el-form-item>
         </div>
 
@@ -58,10 +39,7 @@
             <!-- 第二页：项目流程信息 -->
             <el-tab-pane label="项目流程信息" name="process">
               <div class="process-section">
-                <DataTableList
-                  ref="dataTableList"
-                  :default-props="tableListProps"
-                />
+                <DataTableList ref="dataTableList" :default-props="tableListProps" />
               </div>
             </el-tab-pane>
 
@@ -74,11 +52,7 @@
                   <span class="audit-header-item">审核状态</span>
                   <span class="audit-header-item">审核理由</span>
                 </div>
-                <div
-                  v-for="(record, index) in auditRecords"
-                  :key="index"
-                  class="audit-record-row"
-                >
+                <div v-for="(record, index) in auditRecords" :key="index" class="audit-record-row">
                   <span class="audit-record-item">{{ record.verifyUserName || '-' }}</span>
                   <span class="audit-record-item">{{ formatAuditTime(record.verifyTime || record.updateTime) }}</span>
                   <span class="audit-record-item">{{ formatAuditStatus(record.isAudit) }}</span>
@@ -340,9 +314,7 @@ function showDialog(val, formData = {}) {
     if (formData && formData.id != null && formData.id !== 0) {
       verifyValid(false);
       // 延迟加载流程列表数据
-      setTimeout(() => {
-        dataTableList.value?.initDataList(true);
-      }, 200);
+      setTimeout(() => { dataTableList.value?.initDataList(true); }, 200);
     } else {
       dlgBasicRef.value.validate = true;
     }

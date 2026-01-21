@@ -36,9 +36,19 @@ const submitNewInternship = (form) => {
   })
 }
 
+// 删除实习项目
+const deleteNewInternship = (ids) => {
+  return request({
+    url: '/internshipProcess/deleteNewInternship',
+    method: 'post',
+    data: { ids }
+  })
+}
+
 export default {
   getKey,
   getWholeKey,
   addNewInternship,
   submitNewInternship,
+  deleteNewInternship,
 }

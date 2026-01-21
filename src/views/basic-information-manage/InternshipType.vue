@@ -1,16 +1,8 @@
 <template>
   <div class="internship-type-container">
-    <BaseList
-      :default-props="defaultProps"
-      ref="baseList"
-      @append-click="appendClick"
-      @edit-click="editClick"
-    />
+    <BaseList :default-props="defaultProps" ref="baseList" @append-click="appendClick" @edit-click="editClick" />
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
-    <DlgIntershipType
-      ref="dlgIntershipType"
-      @update-record="handleUpdateRecord"
-    />
+    <DlgIntershipType ref="dlgIntershipType" @update-record="handleUpdateRecord" />
   </div>
 </template>
 <script setup>

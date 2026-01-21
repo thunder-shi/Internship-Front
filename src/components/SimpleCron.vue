@@ -8,37 +8,17 @@
     </el-select>
 
     <!-- 每周选择星期几 -->
-    <el-select
-      v-if="cycleType === 'weekly'"
-      v-model="weekDay"
-      placeholder="选择星期"
-      class="cron-select"
-      @change="handleChange"
-    >
+    <el-select v-if="cycleType === 'weekly'" v-model="weekDay" placeholder="选择星期" class="cron-select" @change="handleChange">
       <el-option v-for="item in weekDays" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
 
     <!-- 每月选择日期 -->
-    <el-select
-      v-if="cycleType === 'monthly'"
-      v-model="monthDay"
-      placeholder="选择日期"
-      class="cron-select"
-      @change="handleChange"
-    >
+    <el-select v-if="cycleType === 'monthly'" v-model="monthDay" placeholder="选择日期" class="cron-select" @change="handleChange">
       <el-option v-for="day in 31" :key="day" :label="`${day}号`" :value="day" />
     </el-select>
 
     <!-- 时间选择（选择"无"时隐藏） -->
-    <el-time-picker
-      v-if="cycleType !== 'none'"
-      v-model="time"
-      format="HH:mm"
-      value-format="HH:mm"
-      placeholder="选择时间"
-      class="cron-time"
-      @change="handleChange"
-    />
+    <el-time-picker v-if="cycleType !== 'none'" v-model="time" format="HH:mm" value-format="HH:mm" placeholder="选择时间" class="cron-time" @change="handleChange" />
 
     <!-- 显示生成的 cron 表达式（可选） -->
     <span v-if="showExpression && cronExpression" class="cron-expression">

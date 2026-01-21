@@ -1,30 +1,8 @@
 <template>
-  <DataTableHeader
-    ref="dataTBLMother"
-    v-model:selected-columns="selectedColumns"
-    :default-props="defaultProps.defaultDTHProps"
-    @init-click="refreshInit"
-    @show-search="showSearchPanel"
-    @append-click="appendClick"
-    @edit-click="editClick"
-    @delete-click="deleteClick"
-    @export-click="exportClick"
-    @more1-click="more1Click"
-    @more2-click="more2Click"
-    @upload-finish="uploadFinish"
-    @upload="upload"
-  >
+  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns" :default-props="defaultProps.defaultDTHProps" @init-click="refreshInit" @show-search="showSearchPanel" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
     <template #searchPanel>
       <!-- v-model="searchName" -->
-      <slot name="searchPanel"
-        ><BtnSearch
-          :search-name="searchName"
-          :placeholder="searchPlaceholder"
-          :no-advanced-search="noAdvancedSearch"
-          :search-items="searchItems"
-          @search-click="searchClick"
-          @advanced-search-click="advancedSearchClick"
-      /></slot>
+      <slot name="searchPanel"><BtnSearch :search-name="searchName" :placeholder="searchPlaceholder" :no-advanced-search="noAdvancedSearch" :search-items="searchItems" @search-click="searchClick" @advanced-search-click="advancedSearchClick" /></slot>
     </template>
     <template #body>
       <!--列表展示-->
@@ -34,57 +12,25 @@
             <slot name="cardTitle" />
             <template v-if="title">
               <span>{{ title.mainTitle }}</span>
-              <span v-if="title.subTitle"
-                >&nbsp;|&nbsp;<strong>{{ title.subTitle || '全部' }}</strong></span
-              >
+              <span v-if="title.subTitle">&nbsp;|&nbsp;<strong>{{ title.subTitle || '全部' }}</strong></span>
             </template>
           </template>
         </template>
-        <el-table
-          ref="table"
-          v-adaptive="{ bottomOffset }"
-          v-loading="loading"
-          border
-          height="100%"
-          :data="dataList"
-          row-key="id"
-          highlight-current-rows
-          @current-change="handleColumnChange"
-          @selection-change="handleSelectionChange"
-          @sort-change="handleSortChange"
-        >
-          <el-table-column
-            v-if="checkFlag"
-            fixed
-            :reserve-selection="true"
-            type="selection"
-            width="55"
-          />
+        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList" row-key="id" highlight-current-rows @current-change="handleColumnChange" @selection-change="handleSelectionChange" @sort-change="handleSortChange">
+          <el-table-column v-if="checkFlag" fixed :reserve-selection="true" type="selection" width="55" />
           <el-table-column v-else fixed width="55">
             <template #default="scope">
               <el-radio v-model="tableRadio" :label="scope.row"><i /></el-radio>
             </template>
           </el-table-column>
-          <el-table-column
-            v-for="(item, index) in tableColumnItem"
-            :key="index"
-            :show-overflow-tooltip="true"
-            :prop="item.tableColumnName"
-            :label="item.showName"
-            :width="item.width"
-            :sortable="item.sortable ? 'custom' : false"
-          >
+          <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true" :prop="item.tableColumnName" :label="item.showName" :width="item.width" :sortable="item.sortable ? 'custom' : false">
             <template #default="scope">
               <!-- 特殊列格式 -->
               <div v-if="item.tableColumnName.endsWith('Time')">
                 {{ filterDateTime(scope.row[item.tableColumnName]) }}
               </div>
               <!-- 审核状态标签显示 -->
-              <el-tag
-                v-else-if="item.tableColumnName === 'isAudit' || item.tableColumnName === 'auditStatus'"
-                :type="getAuditTagType(scope.row[item.tableColumnName])"
-                size="small"
-              >
+              <el-tag v-else-if="item.tableColumnName === 'isAudit' || item.tableColumnName === 'auditStatus'" :type="getAuditTagType(scope.row[item.tableColumnName])" size="small">
                 {{ formatAuditStatus(scope.row[item.tableColumnName]) }}
               </el-tag>
               <!-- cron 表达式格式化 -->
@@ -92,11 +38,7 @@
                 {{ formatCron(scope.row[item.tableColumnName]) }}
               </div>
               <!-- 列表自定义显示的内容 tableColumnName 必须以 customize- 开头 -->
-              <slot
-                v-else-if="item.tableColumnName.startsWith('customize-')"
-                :name="item.tableColumnName.replace('customize-', '')"
-                :row="scope.row"
-              />
+              <slot v-else-if="item.tableColumnName.startsWith('customize-')" :name="item.tableColumnName.replace('customize-', '')" :row="scope.row" />
               <div v-else-if="scope.row[item.tableColumnName] === null">{{ '--' }}</div>
               <div v-else>{{ scope.row[item.tableColumnName] }}</div>
             </template>
@@ -104,78 +46,30 @@
           <el-table-column v-if="operateShow" fixed="right" label="操作" :width="operateWidth">
             <template #default="scope">
               <!--查看and编辑and删除-->
-              <el-button
-                v-if="button?.visible?.show && isButtonVisible('visible', scope.row)"
-                :type="button.visible.type"
-                size="small"
-                :title="button.visible.name"
-                @click="view([scope.row])"
-              >
+              <el-button v-if="button?.visible?.show && isButtonVisible('visible', scope.row)" :type="button.visible.type" size="small" :title="button.visible.name" @click="view([scope.row])">
                 <svg-icon icon-class="axt-view" />
               </el-button>
-              <el-button
-                v-if="button?.update?.show && isButtonVisible('update', scope.row)"
-                :type="button.update.type"
-                size="small"
-                :title="button.update.name"
-                @click="editClick(scope.row)"
-              >
+              <el-button v-if="button?.update?.show && isButtonVisible('update', scope.row)" :type="button.update.type" size="small" :title="button.update.name" @click="editClick(scope.row)">
                 <el-icon><Edit /></el-icon>
               </el-button>
-              <el-button
-                v-if="button?.audit?.show && isButtonVisible('audit', scope.row)"
-                :type="button.audit.type"
-                size="small"
-                :title="button.audit.name"
-                @click="auditClick(scope.row)"
-              >
+              <el-button v-if="button?.audit?.show && isButtonVisible('audit', scope.row)" :type="button.audit.type" size="small" :title="button.audit.name" @click="auditClick(scope.row)">
                 <svg-icon icon-class="verCode" />
               </el-button>
               <!--列表数据右方的操作按钮-->
               <slot name="rightOperate" :row="scope.row" />
-              <el-button
-                v-if="button?.delete?.show && isButtonVisible('delete', scope.row)"
-                :type="button.delete.type"
-                size="small"
-                :title="button.delete.name"
-                @click="remove([scope.row])"
-              >
+              <el-button v-if="button?.delete?.show && isButtonVisible('delete', scope.row)" :type="button.delete.type" size="small" :title="button.delete.name" @click="remove([scope.row])">
                 <el-icon><Delete /></el-icon>
               </el-button>
-              <el-button
-                v-if="button?.up?.show"
-                :type="button.up.type"
-                size="small"
-                :loading="buttonLoading.up"
-                :title="button.up.name"
-                @click="move(scope.row, true)"
-              >
+              <el-button v-if="button?.up?.show" :type="button.up.type" size="small" :loading="buttonLoading.up" :title="button.up.name" @click="move(scope.row, true)">
                 <el-icon><Top /></el-icon>
               </el-button>
-              <el-button
-                v-if="button?.down?.show"
-                :type="button.down.type"
-                size="small"
-                :loading="buttonLoading.down"
-                :title="button.down.name"
-                @click="move(scope.row, false)"
-              >
+              <el-button v-if="button?.down?.show" :type="button.down.type" size="small" :loading="buttonLoading.down" :title="button.down.name" @click="move(scope.row, false)">
                 <el-icon><Bottom /></el-icon>
               </el-button>
             </template>
           </el-table-column>
         </el-table>
-        <v-page
-          v-if="showPage"
-          align="center"
-          :total="totalSize"
-          :current-page="pageInfo.page"
-          :page-size="pageInfo.size"
-          :page-sizes="pageInfo.sizes"
-          :selected-columns="selectedColumns"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
+        <v-page v-if="showPage" align="center" :total="totalSize" :current-page="pageInfo.page" :page-size="pageInfo.size" :page-sizes="pageInfo.sizes" :selected-columns="selectedColumns" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
       </el-card>
     </template>
   </DataTableHeader>
@@ -590,9 +484,7 @@ const searchPlaceholder = computed(() => {
 // watch
 watch(autoInit, (val) => {
   if (val) {
-    setTimeout(() => {
-      initDataList();
-    }, 500);
+    setTimeout(() => { initDataList(); }, 500);
   }
 });
 
@@ -660,9 +552,7 @@ onMounted(() => {
     }
     operateWidth.value = width;
     // 延迟初始化数据
-    setTimeout(() => {
-      initDataList();
-    }, 500);
+    setTimeout(() => { initDataList(); }, 500);
   });
 });
 

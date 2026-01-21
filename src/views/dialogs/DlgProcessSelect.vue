@@ -1,10 +1,5 @@
 <template>
-  <SimpleDialog
-    ref="simpleDialogRef"
-    :default-props="defaultProps"
-    :simpledialog-confirm="confirm"
-    @simple-select-change="onSimpleSelectChange"
-  />
+  <SimpleDialog ref="simpleDialogRef" :default-props="defaultProps" :simpledialog-confirm="confirm" @simple-select-change="onSimpleSelectChange" />
 </template>
 
 <script setup>
@@ -167,9 +162,7 @@ function showDialog(val, formData = {}) {
 
   // 延迟重置初始化标记，确保 SimpleSelect 初始化完成后用户修改能正常清空值
   if (isEdit) {
-    setTimeout(() => {
-      isInitializing = false;
-    }, 500);
+    setTimeout(() => { isInitializing = false; }, 500);
   }
 }
 

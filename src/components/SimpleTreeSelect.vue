@@ -1,21 +1,6 @@
 <template>
   <div class="cascader-wrapper" v-loading="loading">
-    <el-cascader
-      v-if="!isInitializing"
-      :key="componentKey"
-      ref="cascaderRef"
-      v-model="currentVal"
-      class="cascader"
-      :options="options"
-      :props="cascaderProps"
-      :placeholder="placeholder"
-      :disabled="disabled"
-      :size="size"
-      :show-all-levels="true"
-      clearable
-      @change="handleChange"
-      @visible-change="handleVisibleChange"
-    >
+    <el-cascader v-if="!isInitializing" :key="componentKey" ref="cascaderRef" v-model="currentVal" class="cascader" :options="options" :props="cascaderProps" :placeholder="placeholder" :disabled="disabled" :size="size" :show-all-levels="true" clearable @change="handleChange" @visible-change="handleVisibleChange">
       <template #default="{ node, data }">
         <span>{{ data.name }}</span>
       </template>

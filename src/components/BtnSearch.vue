@@ -7,9 +7,7 @@
     <div v-else class="advanced-search-field-box">
       <div v-for="(item, index) in searchItems" :key="index" class="search-item">
         <slot v-if="item.type.startsWith('customize')" :name="item.slot" />
-        <el-cascader v-if="item.type==='cascader'" v-model="waitSearch[item.field]" size="small" :loading="loading" :options="item.options" :props="{
-          label: 'name', value: 'id', checkStrictly: item.checkStrictly
-        }" :placeholder="item.placeholder" clearable />
+        <el-cascader v-if="item.type==='cascader'" v-model="waitSearch[item.field]" size="small" :loading="loading" :options="item.options" :props="{ label: 'name', value: 'id', checkStrictly: item.checkStrictly }" :placeholder="item.placeholder" clearable />
         <el-select v-if="item.type==='select'" v-model="waitSearch[item.field]" size="small" :placeholder="item.placeholder?item.placeholder:item.name" :loading="loading" clearable>
           <el-option v-for="citem in item.options" :key="citem.id" :label="citem.name" :value="citem.id" />
         </el-select>

@@ -353,9 +353,7 @@ const mountDirective = (el, binding) => {
       (visible) => {
         if (visible) {
           // 对话框打开时，延迟一点再绑定拖拽
-          setTimeout(() => {
-            setup()
-          }, 150)
+          setTimeout(() => { setup(); }, 150)
         } else {
           cleanupEvents(el)
         }

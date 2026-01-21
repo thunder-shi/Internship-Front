@@ -5,13 +5,7 @@
     </section>
     <section class="tree-list-main">
       <!-- 列表1 -->
-      <DataTableList
-        ref="dataTableList"
-        :default-props="defaultDTLProps"
-        @edit-click="editClick"
-        @append-click="appendClick"
-        @batch-import-click="batchImportClick"
-      />
+      <DataTableList ref="dataTableList" :default-props="defaultDTLProps" @edit-click="editClick" @append-click="appendClick" @batch-import-click="batchImportClick" />
     </section>
     <slot name="dlg">
       <!-- 简单窗口 -->
@@ -19,12 +13,7 @@
     </slot>
     <slot name="batch">
       <!-- 批量录入窗口 -->
-      <DlgBatchImport
-        ref="batchAppendDlg"
-        :default-props="defaultDBIProps"
-        @ex-material="exMaterial"
-        @close-dialog="initDataList"
-      />
+      <DlgBatchImport ref="batchAppendDlg" :default-props="defaultDBIProps" @ex-material="exMaterial" @close-dialog="initDataList" />
     </slot>
   </div>
 </template>

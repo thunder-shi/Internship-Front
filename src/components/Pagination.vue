@@ -1,7 +1,6 @@
 <template>
   <footer id="vpage-footer">
-    <el-pagination
-      background :current-page="currentPage" :page-sizes="pageSizes" :page-size="pageSize" :layout="layout" :total="total" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+    <el-pagination background :current-page="currentPage" :page-sizes="pageSizes" :page-size="pageSize" :layout="layout" :total="total" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
     <span v-if="selectedColumns.length>0" class="public-footer">当前选中：{{ selectedColumns.length }}条</span>
   </footer>
 </template>
