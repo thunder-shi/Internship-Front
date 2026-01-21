@@ -25,8 +25,20 @@ const addNewInternship = (form) => {
   })
 }
 
+// 提交实习项目
+const submitNewInternship = (form) => {
+  return request({
+    url: '/internshipProcess/submitNewInternship',
+    method: 'post',
+    data: {
+      node: JSON.stringify(form)
+    }
+  })
+}
+
 export default {
   getKey,
   getWholeKey,
   addNewInternship,
+  submitNewInternship,
 }

@@ -725,27 +725,17 @@ const _initDataList = async () => {
     getUsedSearchWords();
     let resp;
     try {
-      if (JSON.stringify(treeInfo.value) === '{}') {
-        resp = await listAPI.getSomeRecords({
-          keyWords: keyWord.value?.view,
-          pageInfo: pageInfo,
-          treeInfo: null,
-          searchKey: usedSearchWords.searchKey,
-          sort: sortStr.value,
-          reg: usedSearchWords.regKey,
-          andor: usedSearchWords.andor,
-        });
-      } else {
-        resp = await listAPI.getSomeRecords({
-          keyWords: keyWord.value?.view,
-          pageInfo: pageInfo,
-          treeInfo: treeInfo.value,
-          searchKey: usedSearchWords.searchKey,
-          sort: sortStr.value,
-          reg: usedSearchWords.regKey,
-          andor: usedSearchWords.andor,
-        });
-      }
+      // 优化：直接判断对象是否为空，避免 JSON.stringify 的性能开销
+      const isEmptyTreeInfo = !treeInfo.value || Object.keys(treeInfo.value).length === 0;
+      resp = await listAPI.getSomeRecords({
+        keyWords: keyWord.value?.view,
+        pageInfo: pageInfo,
+        treeInfo: isEmptyTreeInfo ? null : treeInfo.value,
+        searchKey: usedSearchWords.searchKey,
+        sort: sortStr.value,
+        reg: usedSearchWords.regKey,
+        andor: usedSearchWords.andor,
+      });
     } catch (error) {
       console.log(error);
       loading.value = false;
@@ -776,9 +766,11 @@ const _initDataList = async () => {
       return hasValidData;
     });
 
-    // 前端排序：确保数据按 sortStr 排序显示
-    let sortedContent = _.cloneDeep(filteredContent);
+    // 前端排序：优化：直接对数组排序，避免深拷贝的性能开销
+    let sortedContent = filteredContent;
     if (sortStr.value && sortStr.value.properties) {
+      // 只在需要排序时创建新数组（避免修改原数组）
+      sortedContent = [...filteredContent];
       const sortField = sortStr.value.properties;
       const sortDirection = sortStr.value.direction === 'ASC' ? 1 : -1;
       sortedContent.sort((a, b) => {

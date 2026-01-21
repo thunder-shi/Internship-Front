@@ -87,13 +87,16 @@ const handleConfirm = async (option, type, form) => {
     if (userInfo && userInfo.id) {
       form.creatorId = userInfo.id;
     }
-    form.studentNum = 0;
-    console.log(form)
+    form.studentNum = 0;    
     // 调用新增实习项目接口
     const resInfo = await otherAPI.addNewInternship(form);
-    if (resInfo && resInfo.message === 'successful') {
-      ElMessage.success('新增成功！');
-      baseList.value?.initDataList();
+    if (resInfo && resInfo.message === 'successful') {      
+      // 显示成功提示
+      ElMessage({
+        message: '新增项目成功！请点击对应条目后的编辑按钮对项目详细信息进行设置。',
+        type: 'success',
+        duration: 5000 // 显示5秒，因为消息较长
+      });
     } else {
       ElMessage.warning(resInfo?.message || '新增失败');
     }

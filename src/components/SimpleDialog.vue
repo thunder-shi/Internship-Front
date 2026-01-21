@@ -460,5 +460,6 @@ defineExpose({
   showDialog,
   _confirm,
   form,
+  formPanelRef,
 });
 </script>
