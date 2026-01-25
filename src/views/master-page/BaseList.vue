@@ -12,7 +12,7 @@
     </DataTableList>
     <slot name="dlg">
       <!-- 简单窗口 -->
-      <SimpleDialog ref="simpleDialog" :default-props="defaultProps.defaultSDProps" :simpledialog-confirm="confirm" :simpledialog-submit="submit" @update-record="initDataList" @submit-more="submitMore" @simple-select-change="SimpleSelectChange" @tree-select-change="treeSelectChange" @confirm-click="confirmClick" />
+      <SimpleDialog ref="simpleDialog" :default-props="defaultProps.defaultSDProps" :simpledialog-confirm="confirm" :simpledialog-submit="submit" @update-record="handleUpdateRecord" @submit-more="submitMore" @simple-select-change="SimpleSelectChange" @tree-select-change="treeSelectChange" @confirm-click="confirmClick" />
     </slot>
   </div>
 </template>
@@ -94,6 +94,7 @@ const emit = defineEmits([
   'tree-select-change',
   'confirm-click',
   'audit-click',
+  'update-record',
 ]);
 
 const attrs = useAttrs();
@@ -260,6 +261,13 @@ const submitMore = (row) => {
   emit('submit-more', row);
 };
 
+const handleUpdateRecord = (form) => {
+  // 先刷新列表
+  initDataList();
+  // 然后触发事件给父组件
+  emit('update-record', form);
+};
+
 const openDlg = (option, row) => {
   if (option === 'append') {
     // 新增模式：先重置 form，清除所有已有属性
@@ -297,8 +305,24 @@ const SimpleSelectChange = (val, field, form, options) => {
   emit('simple-select-change', val, field, form, options);
 };
 
-const confirmClick = (formData) => {
-  emit('confirm-click', formData);
+const confirmClick = async (formData) => {
+  // 检查是否有 confirm-click 事件监听器
+  if (hasListener('confirm-click')) {
+    // 获取事件监听器并调用，如果是Promise则等待
+    const handlers = instance?.vnode?.props?.onConfirmClick;
+    if (handlers) {
+      const handlerArray = Array.isArray(handlers) ? handlers : [handlers];
+      for (const handler of handlerArray) {
+        const result = handler(formData);
+        if (result && typeof result.then === 'function') {
+          await result; // 如果是Promise，等待完成
+        }
+      }
+    }
+  } else {
+    // 如果没有监听器，直接emit（向后兼容）
+    emit('confirm-click', formData);
+  }
 };
 // #endregion
 

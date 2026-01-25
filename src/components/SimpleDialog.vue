@@ -276,7 +276,24 @@ function verifyValid(showMessage = true) {
 // #region 点击确认按钮，
 // 1, 如果不想执行数据是否修改判断，直接外层spec-confirm; 2, 如果执行数据修改判断后再特殊操作，外层on-confirm；3，如果执行通用保存后外层再有操作，外层执行confirm-more
 async function _confirm(option, type, formData = null, auditValue = null) {
-  emit("confirm-click",formData)
+  // 先触发 confirm-click 事件，让BaseList处理
+  // 由于Vue的emit是同步的，我们需要通过访问父组件来等待异步处理
+  // 尝试访问父组件的confirmClick方法并等待
+  try {
+    const parent = instance?.parent;
+    if (parent?.setupState?.confirmClick && typeof parent.setupState.confirmClick === 'function') {
+      // 如果父组件有confirmClick方法，直接调用并等待
+      await parent.setupState.confirmClick(form);
+    } else {
+      // 否则使用emit（向后兼容）
+      emit("confirm-click", form);
+    }
+  } catch (error) {
+    // 如果访问父组件失败，使用emit（向后兼容）
+    console.warn('无法访问父组件的confirmClick方法，使用emit:', error);
+    emit("confirm-click", form);
+  }
+  
   if (formData != null) {
     Object.assign(form, formData);
   }
@@ -315,6 +332,8 @@ async function _confirm(option, type, formData = null, auditValue = null) {
       //   }
     }
   }
+  // 返回保存结果，让调用者可以判断是否保存成功
+  return res;
 }
 
 async function confirm(option, type) {
