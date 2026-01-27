@@ -54,12 +54,12 @@ const defaultProps = reactive({
         sortJson: { properties: 'Id', direction: 'DESC' },
       },
       { name: '实习项目', field: 'internshipId', type: 'select', keyWords: 'MainInternship' },
-      // { name: '实习岗位', field: 'relInternshipId', type: 'select', keyWords: 'RelStuInternship' },
+      { name: '实习岗位', field: 'relInternshipId', type: 'select', keyWords: 'RelStuInternship' },
     ],
     formRules: {
       teacherId: [{ required: true, message: '教师名称不能为空', trigger: 'blur' }],
       internshipId: [{ required: true, message: '实习项目不能为空', trigger: 'blur' }],
-      // relInternshipId: [{ required: true, message: '实习岗位不能为空', trigger: 'blur' }],
+      relInternshipId: [{ required: true, message: '实习岗位不能为空', trigger: 'blur' }],
     },
     defaultDBProps: {
       dialog: {},

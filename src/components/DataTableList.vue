@@ -1,8 +1,14 @@
 <template>
-  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns" :default-props="defaultProps.defaultDTHProps" @init-click="refreshInit" @show-search="showSearchPanel" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
+  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns"
+    :default-props="defaultProps.defaultDTHProps" @init-click="refreshInit" @show-search="showSearchPanel"
+    @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick"
+    @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
     <template #searchPanel>
       <!-- v-model="searchName" -->
-      <slot name="searchPanel"><BtnSearch :search-name="searchName" :placeholder="searchPlaceholder" :no-advanced-search="noAdvancedSearch" :search-items="searchItems" @search-click="searchClick" @advanced-search-click="advancedSearchClick" /></slot>
+      <slot name="searchPanel">
+        <BtnSearch :search-name="searchName" :placeholder="searchPlaceholder" :no-advanced-search="noAdvancedSearch"
+          :search-items="searchItems" @search-click="searchClick" @advanced-search-click="advancedSearchClick" />
+      </slot>
     </template>
     <template #body>
       <!--列表展示-->
@@ -16,21 +22,26 @@
             </template>
           </template>
         </template>
-        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList" row-key="id" highlight-current-rows @current-change="handleColumnChange" @selection-change="handleSelectionChange" @sort-change="handleSortChange">
+        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList"
+          row-key="id" highlight-current-rows @current-change="handleColumnChange"
+          @selection-change="handleSelectionChange" @sort-change="handleSortChange">
           <el-table-column v-if="checkFlag" fixed :reserve-selection="true" type="selection" width="55" />
           <el-table-column v-else fixed width="55">
             <template #default="scope">
               <el-radio v-model="tableRadio" :label="scope.row"><i /></el-radio>
             </template>
           </el-table-column>
-          <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true" :prop="item.tableColumnName" :label="item.showName" :width="item.width" :sortable="item.sortable ? 'custom' : false">
+          <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true"
+            :prop="item.tableColumnName" :label="item.showName" :width="item.width"
+            :sortable="item.sortable ? 'custom' : false">
             <template #default="scope">
               <!-- 特殊列格式 -->
               <div v-if="item.tableColumnName.endsWith('Time')">
                 {{ filterDateTime(scope.row[item.tableColumnName]) }}
               </div>
               <!-- 审核状态标签显示 -->
-              <el-tag v-else-if="item.tableColumnName === 'isAudit' || item.tableColumnName === 'auditStatus'" :type="getAuditTagType(scope.row[item.tableColumnName])" size="small">
+              <el-tag v-else-if="item.tableColumnName === 'isAudit' || item.tableColumnName === 'auditStatus'"
+                :type="getAuditTagType(scope.row[item.tableColumnName])" size="small">
                 {{ formatAuditStatus(scope.row[item.tableColumnName]) }}
               </el-tag>
               <!-- cron 表达式格式化 -->
@@ -38,7 +49,8 @@
                 {{ formatCron(scope.row[item.tableColumnName]) }}
               </div>
               <!-- 列表自定义显示的内容 tableColumnName 必须以 customize- 开头 -->
-              <slot v-else-if="item.tableColumnName.startsWith('customize-')" :name="item.tableColumnName.replace('customize-', '')" :row="scope.row" />
+              <slot v-else-if="item.tableColumnName.startsWith('customize-')"
+                :name="item.tableColumnName.replace('customize-', '')" :row="scope.row" />
               <div v-else-if="scope.row[item.tableColumnName] === null">{{ '--' }}</div>
               <div v-else>{{ scope.row[item.tableColumnName] }}</div>
             </template>
@@ -46,30 +58,46 @@
           <el-table-column v-if="operateShow" fixed="right" label="操作" :width="operateWidth">
             <template #default="scope">
               <!--查看and编辑and删除-->
-              <el-button v-if="button?.visible?.show && isButtonVisible('visible', scope.row)" :type="button.visible.type" size="small" :title="button.visible.name" @click="view([scope.row])">
+              <el-button v-if="button?.visible?.show && isButtonVisible('visible', scope.row)"
+                :type="button.visible.type" size="small" :title="button.visible.name" @click="view([scope.row])">
                 <svg-icon icon-class="axt-view" />
               </el-button>
-              <el-button v-if="button?.update?.show && isButtonVisible('update', scope.row)" :type="button.update.type" size="small" :title="button.update.name" @click="editClick(scope.row)">
-                <el-icon><Edit /></el-icon>
+              <el-button v-if="button?.update?.show && isButtonVisible('update', scope.row)" :type="button.update.type"
+                size="small" :title="button.update.name" @click="editClick(scope.row)">
+                <el-icon>
+                  <Edit />
+                </el-icon>
               </el-button>
-              <el-button v-if="button?.audit?.show && isButtonVisible('audit', scope.row)" :type="button.audit.type" size="small" :title="button.audit.name" @click="auditClick(scope.row)">
+              <el-button v-if="button?.audit?.show && isButtonVisible('audit', scope.row)" :type="button.audit.type"
+                size="small" :title="button.audit.name" @click="auditClick(scope.row)">
                 <svg-icon icon-class="verCode" />
               </el-button>
               <!--列表数据右方的操作按钮-->
               <slot name="rightOperate" :row="scope.row" />
-              <el-button v-if="button?.delete?.show && isButtonVisible('delete', scope.row)" :type="button.delete.type" size="small" :title="button.delete.name" @click="remove([scope.row])">
-                <el-icon><Delete /></el-icon>
+              <el-button v-if="button?.delete?.show && isButtonVisible('delete', scope.row)" :type="button.delete.type"
+                size="small" :title="button.delete.name" @click="remove([scope.row])">
+                <el-icon>
+                  <Delete />
+                </el-icon>
               </el-button>
-              <el-button v-if="button?.up?.show" :type="button.up.type" size="small" :loading="buttonLoading.up" :title="button.up.name" @click="move(scope.row, true)">
-                <el-icon><Top /></el-icon>
+              <el-button v-if="button?.up?.show" :type="button.up.type" size="small" :loading="buttonLoading.up"
+                :title="button.up.name" @click="move(scope.row, true)">
+                <el-icon>
+                  <Top />
+                </el-icon>
               </el-button>
-              <el-button v-if="button?.down?.show" :type="button.down.type" size="small" :loading="buttonLoading.down" :title="button.down.name" @click="move(scope.row, false)">
-                <el-icon><Bottom /></el-icon>
+              <el-button v-if="button?.down?.show" :type="button.down.type" size="small" :loading="buttonLoading.down"
+                :title="button.down.name" @click="move(scope.row, false)">
+                <el-icon>
+                  <Bottom />
+                </el-icon>
               </el-button>
             </template>
           </el-table-column>
         </el-table>
-        <v-page v-if="showPage" align="center" :total="totalSize" :current-page="pageInfo.page" :page-size="pageInfo.size" :page-sizes="pageInfo.sizes" :selected-columns="selectedColumns" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+        <v-page v-if="showPage" align="center" :total="totalSize" :current-page="pageInfo.page"
+          :page-size="pageInfo.size" :page-sizes="pageInfo.sizes" :selected-columns="selectedColumns"
+          @size-change="handleSizeChange" @current-change="handleCurrentChange" />
       </el-card>
     </template>
   </DataTableHeader>
@@ -188,7 +216,7 @@ const formatCron = (cron) => {
 
   // 4. 每年 (简单扩展，可选)
   if (month !== '*' && day !== '*' && (weekday === '*' || weekday === '?')) {
-      return `每年${month}月${day}日 ${formatTime(hour, minute)}`;
+    return `每年${month}月${day}日 ${formatTime(hour, minute)}`;
   }
 
   // 其他复杂情况返回原始值
@@ -328,6 +356,7 @@ const blueArr = ref([]);
 const yellowArr = ref([]);
 const operateWidth = ref(60);
 const isPageInit = ref(false);
+const hasCalculatedWidth = ref(false); // 标记是否已经计算过宽度（数据加载后）
 
 // 获取组件实例(用于判断事件监听)
 const instance = getCurrentInstance();
@@ -517,40 +546,127 @@ watch(
   { deep: true, immediate: true }
 );
 
+// 计算操作列宽度的函数
+const calculateOperateWidth = () => {
+  // 计算配置的按钮数量
+  let num = 0;
+  const arr = [
+    button.value?.visible?.show,
+    button.value?.update?.show,
+    button.value?.audit?.show,
+    button.value?.delete?.show,
+    button.value?.up?.show,
+    button.value?.down?.show,
+  ];
+  num = arr.reduce((acc, cur) => {
+    acc = cur ? acc + 1 : acc;
+    return acc;
+  }, 0);
+
+  // 检查是否有 rightOperate 插槽
+  let customButtonCount = 0;
+  if (slots.rightOperate) {
+    // 如果有数据且表格已渲染，从 DOM 中获取实际按钮数量
+    if (dataList.value && dataList.value.length > 0 && table.value && table.value.$el) {
+      // 查找操作列中的按钮数量
+      // 尝试多种选择器，因为表格结构可能不同
+      let operateCell = null;
+
+      // 方法1: 查找固定右侧列
+      const fixedRightCells = table.value.$el.querySelectorAll('.el-table__fixed-right .el-table__cell');
+      if (fixedRightCells && fixedRightCells.length > 0) {
+        operateCell = fixedRightCells[fixedRightCells.length - 1]; // 取最后一个，通常是操作列
+      }
+
+      // 方法2: 如果方法1失败，查找所有操作列（通过 label="操作"）
+      if (!operateCell) {
+        const allCells = table.value.$el.querySelectorAll('.el-table__cell');
+        for (let i = 0; i < allCells.length; i++) {
+          const cell = allCells[i];
+          const label = cell.querySelector('.cell')?.textContent?.trim();
+          if (label === '操作') {
+            // 找到操作列的表头，需要找对应的数据行单元格
+            const columnIndex = Array.from(cell.parentElement.children).indexOf(cell);
+            const bodyRow = table.value.$el.querySelector('.el-table__body-wrapper tbody tr');
+            if (bodyRow) {
+              operateCell = bodyRow.children[columnIndex];
+            }
+            break;
+          }
+        }
+      }
+
+      // 方法3: 如果还是找不到，直接查找表格中所有按钮，取第一行的按钮数量
+      if (!operateCell) {
+        const firstRow = table.value.$el.querySelector('.el-table__body-wrapper tbody tr');
+        if (firstRow) {
+          const lastCell = firstRow.lastElementChild;
+          if (lastCell) {
+            operateCell = lastCell;
+          }
+        }
+      }
+
+      if (operateCell) {
+        const buttons = operateCell.querySelectorAll('.el-button');
+        const totalButtons = buttons.length;
+        // 减去配置的按钮数量，得到自定义按钮数量
+        customButtonCount = Math.max(0, totalButtons - num);
+
+        // 如果查询到的按钮数量小于配置按钮数量，说明DOM可能还没完全渲染，使用估算值
+        if (totalButtons < num && totalButtons === 0) {
+          customButtonCount = 2;
+        }
+      } else {
+        customButtonCount = 2;
+      }
+    } else {
+      // 如果还没有数据，估算自定义按钮数量（默认2个，因为通常会有申请和取消）
+      // 实际会在数据加载后重新计算
+      customButtonCount = 2;
+    }
+  }
+
+  // 计算总按钮数量
+  const totalButtons = num + customButtonCount;
+  // 根据实际测量的按钮数量直接设置宽度
+  let width = 0;
+  if (totalButtons >= 7) {
+    width = 200;
+  } else if (totalButtons === 6) {
+    width = 180;
+  } else if (totalButtons === 5) {
+    width = 160;
+  } else if (totalButtons === 4) {
+    width = 130;
+  } else if (totalButtons === 3) {
+    width = 105;
+  } else if (totalButtons === 2) {
+    width = 78;
+  } else if (totalButtons === 1) {
+    width = 55;
+  } else {
+    // 没有按钮时，只显示列标题
+    width = 50;
+  }
+  operateWidth.value = width;
+};
+
 // mounted
 onMounted(() => {
   nextTick(() => {
-    // 计算显示的按钮数量
-    let num = 0;
-    const arr = [
-      button.value?.visible?.show,
-      button.value?.update?.show,
-      button.value?.audit?.show,
-      button.value?.delete?.show,
-      button.value?.up?.show,
-      button.value?.down?.show,
-    ];
-    num = arr.reduce((acc, cur) => {
-      acc = cur ? acc + 1 : acc;
-      return acc;
-    }, 0);
-    // 根据实际测量的按钮数量直接设置宽度
-    let width = 0;
-    if (num === 5) {
-      width = 160;
-    } else if (num === 4) {
-      width = 130;
-    } else if (num === 3) {
-      width = 105;
-    } else if (num === 2) {
-      width = 78;
-    } else if (num === 1) {
-      width = 55;
+    // 初始计算宽度（仅估算，因为还没有数据）
+    if (slots.rightOperate) {
+      // 如果有自定义按钮插槽，使用估算值
+      const num = 0; // 配置按钮数量
+      const customButtonCount = 2; // 估算的自定义按钮数量
+      const totalButtons = num + customButtonCount;
+      let width = totalButtons === 2 ? 78 : 50;
+      operateWidth.value = width;
     } else {
-      // 没有按钮时，只显示列标题
-      width = 50;
+      // 没有自定义按钮，使用原来的逻辑
+      calculateOperateWidth();
     }
-    operateWidth.value = width;
     // 延迟初始化数据
     setTimeout(() => { initDataList(); }, 500);
   });
@@ -685,6 +801,16 @@ const _initDataList = async () => {
       sortedContent.length > 0 ? sortedContent.length : 0;
     emit('after-init-data', dataList.value);
     emit('total-size', totalSize.value);
+
+    // 数据加载完成后，重新计算操作列宽度（考虑自定义按钮）
+    if (slots.rightOperate && sortedContent.length > 0 && !hasCalculatedWidth.value) {
+      hasCalculatedWidth.value = true;
+      // 使用 setTimeout 确保表格 DOM 完全渲染（Element Plus 表格渲染需要时间）
+      // 增加延迟时间，确保自定义按钮已经渲染到DOM中
+      setTimeout(() => {
+        calculateOperateWidth();
+      }, 200);
+    }
   } catch (error) {
     console.log(error);
     loading.value = false;
