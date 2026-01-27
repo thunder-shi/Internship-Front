@@ -120,6 +120,16 @@ const form = reactive({
   updateTime: '',
   isAudit: null,
   reason: '',
+  // 流程关联信息
+  relationId: null,
+  createUserId: null,
+  internshipId: null,
+  // 各级审核角色ID
+  verifyFirstRoleId: null,
+  verifySecondRoleId: null,
+  verifyThirdRoleId: null,
+  verifyFourthRoleId: null,
+  verifyFifthRoleId: null,
 });
 
 const formRules = {
@@ -296,6 +306,14 @@ function showDialog(val, formData = {}) {
       updateTime: '',
       isAudit: null,
       reason: '',
+      relationId: null,
+      createUserId: null,
+      internshipId: null,
+      verifyFirstRoleId: null,
+      verifySecondRoleId: null,
+      verifyThirdRoleId: null,
+      verifyFourthRoleId: null,
+      verifyFifthRoleId: null,
     });
     Object.assign(form, _.cloneDeep(formData));
   }
@@ -319,6 +337,105 @@ function showDialog(val, formData = {}) {
       dlgBasicRef.value.validate = true;
     }
   }, 100);
+}
+
+// 获取当前审核级别（1-5）- 通过查询同一 relationId 的已通过记录数来确定
+async function getCurrentAuditLevel() {
+  if (!form.relationId) return 1;
+
+  try {
+    // 查询同一 relationId 的所有记录
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewVerifyInternshipPlanProcess',
+      pageInfo: { page: 1, size: 100 },
+      searchKey: { relationId: form.relationId },
+      reg: { relationId: '=' },
+      sort: { properties: 'id', direction: 'ASC' }
+    });
+
+    if (res && res.data && res.data.content) {
+      // 统计已通过的记录数
+      const passedCount = res.data.content.filter(r => r.isAudit === CONSTANT.AUDIT_STATUS.PASS).length;
+      // 当前级别 = 已通过数 + 1
+      return passedCount + 1;
+    }
+  } catch (error) {
+    console.error('获取当前审核级别失败:', error);
+  }
+  return 1;
+}
+
+// 获取下一级审核的角色ID
+function getNextLevelRoleId(currentLevel) {
+  const roleIds = [
+    form.verifyFirstRoleId,
+    form.verifySecondRoleId,
+    form.verifyThirdRoleId,
+    form.verifyFourthRoleId,
+    form.verifyFifthRoleId
+  ];
+
+  // 返回下一级的角色ID（如果存在）
+  if (currentLevel < roleIds.length && roleIds[currentLevel]) {
+    return roleIds[currentLevel];
+  }
+  return null;
+}
+
+// 根据角色ID获取用户ID列表
+async function getUserIdsByRoleId(roleId) {
+  if (!roleId) return null;
+
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewUserRoleDetail',
+      pageInfo: { page: 1, size: 1000 },
+      searchKey: { roleId: roleId },
+      reg: { roleId: '=' },
+      sort: { properties: 'id', direction: 'ASC' }
+    });
+
+    if (res && res.data && res.data.content && res.data.content.length > 0) {
+      // 将用户ID组合成 "id1|id2|id3" 格式
+      const userIds = res.data.content.map(item => item.userId).filter(id => id);
+      return userIds.join('|');
+    }
+    return null;
+  } catch (error) {
+    console.error('获取下一级审核人失败:', error);
+    return null;
+  }
+}
+
+// 创建下一级审核记录
+async function createNextLevelAuditRecord(nextRoleId) {
+  // 获取下一级审核人的用户ID
+  const nextVerifyUserIds = await getUserIdsByRoleId(nextRoleId);
+
+  if (!nextVerifyUserIds) {
+    console.warn('未找到下一级审核人');
+    return false;
+  }
+
+  // 创建新的审核记录
+  const newRecord = {
+    relationId: form.relationId,
+    verifyUserId: nextVerifyUserIds,
+    isAudit: CONSTANT.AUDIT_STATUS.SUBMIT, // 待审核
+    createUserId: form.createUserId,
+  };
+
+  try {
+    const res = await listAPI.editOneNode('MainVerifyProcess', newRecord);
+    if (res && res.message === 'successful') {
+      return true;
+    }
+    console.error('创建下一级审核记录失败:', res?.message);
+    return false;
+  } catch (error) {
+    console.error('创建下一级审核记录失败:', error);
+    return false;
+  }
 }
 
 async function confirm(option, type) {
@@ -347,6 +464,7 @@ async function confirm(option, type) {
     ElMessage.error('缺少主键ID，无法保存');
     return;
   }
+
   // 构建保存数据对象
   const saveData = {
     id: form.id,
@@ -354,7 +472,6 @@ async function confirm(option, type) {
     reason: form.auditReason,
     verifyUserId: verifyUserId,
   };
-
 
   try {
     // 调用 editOneNode 接口保存到 MainVerifyProcess 表
@@ -367,7 +484,26 @@ async function confirm(option, type) {
         [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
       }[form.auditResult] || '未知';
 
-      ElMessage.success(`审核完成：${resultText}`);
+      // 如果审核通过，检查是否有下一级审核
+      if (form.auditResult === CONSTANT.AUDIT_STATUS.PASS) {
+        const currentLevel = await getCurrentAuditLevel();
+        const nextRoleId = getNextLevelRoleId(currentLevel);
+
+        if (nextRoleId) {
+          // 有下一级审核，创建新记录
+          const created = await createNextLevelAuditRecord(nextRoleId);
+          if (created) {
+            ElMessage.success(`${resultText}，已进入下一级审核`);
+          } else {
+            ElMessage.warning(`${resultText}，但创建下一级审核记录失败`);
+          }
+        } else {
+          // 没有下一级，审核完成
+          ElMessage.success(`审核完成：${resultText}`);
+        }
+      } else {
+        ElMessage.success(`审核完成：${resultText}`);
+      }
 
       // 触发更新记录事件，刷新列表
       emit('update-record', form);
