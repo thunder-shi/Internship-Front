@@ -14,7 +14,10 @@ const getWholeKey = (key, value) => {
   return `${key}${formattedValue}${key.split('').reverse().join('')}`
 }
 
-// 新增实习项目
+/**
+ * 新增实习项目
+ * 创建项目基本信息，创建后需要进入编辑页面配置流程
+ */
 const addNewInternship = (form) => {
   return request({
     url: '/internshipProcess/addNewInternship',
@@ -25,18 +28,9 @@ const addNewInternship = (form) => {
   })
 }
 
-// 提交实习项目
-const submitNewInternship = (form) => {
-  return request({
-    url: '/internshipProcess/submitNewInternship',
-    method: 'post',
-    data: {
-      node: JSON.stringify(form)
-    }
-  })
-}
-
-// 删除实习项目
+/**
+ * 删除实习项目
+ */
 const deleteNewInternship = (ids) => {
   return request({
     url: '/internshipProcess/deleteNewInternship',
@@ -49,6 +43,5 @@ export default {
   getKey,
   getWholeKey,
   addNewInternship,
-  submitNewInternship,
   deleteNewInternship,
 }

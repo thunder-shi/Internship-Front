@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" :dlgbasic-spec-submit="submit" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #mainForm>
       <div class="dlg-content-wrapper">
         <!-- 上半部分：基本信息表单 -->
@@ -21,14 +21,12 @@
 <script setup>
 import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import DlgBasic from '@/components/DlgBasic.vue';
 import FormItemsforDialog from '@/components/FormItemsforDialog.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import DlgProcessSelect from '@/views/dialogs/DlgProcessSelect.vue';
 import dlgAPI from '@/utils/forDialog';
-import listAPI from '@/api/list';
-import otherAPI from '@/api/other';
 
 const props = defineProps({
   userDepartmentId: { type: [Number, String], default: null },
@@ -54,16 +52,14 @@ const defaultProps = reactive({
   dlgTitle: '编辑实习项目',
   footButtons: {
     cancel: { show: true, name: '取 消', type: '' },
-    confirm: { show: true, name: '暂 存', type: 'primary' },
-    submit: { show: true, name: '提 交', type: 'success' }
+    confirm: { show: true, name: '保 存', type: 'primary' }
   },
   someFlags: {
     noFooter: false,
     autoMax: true,
     needMaxBtn: true,
     needValidate: true,
-    validate: true,
-    needVerifyUpdate: true
+    validate: true
   }
 });
 
@@ -183,66 +179,35 @@ function verifyValid(showMessage = true) {
   }
 }
 
-// 暂存（isAudit 保持不变或设为 -1）
+/**
+ * 保存：保存项目配置
+ * 检查"实习计划制定"流程必须存在且设置了起止时间
+ * 检查不通过时返回 false 阻止弹窗关闭
+ */
 async function confirm(option, type) {
+  // 检查"实习计划制定"流程
+  const planProcess = processList.value.find(
+    (p) => p.processTypeName === '实习计划制定'
+  );
+
+  if (!planProcess) {
+    ElMessage.warning('流程列表中必须包含"实习计划制定"流程');
+    return false; // 阻止弹窗关闭
+  }
+
+  if (!planProcess.startTime || !planProcess.endTime) {
+    ElMessage.warning('"实习计划制定"流程必须设置起止时间');
+    return false; // 阻止弹窗关闭
+  }
+
   const userId = store.getters.userInfo?.id;
   const resInfo = await dlgAPI.commonSubmitDlg(formPanelRef.value, form, keyWord.value, 'edit', false, false, userId);
   if (resInfo && resInfo.message === 'successful') {
+    ElMessage.success('保存成功');
     emit('update-record', form);
     if (type === 'stop') {
       dlgBasicRef.value?.showDialog(false, form);
     }
-  }
-}
-
-// 提交（根据"实习计划制定"流程的审核要求决定 isAudit 值）
-async function submit() {
-  // 检查是否所有流程都已规定起止时间
-  if (processList.value.length === 0) {
-    ElMessage.warning('请至少添加一个流程');
-    return;
-  }
-
-  // 检查是否包含"实习计划制定"流程
-  const createProcess = processList.value.find(
-    (p) => p.processTypeName === '实习计划制定'
-  );
-  if (!createProcess) {
-    ElMessage.warning('流程列表中必须包含"实习计划制定"流程');
-    return;
-  }
-
-  const invalidProcess = processList.value.find(
-    (p) => !p.startTime || !p.endTime
-  );
-  if (invalidProcess) {
-    ElMessage.warning(`流程"${invalidProcess.processTypeName || '未命名'}"未设置起止时间，请先完善流程信息`);
-    return;
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      '提交以后所有内容不能修改，确定提交吗？',
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    );
-  } catch {
-    // 用户点击取消，不执行提交，直接返回
-    return;
-  }
-
-  // 用户点击确定，调用提交接口
-  const resInfo = await otherAPI.submitNewInternship(form);
-  if (resInfo && resInfo.message === 'successful') {
-    ElMessage.success('提交成功');
-    emit('update-record', form);
-    dlgBasicRef.value?.showDialog(false, form);
-  } else {
-    ElMessage.warning(resInfo?.message || '提交失败');
   }
 }
 

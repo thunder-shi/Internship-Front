@@ -7,6 +7,18 @@
   </div>
 </template>
 <script setup>
+/**
+ * 实习项目创建页面
+ *
+ * 功能说明：
+ * - 新增：创建实习项目基本信息（选择模板、填写名称等）
+ * - 编辑：配置项目详情和流程列表
+ * - 提交：锁定项目配置，完成创建
+ *
+ * 注意：项目创建本身不涉及审核流程。
+ * 审核发生在后续的具体流程中（如"实习计划制定"），
+ * 由学生提交计划后，按照流程配置的审核要求进行审核。
+ */
 import { ref, computed, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -15,7 +27,7 @@ import DlgMainInternship from '@/views/dialogs/DlgMainInternship.vue';
 import otherAPI from '@/api/other';
 
 defineOptions({
-  name: 'MainInternship',
+  name: 'BuildInternship',
 });
 
 const store = useStore();
@@ -59,7 +71,10 @@ const templateSearchKey = computed(() => {
   return {};
 });
 
-// 自定义确认函数
+/**
+ * 新增项目确认函数
+ * 创建项目后需要进入编辑页面配置流程列表
+ */
 const handleConfirm = async (option, type, form) => {
   try {
     await ElMessageBox.confirm(
@@ -71,30 +86,26 @@ const handleConfirm = async (option, type, form) => {
         type: 'warning'
       }
     );
-    // 用户点击确定后，执行保存逻辑
+
     const userInfo = store.getters.userInfo;
     if (userInfo && userInfo.id) {
       form.creatorId = userInfo.id;
     }
-    form.studentNum = 0;    
-    // 调用新增实习项目接口
+    form.studentNum = 0;
+
     const resInfo = await otherAPI.addNewInternship(form);
-    if (resInfo && resInfo.message === 'successful') {      
-      // 显示成功提示
+    if (resInfo && resInfo.message === 'successful') {
       ElMessage({
-        message: '新增项目成功！请点击对应条目后的编辑按钮对项目详细信息进行设置。',
+        message: '新增项目成功！请点击编辑按钮配置项目流程。',
         type: 'success',
-        duration: 5000 // 显示5秒，因为消息较长
+        duration: 5000
       });
     } else {
       ElMessage.warning(resInfo?.message || '新增失败');
     }
-    
   } catch {
-    // 用户点击取消，抛出特殊错误以阻止对话框关闭，但不显示错误消息
     return false;
   }
-  
 };
 
 // 处理新增按钮点击事件

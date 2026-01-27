@@ -9,13 +9,13 @@
 import { reactive, ref, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
-import DlgInternshipVerify from '@/views/dialogs/DlgInternshipVerify.vue';
+import DlgInternshipVerify from '@/views/internship-process/components/DlgInternshipVerify.vue';
 import CONSTANT from '@/utils/constant';
 import moment from 'moment';
 
 
 defineOptions({
-  name: 'InternshipVerify',
+  name: 'InternshipPlanVerify',
 });
 
 const store = useStore();
@@ -30,7 +30,7 @@ const isUserIdInVerifyUserId = (verifyUserId, userId) => {
   if (!verifyUserId || !userId) return false;
   const userIdStr = String(userId);
   const verifyUserIdStr = String(verifyUserId);
-  
+
   // 将 verifyUserId 按 | 分割，检查是否包含精确的用户ID
   const ids = verifyUserIdStr.split('|').filter(id => id !== '');
   return ids.includes(userIdStr);
@@ -38,30 +38,28 @@ const isUserIdInVerifyUserId = (verifyUserId, userId) => {
 
 // 获取初始查询条件
 const getInitSearchWords = () => {
-  const userInfo = store.getters.userInfo;
-  const userId = userInfo?.id;
   const searchKey = {};
   const regKey = {};
   const andor = {};
-  
+
   // 注意：verifyUserId 字段不在这里查询，因为 LIKE 查询会有误匹配问题（如 ID=3 会匹配 "|33|"）
   // verifyUserId 的精确过滤将在 clientFilterFn 中进行
-  
+
   // 获取当前时间字符串（格式：YYYY-MM-DD HH:mm:ss）
   const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
-  
-  // 条件1: isAudit 等于"提交待审核"状态 (CONSTANT.AUDIT_STATUS.SAVE = 0)
+
+  // 条件1: isAudit 等于"提交待审核"状态 (CONSTANT.AUDIT_STATUS.SUBMIT = 0)
   searchKey.isAudit = CONSTANT.AUDIT_STATUS.SUBMIT;
   regKey.isAudit = CONSTANT.SEARCH_OPERATOR.EQ;
-  
+
   // 条件2: startTime <= 当前时间
   searchKey.startTime = currentTime;
   regKey.startTime = CONSTANT.SEARCH_OPERATOR.LE;
-  
+
   // 条件3: endTime >= 当前时间
   searchKey.endTime = currentTime;
   regKey.endTime = CONSTANT.SEARCH_OPERATOR.GE;
-  
+
   return {
     searchKey,
     regKey,
@@ -123,18 +121,15 @@ const defaultProps = reactive({
   defaultDTLProps: {
     defaultDTHProps: {
       buttonProps: { audit: { show: true, showPass: true, showNotPass: true, showBack: true } },
-      keyWord: { edit: 'MainVerifyProcess', view: 'ViewInternshipVerifyProcess' },
+      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyInternshipPlanProcess' },
       allTableColumns: [
         { id: 1, showName: '实习项目名称', theOrder: 1, tableColumnName: 'internshipName' },
-        { id: 2, showName: '所属院系', theOrder: 2, tableColumnName: 'universityName' },
-        { id: 3, showName: '实习类型', theOrder: 3, width: 100, tableColumnName: 'typeName' },
-        { id: 4, showName: '实习模板', theOrder: 4, tableColumnName: 'internshipTypeName' },
-        { id: 5, showName: '创建者', theOrder: 5, width: 100, tableColumnName: 'creatorName' },
-        { id: 6, showName: '上级提交人', theOrder: 6, width: 100, tableColumnName: 'createUserName' },
-        { id: 7, showName: '流程开始时间', theOrder: 7, width: 150, tableColumnName: 'startTime' },
-        { id: 8, showName: '流程结束时间', theOrder: 8, width: 150, tableColumnName: 'endTime' },
-        { id: 9, showName: '当前状态', theOrder: 9, width: 100, tableColumnName: 'isAudit' },
-        { id: 10, showName: '审核理由', theOrder: 10, tableColumnName: 'reason' }
+        { id: 2, showName: '提交人', theOrder: 2, width: 100, tableColumnName: 'createUserName' },
+        { id: 3, showName: '审核人', theOrder: 3, width: 100, tableColumnName: 'verifyUserName' },
+        { id: 4, showName: '流程开始时间', theOrder: 4, width: 160, tableColumnName: 'startTime' },
+        { id: 5, showName: '流程结束时间', theOrder: 5, width: 160, tableColumnName: 'endTime' },
+        { id: 6, showName: '当前状态', theOrder: 6, width: 100, tableColumnName: 'isAudit' },
+        { id: 7, showName: '审核理由', theOrder: 7, tableColumnName: 'reason' }
       ],
     },
     // 设置初始查询条件
