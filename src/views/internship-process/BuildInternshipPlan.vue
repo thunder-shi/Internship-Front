@@ -320,11 +320,12 @@ const handleSubmit = async () => {
       isAudit: form.isAudit
     });
 
-    // 更新备注到 RelProcessInternship
+    // 更新 RelProcessInternship：备注和初始化 currentVerifyTypeId
     if (form.relationId) {
       await listAPI.editOneNode('RelProcessInternship', {
         id: form.relationId,
-        remarks: form.remarks
+        remarks: form.remarks,
+        currentVerifyTypeId: 1  // 初始化为1（初始状态，准备开始第一级审核）
       });
     }
 

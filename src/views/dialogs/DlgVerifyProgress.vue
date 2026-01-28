@@ -37,7 +37,7 @@
               <template v-else>
                 <div class="info-row">
                   <span class="label">审核人:</span>
-                  <span class="value">{{ record.verifyUserName || '系统自动' }}</span>
+                  <span class="value">{{ record.verifyUserName || '(未获取到审核人姓名)' }}</span>
                 </div>
 
                 <!-- 审核理由 -->
@@ -349,6 +349,14 @@ async function loadVerifyProgress() {
     if (res && res.data && res.data.content) {
       // 按 id 升序排列
       let records = res.data.content.sort((a, b) => a.id - b.id);
+
+      console.log('=== DlgVerifyProgress 调试 ===');
+      console.log('原始审核记录:', records);
+      if (records.length > 0) {
+        console.log('第一条记录的字段:', Object.keys(records[0]));
+        console.log('verifyUserName字段:', records.map(r => r.verifyUserName));
+        console.log('verifyUserId字段:', records.map(r => r.verifyUserId));
+      }
 
       // 获取审核级数
       const verifyTypeId = records.length > 0 ? (records[0].verifyTypeId || 1) : 1;
