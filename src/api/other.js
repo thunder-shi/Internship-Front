@@ -1,4 +1,6 @@
 import request from '@/utils/request'
+import { getEncryptKeyWord } from '@/utils/rsaEncrypt'
+import CONSTANT from '@/utils/constant'
 
 // 获取密钥
 const getKey = () => {
@@ -31,11 +33,15 @@ const addNewInternship = (form) => {
 /**
  * 删除实习项目
  */
-const deleteNewInternship = (ids) => {
+const deleteNewInternship = async (ids) => {
+  // 将数组转换为逗号分隔的字符串，与 delOneOrManyNodes 保持一致
+  const idsString = Array.isArray(ids) ? ids.join(CONSTANT.SPLIT_OPERATOR.COMMA) : ids
+  // 对 ids 进行加密，与 delOneOrManyNodes 保持一致
+  const encryptedIds = await getEncryptKeyWord(idsString)
   return request({
     url: '/internshipProcess/deleteNewInternship',
     method: 'post',
-    data: { ids }
+    data: { ids: encryptedIds }
   })
 }
 
