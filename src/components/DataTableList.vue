@@ -1,13 +1,9 @@
 <template>
-  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns"
-    :default-props="defaultProps.defaultDTHProps" @init-click="refreshInit" @show-search="showSearchPanel"
-    @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick"
-    @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
+  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns" :default-props="defaultProps.defaultDTHProps" @init-click="refreshInit" @show-search="showSearchPanel" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
     <template #searchPanel>
       <!-- v-model="searchName" -->
       <slot name="searchPanel">
-        <BtnSearch :search-name="searchName" :placeholder="searchPlaceholder" :no-advanced-search="noAdvancedSearch"
-          :search-items="searchItems" @search-click="searchClick" @advanced-search-click="advancedSearchClick" />
+        <BtnSearch :search-name="searchName" :placeholder="searchPlaceholder" :no-advanced-search="noAdvancedSearch" :search-items="searchItems" @search-click="searchClick" @advanced-search-click="advancedSearchClick" />
       </slot>
     </template>
     <template #body>
@@ -22,32 +18,33 @@
             </template>
           </template>
         </template>
-        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList"
-          row-key="id" highlight-current-rows @current-change="handleColumnChange"
-          @selection-change="handleSelectionChange" @sort-change="handleSortChange">
+        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList" row-key="id" highlight-current-rows @current-change="handleColumnChange" @selection-change="handleSelectionChange" @sort-change="handleSortChange">
           <el-table-column v-if="checkFlag" fixed :reserve-selection="true" type="selection" width="55" />
           <el-table-column v-else fixed width="55">
             <template #default="scope">
               <el-radio v-model="tableRadio" :label="scope.row"><i /></el-radio>
             </template>
           </el-table-column>
-          <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true"
-            :prop="item.tableColumnName" :label="item.showName" :width="item.width"
-            :sortable="item.sortable ? 'custom' : false">
+          <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true" :prop="item.tableColumnName" :label="item.showName" :width="item.width" :sortable="item.sortable ? 'custom' : false">
             <template #default="scope">
               <!-- 特殊列格式 -->
               <div v-if="item.tableColumnName.endsWith('Time')">
                 {{ filterDateTime(scope.row[item.tableColumnName]) }}
               </div>
-              <!-- 审核状态标签显示 -->
-              <el-tag v-else-if="item.tableColumnName === 'isAudit' || item.tableColumnName === 'auditStatus'"
-                :type="getAuditTagType(scope.row[item.tableColumnName])" size="small">
-                {{ formatAuditStatus(scope.row[item.tableColumnName]) }}
-              </el-tag>
               <!-- cron 表达式格式化 -->
               <div v-else-if="item.tableColumnName === 'cron'">
                 {{ formatCron(scope.row[item.tableColumnName]) }}
               </div>
+              <!-- 审核状态显示（统一处理 isAudit、auditStatus 和 customize-status） -->
+              <template v-else-if="(item.tableColumnName === 'isAudit' || item.tableColumnName === 'auditStatus' || (item.tableColumnName === 'customize-status' && enableAuditStatusCustom))">
+                <el-tag v-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || scope.row.isAudit === null || scope.row.isAudit === undefined" type="info">{{ CONSTANT.AUDIT_STATUS.SAVENAME }}</el-tag>
+                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT" type="warning"><template v-if="item.tableColumnName === 'customize-status' && enableAuditStatusCustom && getVerifyRoleNameText(scope.row)">{{ getVerifyRoleNameText(scope.row) }}审核中</template><template v-else>{{ CONSTANT.AUDIT_STATUS.SUBMITNAME }}</template></el-tag>
+                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.PASS" type="success">{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-tag>
+                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS" type="danger">{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-tag>
+                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.BACK" type="info">{{ CONSTANT.AUDIT_STATUS.BACKNAME }}</el-tag>
+                <!-- 如果父组件提供了 status 插槽，优先使用插槽 -->
+                <slot v-else name="status" :row="scope.row" />
+              </template>
               <!-- 列表自定义显示的内容 tableColumnName 必须以 customize- 开头 -->
               <slot v-else-if="item.tableColumnName.startsWith('customize-')"
                 :name="item.tableColumnName.replace('customize-', '')" :row="scope.row" />
@@ -58,46 +55,22 @@
           <el-table-column v-if="operateShow" fixed="right" label="操作" :width="operateWidth">
             <template #default="scope">
               <!--查看and编辑and删除-->
-              <el-button v-if="button?.visible?.show && isButtonVisible('visible', scope.row)"
-                :type="button.visible.type" size="small" :title="button.visible.name" @click="view([scope.row])">
+              <el-button v-if="button?.visible?.show && isButtonVisible('visible', scope.row)" :type="button.visible.type" size="small" :title="button.visible.name" @click="view([scope.row])">
                 <svg-icon icon-class="axt-view" />
               </el-button>
-              <el-button v-if="button?.update?.show && isButtonVisible('update', scope.row)" :type="button.update.type"
-                size="small" :title="button.update.name" @click="editClick(scope.row)">
-                <el-icon>
-                  <Edit />
-                </el-icon>
-              </el-button>
-              <el-button v-if="button?.audit?.show && isButtonVisible('audit', scope.row)" :type="button.audit.type"
-                size="small" :title="button.audit.name" @click="auditClick(scope.row)">
+              <el-button v-if="button?.update?.show && isButtonVisible('update', scope.row)" :type="button.update.type" size="small" :title="button.update.name" @click="editClick(scope.row)"><el-icon><Edit /></el-icon></el-button>
+              <el-button v-if="button?.audit?.show && isButtonVisible('audit', scope.row)" :type="button.audit.type" size="small" :title="button.audit.name" @click="auditClick(scope.row)">
                 <svg-icon icon-class="verCode" />
               </el-button>
               <!--列表数据右方的操作按钮-->
               <slot name="rightOperate" :row="scope.row" />
-              <el-button v-if="button?.delete?.show && isButtonVisible('delete', scope.row)" :type="button.delete.type"
-                size="small" :title="button.delete.name" @click="remove([scope.row])">
-                <el-icon>
-                  <Delete />
-                </el-icon>
-              </el-button>
-              <el-button v-if="button?.up?.show" :type="button.up.type" size="small" :loading="buttonLoading.up"
-                :title="button.up.name" @click="move(scope.row, true)">
-                <el-icon>
-                  <Top />
-                </el-icon>
-              </el-button>
-              <el-button v-if="button?.down?.show" :type="button.down.type" size="small" :loading="buttonLoading.down"
-                :title="button.down.name" @click="move(scope.row, false)">
-                <el-icon>
-                  <Bottom />
-                </el-icon>
-              </el-button>
+              <el-button v-if="button?.delete?.show && isButtonVisible('delete', scope.row)" :type="button.delete.type" size="small" :title="button.delete.name" @click="remove([scope.row])"><el-icon><Delete /></el-icon></el-button>
+              <el-button v-if="button?.up?.show" :type="button.up.type" size="small" :loading="buttonLoading.up" :title="button.up.name" @click="move(scope.row, true)"><el-icon><Top /></el-icon></el-button>
+              <el-button v-if="button?.down?.show" :type="button.down.type" size="small" :loading="buttonLoading.down" :title="button.down.name" @click="move(scope.row, false)"><el-icon><Bottom /></el-icon></el-button>
             </template>
           </el-table-column>
         </el-table>
-        <v-page v-if="showPage" align="center" :total="totalSize" :current-page="pageInfo.page"
-          :page-size="pageInfo.size" :page-sizes="pageInfo.sizes" :selected-columns="selectedColumns"
-          @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+        <v-page v-if="showPage" align="center" :total="totalSize" :current-page="pageInfo.page" :page-size="pageInfo.size" :page-sizes="pageInfo.sizes" :selected-columns="selectedColumns" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
       </el-card>
     </template>
   </DataTableHeader>
@@ -139,21 +112,6 @@ const filterDateTime = (val) => {
   }
 };
 
-// 审核状态过滤器
-const filterIsAudit = (val) => {
-  switch (val) {
-    case CONSTANT.AUDIT_STATUS.SUBMIT:
-      return CONSTANT.AUDIT_STATUS.SUBMITNAME;
-    case CONSTANT.AUDIT_STATUS.PASS:
-      return CONSTANT.AUDIT_STATUS.PASSNAME;
-    case CONSTANT.AUDIT_STATUS.NOTPASS:
-      return CONSTANT.AUDIT_STATUS.NOTPASSNAME;
-    case CONSTANT.AUDIT_STATUS.BACK:
-      return CONSTANT.AUDIT_STATUS.BACKNAME;
-    default:
-      return CONSTANT.AUDIT_STATUS.SAVENAME;
-  }
-};
 
 const formatCron = (cron) => {
   if (!cron || cron === '--') return '--';
@@ -223,28 +181,21 @@ const formatCron = (cron) => {
   return cron;
 };
 
-// 审核状态映射: -1 保存未提交, 0 提交待审核, 1 审核通过, 2 审核不通过, 3 审核退回
-const formatAuditStatus = (status) => {
-  const statusMap = {
-    '-1': '保存未提交',
-    '0': '待审核',
-    '1': '审核通过',
-    '2': '审核不通过',
-    '3': '审核退回'
-  };
-  return statusMap[String(status)] || '--';
-};
 
-// 审核状态对应的 Tag 类型
-const getAuditTagType = (status) => {
-  const typeMap = {
-    '-1': 'info',
-    '0': 'warning',
-    '1': 'success',
-    '2': 'danger',
-    '3': ''  // 默认样式
-  };
-  return typeMap[String(status)] || 'info';
+// 获取审核角色名称（用于审核状态显示）
+const getVerifyRoleNameText = (row) => {
+  if (props.getVerifyRoleName && typeof props.getVerifyRoleName === 'function') {
+    return props.getVerifyRoleName(row);
+  }
+  // 默认逻辑：返回第一个有值的角色名
+  const levels = [
+    row.verifyFirstRoleName,
+    row.verifySecondRoleName,
+    row.verifyThirdRoleName,
+    row.verifyFourthRoleName,
+    row.verifyFifthRoleName
+  ].filter(name => name);
+  return levels[0] || '';
 };
 
 const props = defineProps({
@@ -302,6 +253,18 @@ const props = defineProps({
   // 格式: (dataList) => filteredDataList
   // 用于无法通过后端查询精确过滤的场景（如 verifyUserId 的精确匹配）
   clientFilterFn: {
+    type: Function,
+    default: null
+  },
+  // 是否启用审核状态自定义显示（用于 customize-status 列）
+  enableAuditStatusCustom: {
+    type: Boolean,
+    default: false
+  },
+  // 审核状态自定义显示函数：返回当前审核级别的角色名称
+  // 格式: (row) => string
+  // 例如: (row) => row._currentRoleName || row.verifyFirstRoleName
+  getVerifyRoleName: {
     type: Function,
     default: null
   }

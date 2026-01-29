@@ -1,6 +1,6 @@
 <template>
   <div>
-    <DataTableList ref="dataTableList" :default-props="defaultProps.defaultDTLProps" :button-condition="buttonCondition" :client-filter-fn="clientFilterFn" @append-click="appendClick" @edit-click="editClick" @view-click="viewClick" @update-column="updateColumn" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @after-init-data="afterInitData" @audit-click="auditClick">
+    <DataTableList ref="dataTableList" :default-props="defaultProps.defaultDTLProps" :button-condition="buttonCondition" :client-filter-fn="clientFilterFn" :enable-audit-status-custom="enableAuditStatusCustom" :get-verify-role-name="getVerifyRoleName" @append-click="appendClick" @edit-click="editClick" @view-click="viewClick" @update-column="updateColumn" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @after-init-data="afterInitData" @audit-click="auditClick">
       <!--数据操作按钮类 -->
       <!-- <template #searchPanel>
       <slot name="searchPanel" />
@@ -76,6 +76,10 @@ const props = defineProps({
   searchPlaceholder: { type: String, default: '请输入名称' },
   // 客户端过滤函数：在数据加载后进行前端过滤
   clientFilterFn: { type: Function, default: null },
+  // 是否启用审核状态自定义显示（用于 customize-status 列）
+  enableAuditStatusCustom: { type: Boolean, default: false },
+  // 审核状态自定义显示函数：返回当前审核级别的角色名称
+  getVerifyRoleName: { type: Function, default: null },
 });
 
 const emit = defineEmits([

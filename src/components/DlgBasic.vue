@@ -304,7 +304,9 @@ const onModalSubmit = async () => {
   }
 }
 
-const beforeCloseDlg = () => {
+const beforeCloseDlg = (done) => {
+  // 如果 done 是函数，说明是从 el-dialog 的 before-close 调用的
+  // 如果 done 是 undefined，说明是从按钮点击调用的
   if (needVerifyUpdate.value) {
     if (JSON.stringify(oldData.value) !== JSON.stringify(form.value)) {
       ElMessageBox.confirm(
@@ -319,14 +321,28 @@ const beforeCloseDlg = () => {
         }
       )
         .then(() => {
-          dialogShow.value = false
+          if (typeof done === 'function') {
+            done() // 调用 done 关闭对话框
+          } else {
+            dialogShow.value = false // 按钮点击时直接设置
+          }
         })
-        .catch(() => {})
+        .catch(() => {
+          // 用户取消，不关闭对话框
+        })
     } else {
-      dialogShow.value = false
+      if (typeof done === 'function') {
+        done() // 调用 done 关闭对话框
+      } else {
+        dialogShow.value = false // 按钮点击时直接设置
+      }
     }
   } else {
-    dialogShow.value = false
+    if (typeof done === 'function') {
+      done() // 调用 done 关闭对话框
+    } else {
+      dialogShow.value = false // 按钮点击时直接设置
+    }
   }
 }
 

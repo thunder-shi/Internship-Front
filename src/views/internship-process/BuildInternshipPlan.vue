@@ -1,73 +1,13 @@
 <template>
   <div class="build-internship-plan-container">
-    <BaseList
-      :default-props="defaultProps"
-      :button-condition="buttonCondition"
-      :client-filter-fn="clientFilterFn"
-      ref="baseList"
-      @edit-click="editClick"
-      @view-click="viewClick"
-    >
-      <!-- 自定义状态列 -->
-      <template #status="{ row }">
-        <el-tag v-if="row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === null || row.isAudit === undefined" type="info">
-          待提交
-        </el-tag>
-        <el-tag v-else-if="row.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT" type="warning">
-          {{ getVerifyRoleName(row) }}审核中
-        </el-tag>
-        <el-tag v-else-if="row.isAudit === CONSTANT.AUDIT_STATUS.PASS" type="success">
-          审核通过
-        </el-tag>
-        <el-tag v-else-if="row.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS" type="danger">
-          审核不通过
-        </el-tag>
-        <el-tag v-else-if="row.isAudit === CONSTANT.AUDIT_STATUS.BACK" type="info">
-          审核退回
-        </el-tag>
-      </template>
+    <BaseList :default-props="defaultProps" :button-condition="buttonCondition" :client-filter-fn="clientFilterFn" :enable-audit-status-custom="true" :get-verify-role-name="getVerifyRoleName" :baselist-confirm="handleSave" :baselist-submit="handleSubmit" ref="baseList" @edit-click="editClick" @view-click="viewClick">
       <!-- 自定义操作按钮：查看进度（已提交、审核通过、审核不通过状态显示） -->
       <template #rightOperate="{ row }">
-        <el-button
-          v-if="row.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT ||
-                row.isAudit === CONSTANT.AUDIT_STATUS.PASS ||
-                row.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS"
-          type="primary"
-          size="small"
-          title="查看进度"
-          @click="viewClick(row)"
-        >
-          <el-icon><View /></el-icon>
-        </el-button>
+        <el-button v-if="row.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT || row.isAudit === CONSTANT.AUDIT_STATUS.PASS || row.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS" type="primary" size="small" title="查看进度" @click="viewClick(row)"><el-icon><View /></el-icon></el-button>
       </template>
     </BaseList>
-
-    <!-- 编辑对话框 -->
-    <DlgBasic
-      ref="dlgBasicRef"
-      v-model:default-props="dlgProps"
-      :dlgbasic-confirm="handleSave"
-      :dlgbasic-spec-submit="handleSubmit"
-    >
-      <template #mainForm>
-        <el-form ref="formPanelRef" :model="form" :rules="formRules" label-width="100px">
-          <el-form-item label="实习项目">
-            <span>{{ form.internshipName || form.name }}</span>
-          </el-form-item>
-          <el-form-item label="备注" prop="remarks">
-            <el-input v-model="form.remarks" type="textarea" :rows="4" placeholder="请输入备注" />
-          </el-form-item>
-          <!-- TODO: 后续添加更多字段和文件上传 -->
-        </el-form>
-      </template>
-    </DlgBasic>
-
     <!-- 审核进度查看对话框 -->
-    <DlgVerifyProgress
-      v-model="showProgressDialog"
-      :main-internship-id="currentRow.internshipId"
-      :process-info="currentRow"
-    />
+    <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" />
   </div>
 </template>
 
@@ -88,7 +28,6 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { View } from '@element-plus/icons-vue';
 import moment from 'moment';
 import BaseList from '@/views/master-page/BaseList.vue';
-import DlgBasic from '@/components/DlgBasic.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
@@ -99,23 +38,15 @@ defineOptions({
 
 const store = useStore();
 const baseList = ref(null);
-const dlgBasicRef = ref(null);
-const formPanelRef = ref(null);
 
 // 当前时间
 const currentTime = computed(() => moment().format('YYYY-MM-DD HH:mm:ss'));
-
-// 表单数据
-const form = reactive({});
 
 // 当前操作的行数据（用于查看进度）
 const currentRow = ref({});
 
 // 审核进度对话框显示状态
 const showProgressDialog = ref(false);
-
-// 表单验证规则
-const formRules = {};
 
 // 按钮条件配置：编辑按钮在未提交和审核退回状态显示
 const buttonCondition = {
@@ -204,21 +135,6 @@ const clientFilterFn = (dataList) => {
   return result;
 };
 
-// 编辑对话框配置
-const dlgProps = reactive({
-  form: {},
-  width: '50%',
-  dlgTitle: '编辑实习计划',
-  footButtons: {
-    cancel: { show: true, name: '取 消', type: '' },
-    confirm: { show: true, name: '暂 存', type: 'primary' },
-    submit: { show: true, name: '提 交', type: 'success' }
-  },
-  someFlags: {
-    noFooter: false,
-    needValidate: false
-  }
-});
 
 /**
  * 列表查询条件：
@@ -238,11 +154,7 @@ const initSearchWords = computed(() => ({
 
 // 编辑按钮点击
 const editClick = (row) => {
-  // 清空表单
-  Object.keys(form).forEach(key => delete form[key]);
-  Object.assign(form, row);
-
-  dlgBasicRef.value?.showDialog(true, form, 'edit');
+  baseList.value?.openDlg('edit', row);
 };
 
 // 查看进度按钮点击
@@ -260,7 +172,7 @@ const viewClick = (row) => {
  * 暂存：保存但不提交
  * isAudit = -1（保存未提交）
  */
-const handleSave = async (_option, type) => {
+const handleSave = async (option, type, form) => {
   form.isAudit = CONSTANT.AUDIT_STATUS.SAVE; // -1
 
   try {
@@ -281,15 +193,15 @@ const handleSave = async (_option, type) => {
     if (resInfo && resInfo.message === 'successful') {
       ElMessage.success('暂存成功');
       baseList.value?.initDataList();
-      if (type === 'stop') {
-        dlgBasicRef.value?.showDialog(false, form);
-      }
+      return true; // 返回 true 表示成功，BaseList 会自动关闭对话框
     } else {
       ElMessage.warning(resInfo?.message || '保存失败');
+      return false;
     }
   } catch (error) {
     // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('保存失败:', error);
+    return false;
   }
 };
 
@@ -297,7 +209,7 @@ const handleSave = async (_option, type) => {
  * 提交：提交审核
  * isAudit = 0（提交待审核）
  */
-const handleSubmit = async () => {
+const handleSubmit = async (form) => {
   try {
     await ElMessageBox.confirm(
       '提交后将进入审核流程，届时将不可修改，确定提交吗？',
@@ -332,7 +244,8 @@ const handleSubmit = async () => {
     if (resInfo && resInfo.message === 'successful') {
       ElMessage.success('提交成功，等待审核');
       baseList.value?.initDataList();
-      dlgBasicRef.value?.showDialog(false, form);
+      // 关闭对话框
+      baseList.value?.simpleDialog?.showDialog(false, form);
     } else {
       ElMessage.warning(resInfo?.message || '提交失败');
     }
@@ -360,6 +273,28 @@ const defaultProps = computed(() => ({
         { id: 4, showName: '结束时间', theOrder: 4, tableColumnName: 'endTime', width: 160 },
         { id: 5, showName: '状态', theOrder: 5, tableColumnName: 'customize-status', width: 140 }
       ]
+    }
+  },
+  defaultSDProps: {
+    keyWord: 'MainVerifyProcess',
+    formItems: [
+      { name: '实习项目', field: 'internshipName', type: 'label' },
+      { name: '备注', field: 'remarks', type: 'textarea' }
+    ],
+    formRules: {},
+    defaultDBProps: {
+      footButtons: {
+        cancel: { show: true, name: '取 消', type: '' },
+        confirm: { show: true, name: '暂 存', type: 'primary' },
+        submit: { show: true, name: '提 交', type: 'success' }
+      },
+      dialog: {
+        width: '50%',
+        title: '编辑实习计划'
+      },
+      someFlags: {
+        needVerifyUpdate: false // 禁用数据变更检查，允许直接关闭对话框
+      }
     }
   }
 }));

@@ -3,30 +3,12 @@
     <BaseList ref="baseListRef" :default-props="defaultProps" @after-init-data="handleAfterInitData">
       <template #rightOperate="{ row }">
         <template v-if="isTeacher">
-          <el-button size="small" @click="handleApply(row)" type="primary" :disabled="isApplied(row.id)"
-            :title="isApplied(row.id) ? '已报名' : '报名'">
-            <el-icon>
-              <CircleCheck />
-            </el-icon>
-          </el-button>
-          <el-button size="small" @click="handleCancel(row)" type="danger" :disabled="!isApplied(row.id)"
-            :title="!isApplied(row.id) ? '未报名' : '取消报名'">
-            <el-icon>
-              <CircleClose />
-            </el-icon>
-          </el-button>
+          <el-button size="small" @click="handleApply(row)" type="primary" :disabled="isApplied(row.id)" :title="isApplied(row.id) ? '已报名' : '报名'"><el-icon><CircleCheck /></el-icon></el-button>
+          <el-button size="small" @click="handleCancel(row)" type="danger" :disabled="!isApplied(row.id)" :title="!isApplied(row.id) ? '未报名' : '取消报名'"><el-icon><CircleClose /></el-icon></el-button>
         </template>
         <template v-if="isSuperAdmin">
-          <el-button size="small" @click="handleAdminApply(row)" type="success" title="管理员分配项目">
-            <el-icon>
-              <User />
-            </el-icon>
-          </el-button>
-          <el-button size="small" @click="handleAdminCancel(row)" type="warning" title="管理员取消分配项目">
-            <el-icon>
-              <UserFilled />
-            </el-icon>
-          </el-button>
+          <el-button size="small" @click="handleAdminApply(row)" type="success" title="管理员分配项目"><el-icon><User /></el-icon></el-button>
+          <el-button size="small" @click="handleAdminCancel(row)" type="warning" title="管理员取消分配项目"><el-icon><UserFilled /></el-icon></el-button>
         </template>
       </template>
     </BaseList>
