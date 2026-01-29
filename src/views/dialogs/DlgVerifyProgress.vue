@@ -37,7 +37,7 @@
               <template v-else>
                 <div class="info-row">
                   <span class="label">审核人:</span>
-                  <span class="value">{{ record.verifyUserName || '(未获取到审核人姓名)' }}</span>
+                  <span class="value">{{ record.verifyUserName || '系统自动' }}</span>
                 </div>
 
                 <!-- 审核理由 -->
@@ -323,6 +323,7 @@ async function loadVerifyProgress() {
   // 如果 props 中已经传入了所有记录，直接使用
   if (props.processInfo?._allRecords && props.processInfo._allRecords.length > 0) {
     let records = [...props.processInfo._allRecords].sort((a, b) => (a.id || 0) - (b.id || 0));
+    await fillVerifyUserNames(records);
     verifyRecords.value = records;
     return;
   }
@@ -369,6 +370,9 @@ async function loadVerifyProgress() {
         records = records.filter(r => r.isAudit === 1).slice(0, verifyTypeId);
       }
 
+      // 为每条记录补充审核人姓名（verifyUserId 是 string，BaseUser.id 是 int）
+      await fillVerifyUserNames(records);
+
       verifyRecords.value = records;
     } else {
       verifyRecords.value = [];
@@ -379,6 +383,50 @@ async function loadVerifyProgress() {
     verifyRecords.value = [];
   } finally {
     loading.value = false;
+  }
+}
+
+// 根据 verifyUserId 查询 BaseUser 获取审核人姓名
+async function fillVerifyUserNames(records) {
+  // 收集所有需要查询的 userId（去重），跳过已有姓名的记录
+  const userIdSet = new Set();
+  records.forEach(r => {
+    if (r.verifyUserId && !r.verifyUserName) {
+      userIdSet.add(String(r.verifyUserId));
+    }
+  });
+
+  if (userIdSet.size === 0) return;
+
+  // 将 string 类型的 userId 转为 int 进行查询
+  const userIds = Array.from(userIdSet).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+  if (userIds.length === 0) return;
+
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'BaseUser',
+      pageInfo: { page: 1, size: userIds.length },
+      searchKey: { id: userIds.join(',') },
+      reg: { id: '()' },
+      sort: { properties: 'id', direction: 'ASC' }
+    });
+
+    if (res && res.data && res.data.content) {
+      // 构建 id -> name 映射
+      const userMap = {};
+      res.data.content.forEach(user => {
+        userMap[String(user.id)] = user.name;
+      });
+
+      // 回填到记录中
+      records.forEach(r => {
+        if (r.verifyUserId && !r.verifyUserName) {
+          r.verifyUserName = userMap[String(r.verifyUserId)] || null;
+        }
+      });
+    }
+  } catch (error) {
+    console.error('查询审核人姓名失败:', error);
   }
 }
 

@@ -325,7 +325,6 @@ const handleSubmit = async () => {
       await listAPI.editOneNode('RelProcessInternship', {
         id: form.relationId,
         remarks: form.remarks,
-        currentVerifyTypeId: 1  // 初始化为1（初始状态，准备开始第一级审核）
       });
     }
 

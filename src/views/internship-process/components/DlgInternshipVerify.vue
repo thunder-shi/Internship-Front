@@ -99,7 +99,7 @@ const defaultProps = reactive({
   form: {},
   width: '60%',
   dlgTitle: '实习项目审核',
-  
+
   someFlags: {
     noFooter: false,
     needValidate: true,
@@ -354,9 +354,7 @@ async function loadVerifyRoleIds(relationId) {
 
       // 更新 form 中的审核级别信息
       if (processInfo.verifyTypeId) form.verifyTypeId = processInfo.verifyTypeId;
-      if (processInfo.currentVerifyTypeId !== undefined) {
-        form.currentVerifyTypeId = processInfo.currentVerifyTypeId || 1;
-      }
+      if (processInfo.currentVerifyTypeId) form.currentVerifyTypeId = processInfo.currentVerifyTypeId;
 
       // 更新 form 中的角色ID
       if (processInfo.verifyFirstRoleId) form.verifyFirstRoleId = processInfo.verifyFirstRoleId;
@@ -565,13 +563,13 @@ defineExpose({
 
   :deep(.el-descriptions) {
     background-color: #fff;
-    
+
     // 调整标签列和内容列的宽度比例
     .el-descriptions__label {
       width: 100px !important; // 缩小标签列宽度
       min-width: 100px;
     }
-    
+
     .el-descriptions__content {
       width: auto !important; // 内容列自动填充剩余空间
     }
@@ -628,7 +626,7 @@ defineExpose({
   :deep(.el-table) {
     height: 100% !important;
     max-height: 100% !important;
-    
+
     .el-table__body-wrapper {
       overflow-y: auto !important;
       max-height: calc(100% - 40px) !important; // 减去表头高度
