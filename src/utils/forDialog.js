@@ -99,8 +99,8 @@ function commonSubmitTreeDlg(form, formData, keyWords, dialog, saveType = '') {
           ElMessage.success(`${option}成功！`)
           resolve(resInfo)
         } catch (error) {
-          // 错误处理：显示错误信息并拒绝 Promise
-          ElMessage.error(error?.message || `${option}失败！`)
+          // axios 拦截器已经处理了错误提示，这里不需要重复显示
+          // 错误处理：resolve Promise，但 successFlag 为 false
           resolve(resInfo) // 仍然 resolve，但 successFlag 为 false
         }
       }

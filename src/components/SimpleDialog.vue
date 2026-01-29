@@ -352,8 +352,8 @@ async function confirm(option, type) {
       return result;
     }
   } catch (error) {
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('确认操作失败:', error);
-    ElMessage.error('操作失败，请重试');
     throw error;
   }
 }
@@ -366,8 +366,8 @@ async function specConfirm(option, type) {
       await props.simpledialogSpecConfirm(option, type, form);
     }
   } catch (error) {
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('特殊确认操作失败:', error);
-    ElMessage.error('操作失败，请重试');
     throw error;
   }
 }

@@ -246,8 +246,8 @@ async function handleApply(row) {
       // 用户取消操作，不显示错误消息
       return;
     }
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('报名失败:', error);
-    ElMessage.error('报名失败，请重试');
   }
 }
 
@@ -303,8 +303,8 @@ async function handleCancel(row) {
       // 用户取消操作，不显示错误消息
       return;
     }
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('取消报名失败:', error);
-    ElMessage.error('取消报名失败，请重试');
   }
 }
 
@@ -509,8 +509,8 @@ async function handleAdminConfirm(option, type, form) {
       // 用户取消操作，不显示错误消息
       return;
     }
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('管理员分配失败:', error);
-    ElMessage.error('分配失败，请重试');
   }
 }
 
@@ -653,8 +653,8 @@ async function handleAdminCancelConfirm(option, type, form) {
       // 用户取消操作，不显示错误消息
       return;
     }
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('管理员取消分配失败:', error);
-    ElMessage.error('取消分配失败，请重试');
   }
 }
 
