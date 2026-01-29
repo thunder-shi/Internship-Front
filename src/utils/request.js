@@ -64,12 +64,12 @@ service.interceptors.response.use(
     if (res.status !== 200) {
       if (!shouldSuppress(res.message, requestUrl)) {
         ElMessage({
-          message: res.message || 'Error',
+          message: res.message || '操作失败',
           type: 'error',
           duration: 5 * 1000
         })
       }
-      return Promise.reject(new Error(res.message || 'Error'))
+      return Promise.reject(new Error(res.message || '操作失败'))
     } else {
       return res
     }
@@ -84,7 +84,14 @@ service.interceptors.response.use(
     // 更健壮的判断：检查 URL 中是否包含退出登录路径
     const isLogoutRequest = fullUrl && (fullUrl.includes('/sign/logout') || configUrl.includes('/sign/logout'))
     const httpStatus = error?.response?.status
-    const errorMessage = errorData?.message || error?.message || 'Request failed with status code ' + (httpStatus || 'unknown')
+    
+    // 优先使用后端返回的 message，如果存在就只显示它，不显示 HTTP 状态码
+    // 支持多种可能的数据结构：errorData.message、errorData.error、errorData.msg 等
+    const backendMessage = errorData?.message || errorData?.error || errorData?.msg || errorData?.errorMessage
+    
+    // 如果后端返回了 message，就只使用它，不显示 HTTP 状态码错误
+    // 如果后端没有返回 message 或者 message 为空，使用默认提示
+    const errorMessage = backendMessage || '操作失败'
     
     // 退出登录请求：即使服务器错误也静默处理，不显示错误消息
     // 包括 401 未授权错误，因为退出登录时 token 可能已经失效
@@ -112,6 +119,7 @@ service.interceptors.response.use(
       console.warn('suppressed error message:', errorMessage)
       return Promise.reject(error)
     } else {
+      // 只显示后端返回的 message，不显示 HTTP 状态码
       ElMessage({
         message: errorMessage,
         type: 'error',

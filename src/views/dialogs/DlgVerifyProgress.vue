@@ -378,8 +378,8 @@ async function loadVerifyProgress() {
       verifyRecords.value = [];
     }
   } catch (error) {
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('获取审核进度失败:', error);
-    ElMessage.error('获取审核进度失败');
     verifyRecords.value = [];
   } finally {
     loading.value = false;

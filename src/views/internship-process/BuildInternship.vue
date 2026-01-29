@@ -134,7 +134,9 @@ const handleDeleteClick = async (rows) => {
       ElMessage.error(res?.message || '删除失败');
     }
   } catch (error) {
-    ElMessage.error(error?.message || '删除失败');
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
+    // 如果拦截器没有显示（比如被 suppress），这里也不显示，避免重复
+    console.error('删除失败:', error);
   }
 };
 

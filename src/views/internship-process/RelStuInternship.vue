@@ -457,8 +457,8 @@ async function handleDeleteClick(rows) {
       return false;
     }
   } catch (error) {
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('删除学生选择记录失败:', error);
-    ElMessage.error('删除失败，请重试');
     return false;
   }
 }

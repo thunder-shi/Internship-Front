@@ -268,8 +268,8 @@ async function handleProcessSelectSave(processData) {
       ElMessage.warning(resInfo?.message || '保存失败');
     }
   } catch (error) {
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('保存流程数据失败:', error);
-    ElMessage.error('保存失败，请重试');
   }
 }
 

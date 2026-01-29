@@ -231,12 +231,12 @@ const onConfirm = async () => {
       await props.dlgbasicSpecConfirm(option.value, type.value)
     }
   } catch (error) {
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     // 如果是验证错误（已在 confirm 函数中显示警告），不显示通用错误消息
     if (error.message && error.message.startsWith('缺少')) {
       console.log('验证未通过:', error.message)
     } else {
       console.error('保存操作失败:', error)
-      ElMessage.error('保存失败，请重试')
     }
   } finally {
     buttonLoading.confirm = false
@@ -271,12 +271,12 @@ const onModalSubmit = async () => {
     try {
       await props.dlgbasicSpecSubmit()
     } catch (error) {
+      // axios 拦截器已经处理了错误提示，这里不需要重复显示
       // 如果是验证错误，不显示通用错误消息
       if (error.message && error.message.startsWith('缺少')) {
         console.log('验证未通过:', error.message)
       } else {
         console.error('提交操作失败:', error)
-        ElMessage.error('提交失败，请重试')
       }
     } finally {
       buttonLoading.submit = false

@@ -288,7 +288,8 @@ const handleSave = async (_option, type) => {
       ElMessage.warning(resInfo?.message || '保存失败');
     }
   } catch (error) {
-    ElMessage.error('保存失败，请重试');
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
+    console.error('保存失败:', error);
   }
 };
 
@@ -336,7 +337,8 @@ const handleSubmit = async () => {
       ElMessage.warning(resInfo?.message || '提交失败');
     }
   } catch (error) {
-    ElMessage.error('提交失败，请重试');
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
+    console.error('提交失败:', error);
   }
 };
 
