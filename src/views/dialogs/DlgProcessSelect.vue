@@ -7,6 +7,7 @@ import { ref, reactive, onBeforeUnmount } from 'vue';
 import { ElMessage } from 'element-plus';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import listAPI from '@/api/list';
+import internshipProcessAPI from '@/api/internshipProcess';
 
 const props = defineProps({
   internshipTypeId: { type: Number, default: null }, // 从父组件传入的 internshipTypeId（模板用）
@@ -197,7 +198,7 @@ async function confirm(option, type, form) {
     internshipTypeId: props.internshipTypeId,
     internshipId: props.internshipId
   };
-  
+
   // 确保时间字段正确传递（datetime 类型会返回字符串格式）
   if (form.startTime) {
     saveData.startTime = form.startTime;
@@ -205,18 +206,20 @@ async function confirm(option, type, form) {
   if (form.endTime) {
     saveData.endTime = form.endTime;
   }
-  
+
   // 根据模式确定要使用的 keyWord
   const keyWord = isInternshipMode() ? 'RelProcessInternship' : 'RelProcessInternshipType';
-  
+
   try {
     // 直接调用 API 保存，等待保存完成后再关闭对话框
     const resInfo = await listAPI.editOneNode(keyWord, saveData);
-    
+
     if (resInfo && resInfo.message === 'successful') {
       const isEdit = saveData.id != null && saveData.id !== 0;
       // 显示成功消息
       ElMessage.success(isEdit ? '修改成功！' : '新增成功！');
+      // 激活时间范围内的流程
+      await internshipProcessAPI.activateProcess();
       // 保存成功后，触发更新事件，让父组件刷新列表
       emit('update-record', saveData);
       // 关闭对话框

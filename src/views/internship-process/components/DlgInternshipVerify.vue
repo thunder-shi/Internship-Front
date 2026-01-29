@@ -86,6 +86,7 @@ import _ from 'lodash';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 import moment from 'moment';
+import internshipProcessAPI from '@/api/internshipProcess';
 
 const emit = defineEmits(['update-record', 'close-dialog']);
 
@@ -497,7 +498,7 @@ async function confirm(_option, type) {
   try {
     // 调用 editOneNode 接口保存到 MainVerifyProcess 表
     // 后端会自动处理多级审核逻辑（创建下一级审核记录、更新 currentVerifyTypeId）
-    const resInfo = await listAPI.editOneNode('MainVerifyProcess', saveData);
+    const resInfo = await internshipProcessAPI.auditProcess(saveData)
 
     if (resInfo && resInfo.message === 'successful') {
       const resultText = {
