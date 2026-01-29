@@ -65,6 +65,7 @@ const defaultProps = reactive({
 
 const formItems = [
   { name: '实习模板', field: 'internshipTypeName', type: 'label' },
+  { name: '项目编号', field: 'code', type: 'input' },
   { name: '实习名称', field: 'name', type: 'input' },
   { name: '报告周期', field: 'cron', type: 'cron' },
   { name: '备注', field: 'remarks', type: 'textarea' }
@@ -202,8 +203,8 @@ async function confirm(option, type) {
 
   const userId = store.getters.userInfo?.id;
   const resInfo = await dlgAPI.commonSubmitDlg(formPanelRef.value, form, keyWord.value, 'edit', false, false, userId);
+  // commonSubmitDlg 已经统一处理了成功提示，这里不需要重复显示
   if (resInfo && resInfo.message === 'successful') {
-    ElMessage.success('保存成功');
     emit('update-record', form);
     if (type === 'stop') {
       dlgBasicRef.value?.showDialog(false, form);

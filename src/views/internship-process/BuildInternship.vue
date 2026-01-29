@@ -162,10 +162,11 @@ const defaultProps = computed(() => ({
       keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
       allTableColumns: [
         { id: 1, showName: '所属院系', theOrder: 1, tableColumnName: 'universityName' },
-        { id: 2, showName: '实习项目名称', theOrder: 2, tableColumnName: 'name' },
-        { id: 3, showName: '实习类型', theOrder: 3, tableColumnName: 'intTypeName' },
-        { id: 4, showName: '实习模板', theOrder: 4, tableColumnName: 'internshipTypeName' },
-        { id: 5, showName: '报告周期', theOrder: 5, tableColumnName: 'cron' },
+        { id: 2, showName: '项目编号', theOrder: 2, tableColumnName: 'code' },
+        { id: 3, showName: '项目名称', theOrder: 3, tableColumnName: 'name' },
+        { id: 4, showName: '实习类型', theOrder: 4, tableColumnName: 'intTypeName' },
+        { id: 5, showName: '实习模板', theOrder: 5, tableColumnName: 'internshipTypeName' },
+        { id: 6, showName: '报告周期', theOrder: 6, tableColumnName: 'cron' },
         // { id: 6, showName: '已选学生人数', theOrder: 6, tableColumnName: 'studentNum', sortable: true },
         { id: 7, showName: '备注', theOrder: 7, tableColumnName: 'remarks' }
       ],
@@ -175,6 +176,7 @@ const defaultProps = computed(() => ({
     keyWord: 'MainInternship',
     formItems: [
       { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'}, searchKeys: templateSearchKey.value },
+      { name: '项目编号', field: 'code', type: 'input' },
       { name: '实习名称', field: 'name', type: 'input' },
       { name: '报告周期', field: 'cron', type: 'cron' },
       { name: '备注', field: 'remarks', type: 'textarea' }
