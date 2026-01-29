@@ -53,9 +53,9 @@ const FILE_TYPE = Object.freeze({
 // 审核状态
 const AUDIT_STATUS = Object.freeze({
   SAVE: -1,
-  SAVENAME: '保存未提交',
+  SAVENAME: '待提交',
   SUBMIT: 0,
-  SUBMITNAME: '提交待审核',
+  SUBMITNAME: '待审核',
   PASS: 1,
   PASSNAME: '审核通过',
   NOTPASS: 2,

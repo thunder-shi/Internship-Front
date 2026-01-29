@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="dialogVisible" title="审核进度" width="600px" :close-on-click-modal="false" @close="handleClose">
+  <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" :close-on-click-modal="false" @close="handleClose">
     <div v-loading="loading" class="verify-progress-container">
       <!-- 当前状态概览 -->
       <div class="status-overview">
@@ -100,10 +100,49 @@ const dialogVisible = computed({
 const loading = ref(false);
 const verifyRecords = ref([]);
 
+// 对话框标题，包含角色信息
+const dialogTitle = computed(() => {
+  const auditStatus = props.processInfo?.isAudit;
+  const roleName = props.processInfo?._currentRoleName || getCurrentRoleName();
+
+  if (auditStatus === 0 && roleName) {
+    return `审核进度 - ${roleName}审核中`;
+  }
+  return '审核进度';
+});
+
+// 获取当前审核角色名称
+function getCurrentRoleName() {
+  // 优先从 props 获取
+  if (props.processInfo?._currentRoleName) {
+    return props.processInfo._currentRoleName;
+  }
+
+  // 从审核记录计算
+  if (verifyRecords.value.length === 0) {
+    return '';
+  }
+
+  const firstRecord = verifyRecords.value[0];
+  const passed = verifyRecords.value.filter(r => r.isAudit === 1).length;
+  const levels = [
+    firstRecord.verifyFirstRoleName,
+    firstRecord.verifySecondRoleName,
+    firstRecord.verifyThirdRoleName,
+    firstRecord.verifyFourthRoleName,
+    firstRecord.verifyFifthRoleName
+  ].filter(name => name);
+
+  if (levels[passed]) {
+    return levels[passed];
+  }
+  return '';
+}
+
 // 实习项目创建者名称（从第一条记录获取）
 const internshipCreatorName = computed(() => {
   if (verifyRecords.value.length > 0) {
-    return verifyRecords.value[0].creatorName || '--';
+    return verifyRecords.value[0].createUserName || '--';
   }
   return '--';
 });
@@ -133,9 +172,13 @@ const currentStatusText = computed(() => {
   // 优先使用 props 传入的 isAudit（来自 datalist 的 ViewMainInternship）
   const auditStatus = props.processInfo?.isAudit;
   if (auditStatus !== undefined && auditStatus !== null) {
+    // 对于待审核状态，显示角色名称
+    if (auditStatus === 0) {
+      const roleName = props.processInfo?._currentRoleName || getCurrentRoleName();
+      return roleName ? `${roleName}审核中` : '待审核';
+    }
     const statusMap = {
-      '-1': '保存未提交',
-      '0': '待审核',
+      '-1': '待提交',
       '1': '审核通过',
       '2': '审核不通过',
       '3': '审核退回'
@@ -178,7 +221,7 @@ const currentStatusType = computed(() => {
       '0': 'warning',
       '1': 'success',
       '2': 'danger',
-      '3': ''  // 默认样式
+      '3': 'info'  // 审核退回显示灰色
     };
     return typeMap[String(auditStatus)] || 'info';
   }
@@ -250,16 +293,16 @@ function getStatusTagType(isAudit) {
     '0': 'warning',
     '1': 'success',
     '2': 'danger',
-    '3': ''  // 默认样式
+    '3': 'info'  // 审核退回显示灰色
   };
   return typeMap[String(isAudit)] || 'info';
 }
 
 // 获取状态文本
-// -1: 保存未提交, 0: 提交待审核, 1: 审核通过, 2: 审核不通过, 3: 审核退回
+// -1: 待提交, 0: 提交待审核, 1: 审核通过, 2: 审核不通过, 3: 审核退回
 function getStatusText(isAudit) {
   const textMap = {
-    '-1': '保存未提交',
+    '-1': '待提交',
     '0': '待审核',
     '1': '已通过',
     '2': '不通过',
@@ -277,6 +320,14 @@ function formatTime(time) {
 
 // 加载审核进度数据
 async function loadVerifyProgress() {
+  // 如果 props 中已经传入了所有记录，直接使用
+  if (props.processInfo?._allRecords && props.processInfo._allRecords.length > 0) {
+    let records = [...props.processInfo._allRecords].sort((a, b) => (a.id || 0) - (b.id || 0));
+    await fillVerifyUserNames(records);
+    verifyRecords.value = records;
+    return;
+  }
+
   if (!props.mainInternshipId) {
     verifyRecords.value = [];
     return;
@@ -284,16 +335,29 @@ async function loadVerifyProgress() {
 
   loading.value = true;
   try {
-    // 使用 ViewInternshipVerifyProcess 视图查询审核记录
+    // 使用 ViewVerifyInternshipPlanProcess 视图查询审核记录
+    // 优先使用 relationId 查询，因为同一个流程的多个审核级别共享同一个 relationId
+    const searchKey = props.processInfo?.relationId
+      ? { relationId: props.processInfo.relationId }
+      : { internshipId: props.mainInternshipId };
+
     const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewInternshipVerifyProcess',
+      keyWords: 'ViewVerifyInternshipPlanProcess',
       pageInfo: { page: 1, size: 100 },
-      searchKey: { internshipId: props.mainInternshipId },
+      searchKey,
       sort: { properties: 'id', direction: 'ASC' }
     });
     if (res && res.data && res.data.content) {
       // 按 id 升序排列
       let records = res.data.content.sort((a, b) => a.id - b.id);
+
+      console.log('=== DlgVerifyProgress 调试 ===');
+      console.log('原始审核记录:', records);
+      if (records.length > 0) {
+        console.log('第一条记录的字段:', Object.keys(records[0]));
+        console.log('verifyUserName字段:', records.map(r => r.verifyUserName));
+        console.log('verifyUserId字段:', records.map(r => r.verifyUserId));
+      }
 
       // 获取审核级数
       const verifyTypeId = records.length > 0 ? (records[0].verifyTypeId || 1) : 1;
@@ -306,6 +370,9 @@ async function loadVerifyProgress() {
         records = records.filter(r => r.isAudit === 1).slice(0, verifyTypeId);
       }
 
+      // 为每条记录补充审核人姓名（verifyUserId 是 string，BaseUser.id 是 int）
+      await fillVerifyUserNames(records);
+
       verifyRecords.value = records;
     } else {
       verifyRecords.value = [];
@@ -316,6 +383,50 @@ async function loadVerifyProgress() {
     verifyRecords.value = [];
   } finally {
     loading.value = false;
+  }
+}
+
+// 根据 verifyUserId 查询 BaseUser 获取审核人姓名
+async function fillVerifyUserNames(records) {
+  // 收集所有需要查询的 userId（去重），跳过已有姓名的记录
+  const userIdSet = new Set();
+  records.forEach(r => {
+    if (r.verifyUserId && !r.verifyUserName) {
+      userIdSet.add(String(r.verifyUserId));
+    }
+  });
+
+  if (userIdSet.size === 0) return;
+
+  // 将 string 类型的 userId 转为 int 进行查询
+  const userIds = Array.from(userIdSet).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+  if (userIds.length === 0) return;
+
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'BaseUser',
+      pageInfo: { page: 1, size: userIds.length },
+      searchKey: { id: userIds.join(',') },
+      reg: { id: '()' },
+      sort: { properties: 'id', direction: 'ASC' }
+    });
+
+    if (res && res.data && res.data.content) {
+      // 构建 id -> name 映射
+      const userMap = {};
+      res.data.content.forEach(user => {
+        userMap[String(user.id)] = user.name;
+      });
+
+      // 回填到记录中
+      records.forEach(r => {
+        if (r.verifyUserId && !r.verifyUserName) {
+          r.verifyUserName = userMap[String(r.verifyUserId)] || null;
+        }
+      });
+    }
+  } catch (error) {
+    console.error('查询审核人姓名失败:', error);
   }
 }
 
