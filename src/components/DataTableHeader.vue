@@ -8,8 +8,8 @@
         <!--左侧插槽-->
         <slot v-if="$slots.left" name="left" />
         <el-button v-if="button.create.show" :type="button.create.type" :icon="Plus" @click="$emit('append-click')">{{ button.create.name }}</el-button>
-        <el-button v-if="button.update.show" :type="button.update.type" :icon="Edit" :disabled="selectedColumns.length != 1" @click="edit(selectedColumns[0])">{{ button.update.name }}</el-button>
-        <el-button v-if="button.delete.show" :type="button.delete.type" :icon="Delete" :disabled="selectedColumns.length < 1" @click="remove(selectedColumns)">{{ button.delete.name }}</el-button>
+        <el-button v-if="button.update.show" :type="button.update.type" :icon="Edit" :disabled="selectedColumns.length != 1 || (selectedColumns.length === 1 && !isButtonVisible('update', selectedColumns[0]))" @click="edit(selectedColumns[0])">{{ button.update.name }}</el-button>
+        <el-button v-if="button.delete.show" :type="button.delete.type" :icon="Delete" :disabled="selectedColumns.length < 1 || (selectedColumns.length > 0 && selectedColumns.some(row => !isButtonVisible('delete', row)))" @click="remove(selectedColumns)">{{ button.delete.name }}</el-button>
         <el-tooltip class="item" effect="dark" content="直接点击会导出当前全部内容，否则请先选择需要导出的项目后再点击。" placement="top">
           <el-button v-if="button.export.show" :type="button.export.type" :icon="Upload" @click="exportData">{{ button.export.name }}</el-button>
         </el-tooltip>
@@ -92,6 +92,13 @@ const props = defineProps({
     },
   },
   selectedColumns: { type: Array, default: () => [] },
+  // 按钮条件配置：控制各按钮在不同行数据条件下的显示/隐藏
+  // 格式: { buttonName: (row) => boolean }
+  // 例如: { update: (row) => row.isAudit === -1 || row.isAudit === 2 }
+  buttonCondition: {
+    type: Object,
+    default: () => ({})
+  },
 });
 
 const emit = defineEmits([
@@ -300,6 +307,20 @@ function auditDropdownSelect(command) {
 // 审核按钮点击
 function auditDropdownClick(selectedColumns) {
   emit('audit-click', selectedColumns);
+}
+
+// 检查按钮是否应该显示（基于 buttonCondition）
+function isButtonVisible(buttonName, row) {
+  // 如果没有配置条件函数，默认显示
+  if (!props.buttonCondition || !props.buttonCondition[buttonName]) {
+    return true;
+  }
+  // 调用条件函数判断是否显示
+  const conditionFn = props.buttonCondition[buttonName];
+  if (typeof conditionFn === 'function') {
+    return conditionFn(row);
+  }
+  return true;
 }
 
 // 导出数据

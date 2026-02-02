@@ -48,12 +48,15 @@ const currentRow = ref({});
 // 审核进度对话框显示状态
 const showProgressDialog = ref(false);
 
-// 按钮条件配置：编辑按钮在未提交和审核退回状态显示
+// 按钮条件配置：控制各按钮在不同行数据条件下的显示/隐藏
+// 编辑按钮在未提交和审核退回状态显示
+// 删除按钮可以根据需要配置（这里暂时不限制，如果需要可以添加）
 const buttonCondition = {
   update: (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE ||
                    row.isAudit === CONSTANT.AUDIT_STATUS.BACK ||
                    row.isAudit === null ||
                    row.isAudit === undefined
+  // delete: (row) => true, // 如果需要限制删除按钮，可以在这里配置
 };
 
 // 存储所有记录，用于查看进度时显示完整审核历史

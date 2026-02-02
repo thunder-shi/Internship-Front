@@ -1,5 +1,5 @@
 <template>
-  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns" :default-props="defaultProps.defaultDTHProps" @init-click="refreshInit" @show-search="showSearchPanel" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
+  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns" :default-props="defaultProps.defaultDTHProps" :button-condition="buttonCondition" @init-click="refreshInit" @show-search="showSearchPanel" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
     <template #searchPanel>
       <!-- v-model="searchName" -->
       <slot name="searchPanel">
