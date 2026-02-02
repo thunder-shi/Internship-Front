@@ -23,14 +23,15 @@
             <el-tab-pane label="项目基本信息" name="basic">
               <div class="internship-info-section">
                 <el-descriptions :column="2" border>
+                  <el-descriptions-item label="项目编码">{{ form.internshipCode || '-' }}</el-descriptions-item>
                   <el-descriptions-item label="项目名称">{{ form.internshipName || '-' }}</el-descriptions-item>
                   <el-descriptions-item label="所属院系">{{ form.universityName || '-' }}</el-descriptions-item>
-                  <el-descriptions-item label="实习类型">{{ form.typeName || '-' }}</el-descriptions-item>
+                  <el-descriptions-item label="实习类型">{{ form.intTypeName || '-' }}</el-descriptions-item>
                   <el-descriptions-item label="实习模板">{{ form.internshipTypeName || '-' }}</el-descriptions-item>
                   <el-descriptions-item label="创建者">{{ form.creatorName || '-' }}</el-descriptions-item>
                   <el-descriptions-item label="创建时间">{{ form.createTime || '-' }}</el-descriptions-item>
                   <el-descriptions-item label="备注" :span="2">
-                    <div class="remarks-content">{{ form.remarks || '-' }}</div>
+                    <div class="remarks-content">{{ form.internshipRemarks || '-' }}</div>
                   </el-descriptions-item>
                 </el-descriptions>
               </div>
@@ -119,7 +120,7 @@ const form = reactive({
   internshipTypeName: '',
   creatorName: '',
   remarks: '',
-  auditResult: null, // CONSTANT.AUDIT_STATUS.PASS: 审核通过, CONSTANT.AUDIT_STATUS.NOTPASS: 审核不通过, CONSTANT.AUDIT_STATUS.BACK: 审核退回
+  auditResult: null,
   auditReason: '',
   // 审核相关信息
   verifyUserName: '',
@@ -242,7 +243,6 @@ async function loadAuditRecords() {
   try {
     const res = await listAPI.getSomeRecords({
       keyWords: 'ViewVerifyInternshipPlanProcess',
-      pageInfo: { page: 1, size: 100 },
       searchKey: { relationId: form.relationId },
       reg: { relationId: '=' },
       sort: { properties: 'id', direction: 'ASC' }
