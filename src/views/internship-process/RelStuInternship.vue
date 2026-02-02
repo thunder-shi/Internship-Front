@@ -19,37 +19,11 @@ const defaultProps = reactive({
       buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true } },
       keyWord: { edit: 'RelStuInternship', view: 'ViewRelStuInternship' },
       allTableColumns: [
-        {
-          id: 1,
-          showName: '学生名称',
-          tableColumnName: 'studentName',
-          sortable: true,
-        },
-        {
-          id: 2,
-          showName: '实习岗位',
-          tableColumnName: 'internshipPostName',
-          sortable: true,
-        },
-        {
-          id: 3,
-          showName: '实习项目',
-          tableColumnName: 'internshipName',
-          sortable: true,
-        },
-        {
-          id: 4,
-          showName: '志愿轮数',
-          tableColumnName: 'round',
-          sortable: true,  
-        },
-        {
-          id: 5,
-          showName: '志愿排序',
-          tableColumnName: 'sort',
-          sortable: true,        
-        }
-
+        { id: 1, showName: '学生名称', tableColumnName: 'studentName', sortable: true },
+        { id: 2, showName: '实习岗位', tableColumnName: 'internshipPostName', sortable: true },
+        { id: 3, showName: '实习项目', tableColumnName: 'internshipName', sortable: true },
+        { id: 4, showName: '志愿轮数', tableColumnName: 'round', sortable: true },
+        { id: 5, showName: '志愿排序', tableColumnName: 'sort', sortable: true }
       ],
     },
     defaultDBIProps: {},
