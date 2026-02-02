@@ -16,12 +16,7 @@ const defaultProps = reactive({
   defaultDTLProps: {
     title: { mainTitle: '' },
     defaultDTHProps: {
-      buttonProps: {
-        update: { show: true },
-        create: { show: true },
-        delete: { show: true },
-        export: { show: true },
-      },
+      buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true } },
       keyWord: { edit: 'RelStuInternship', view: 'ViewRelStuInternship' },
       allTableColumns: [
         {

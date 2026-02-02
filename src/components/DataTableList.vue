@@ -594,24 +594,14 @@ const calculateOperateWidth = () => {
   const totalButtons = num + customButtonCount;
   // 根据实际测量的按钮数量直接设置宽度
   let width = 0;
-  if (totalButtons >= 7) {
-    width = 200;
-  } else if (totalButtons === 6) {
-    width = 180;
-  } else if (totalButtons === 5) {
-    width = 160;
-  } else if (totalButtons === 4) {
-    width = 130;
-  } else if (totalButtons === 3) {
-    width = 105;
-  } else if (totalButtons === 2) {
-    width = 78;
-  } else if (totalButtons === 1) {
-    width = 55;
-  } else {
-    // 没有按钮时，只显示列标题
-    width = 50;
-  }
+  if (totalButtons >= 7) { width = 200; }
+  else if (totalButtons === 6) { width = 180; }
+  else if (totalButtons === 5) { width = 160; }
+  else if (totalButtons === 4) { width = 130; }
+  else if (totalButtons === 3) { width = 105; }
+  else if (totalButtons === 2) { width = 78; }
+  else if (totalButtons === 1) { width = 55; }
+  else { width = 50; } // 没有按钮时，只显示列标题
   operateWidth.value = width;
 };
 

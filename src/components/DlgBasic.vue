@@ -269,7 +269,14 @@ const onModalSubmit = async () => {
   buttonLoading.submit = true
   if (props.dlgbasicSpecSubmit && typeof props.dlgbasicSpecSubmit === 'function') {
     try {
-      await props.dlgbasicSpecSubmit()
+      const result = await props.dlgbasicSpecSubmit()
+      // 如果返回 true 或 undefined，表示成功，关闭对话框
+      if (result !== false) {
+        currentSave.value = true
+        if (autoSaveClose.value) {
+          dialogShow.value = false
+        }
+      }
     } catch (error) {
       // axios 拦截器已经处理了错误提示，这里不需要重复显示
       // 如果是验证错误，不显示通用错误消息
@@ -282,17 +289,7 @@ const onModalSubmit = async () => {
       buttonLoading.submit = false
     }
   } else {
-    ElMessageBox.confirm(
-      '提交以后不能修改，确定提交吗？',
-      '注意',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-        icon: h(WarningFilled, { style: { color: '#E6A23C' } }),
-        distinguishCancelAndClose: true
-      }
-    )
+    ElMessageBox.confirm('提交以后不能修改，确定提交吗？', '注意', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning', icon: h(WarningFilled, { style: { color: '#E6A23C' } }), distinguishCancelAndClose: true })
       .then(async () => {
         currentSave.value = true
         await props.dlgbasicSubmit()
@@ -309,17 +306,7 @@ const beforeCloseDlg = (done) => {
   // 如果 done 是 undefined，说明是从按钮点击调用的
   if (needVerifyUpdate.value) {
     if (JSON.stringify(oldData.value) !== JSON.stringify(form.value)) {
-      ElMessageBox.confirm(
-        '数据已经修改，确认不保存退出吗？',
-        '注意',
-        {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning',
-          distinguishCancelAndClose: true,
-          center: true
-        }
-      )
+      ElMessageBox.confirm('数据已经修改，确认不保存退出吗？', '注意', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning', distinguishCancelAndClose: true, center: true })
         .then(() => {
           if (typeof done === 'function') {
             done() // 调用 done 关闭对话框

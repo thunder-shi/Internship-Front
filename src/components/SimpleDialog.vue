@@ -9,7 +9,7 @@
     ⑦ multiple:是否开启多选（针对下拉框）
   -->
 <template>
-  <DlgBasic ref="dlgBasicRef" :default-props="mergedDefaultDBProps" :dlgbasic-confirm="confirm" :dlgbasic-submit="submit" :dlgbasic-spec-confirm="specConfirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+  <DlgBasic ref="dlgBasicRef" :default-props="mergedDefaultDBProps" :dlgbasic-confirm="confirm" :dlgbasic-submit="submit" :dlgbasic-spec-submit="specSubmit" :dlgbasic-spec-confirm="specConfirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #mainForm>
       <FormItemsforDialog ref="formItemsRef" :form="form" :form-items="formItems" :form-rules="formRules" :label-width="labelWidth" :handle-select-change="defaultProps.handleSelectChange" :reset-pass="resetPass" :download-link-click="downloadLinkClick" :before-upload="beforeUpload" :file-types="fileTypes" @simple-select-change="onSimpleSelectChange" @simple-select-init-finish="simpleSelectInitFinish" @tree-select-change="onTreeSelectChange" @cron-change="onCronChange">
         <template #upItems>
@@ -394,6 +394,17 @@ async function submit() {
     await _confirm('submit', 'stop', null, auditValue);
   } else {
     // 自定义提交函数，传递 isAudit 值
+    if (isAuditMode.value) {
+      form.isAudit = 0;
+    }
+    await props.simpledialogSubmit(form);
+  }
+}
+
+async function specSubmit() {
+  // 如果有 simpledialogSubmit，将其作为 specSubmit 传递，这样 DlgBasic 就不会显示确认对话框
+  // 让自定义的提交函数自己处理确认对话框
+  if (props.simpledialogSubmit && typeof props.simpledialogSubmit === 'function') {
     if (isAuditMode.value) {
       form.isAudit = 0;
     }

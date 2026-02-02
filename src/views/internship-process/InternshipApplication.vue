@@ -113,12 +113,7 @@ const defaultProps = reactive({
   defaultDTLProps: {
     title: { mainTitle: '' },
     defaultDTHProps: {
-      buttonProps: {
-        update: { show: false },
-        create: { show: false },
-        delete: { show: false },
-        export: { show: false },
-      },
+      buttonProps: { update: { show: false }, create: { show: false }, delete: { show: false }, export: { show: false } },
       keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
       allTableColumns: [
         {
@@ -187,15 +182,7 @@ async function handleApply(row) {
     }
 
     // 确认操作
-    await ElMessageBox.confirm(
-      `确定报名实习项目"${row.name}"，指导人数为 ${studentCount} 人吗？`,
-      '确认报名',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    );
+    await ElMessageBox.confirm(`确定报名实习项目"${row.name}"，指导人数为 ${studentCount} 人吗？`, '确认报名', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
 
     // 批量创建 RelTeacherStudent 记录
     const promises = [];
@@ -241,15 +228,7 @@ async function handleCancel(row) {
   }
 
   try {
-    await ElMessageBox.confirm(
-      `确定取消报名实习项目"${row.name}"吗？`,
-      '确认取消',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    );
+    await ElMessageBox.confirm(`确定取消报名实习项目"${row.name}"吗？`, '确认取消', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
 
     // 查询该用户在该实习项目下的所有记录（relInternshipId为0的记录）
     const searchKey = {
@@ -448,15 +427,7 @@ async function handleAdminConfirm(option, type, form) {
 
   // 确认操作
   try {
-    await ElMessageBox.confirm(
-      `确定为老师报名实习项目"${currentInternshipRow.value.name}"，指导人数为 ${studentCount} 人吗？`,
-      '确认报名',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    );
+    await ElMessageBox.confirm(`确定为老师报名实习项目"${currentInternshipRow.value.name}"，指导人数为 ${studentCount} 人吗？`, '确认报名', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
 
     // 批量创建 RelTeacherStudent 记录
     const promises = [];
@@ -589,15 +560,7 @@ async function handleAdminCancelConfirm(option, type, form) {
 
   // 确认操作
   try {
-    await ElMessageBox.confirm(
-      `确定取消老师对实习项目"${currentInternshipRow.value.name}"的报名吗？`,
-      '确认取消报名',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    );
+    await ElMessageBox.confirm(`确定取消老师对实习项目"${currentInternshipRow.value.name}"的报名吗？`, '确认取消报名', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
 
     // 查询该老师在该实习项目下的所有记录（relInternshipId为0的记录）
     const searchKey = {

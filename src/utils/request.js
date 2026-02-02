@@ -102,15 +102,7 @@ service.interceptors.response.use(
     
     // 4007：后台的token失效，需要重新获取
     if (errorData?.status === 4007) {
-      ElMessageBox.confirm(
-        '登录状态已失效，请重新登录',
-        '确定退出', {
-          confirmButtonText: '重新登录',
-          cancelButtonText: '取消',
-          type: 'warning',
-          showClose: false
-        }
-      ).then(() => {
+      ElMessageBox.confirm('登录状态已失效，请重新登录', '确定退出', { confirmButtonText: '重新登录', cancelButtonText: '取消', type: 'warning', showClose: false }).then(() => {
         store.dispatch('user/logout').then(() => {
           location.reload() // 为了重新实例化vue-router对象 避免bug
         })

@@ -167,16 +167,7 @@ const showTopButtons = computed(() => {
 });
 
 const buttonProps = computed(() => {
-  return props.defaultProps.buttonProps
-    ? props.defaultProps.buttonProps
-    : {
-        update: { show: true },
-        create: { show: true },
-        delete: { show: true },
-        export: { show: true },
-        up: { show: true },
-        down: { show: true }
-      };
+  return props.defaultProps.buttonProps ? props.defaultProps.buttonProps : { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true }, up: { show: true }, down: { show: true } };
 });
 
 const allTableColumns = computed(() => {

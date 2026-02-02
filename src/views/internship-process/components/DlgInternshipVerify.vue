@@ -165,9 +165,7 @@ const tableListProps = reactive({
   },
   defaultDTHProps: {
     keyWord: { edit: 'RelProcessInternship', view: 'ViewRelProcessInternship' },
-    buttonProps: {
-      buttonGroup: { show: false }, // 隐藏刷新和网格按钮
-    },
+    buttonProps: { buttonGroup: { show: false } }, // 隐藏刷新和网格按钮
     allTableColumns: [
       { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName', sortable: false },
       { id: 2, showName: '审核要求', theOrder: 2, tableColumnName: 'verifyTypeName', sortable: false },

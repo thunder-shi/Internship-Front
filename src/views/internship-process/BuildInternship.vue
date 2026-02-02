@@ -77,15 +77,7 @@ const templateSearchKey = computed(() => {
  */
 const handleConfirm = async (option, type, form) => {
   try {
-    await ElMessageBox.confirm(
-      '新增后，实习模板将不能修改，确定新增吗？',
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    );
+    await ElMessageBox.confirm('新增后，实习模板将不能修改，确定新增吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
 
     const userInfo = store.getters.userInfo;
     if (userInfo && userInfo.id) {
@@ -154,11 +146,7 @@ const defaultProps = computed(() => ({
   defaultDTLProps: {
     initSearchWords: initSearchWords.value,
     defaultDTHProps: {
-      buttonProps: {
-        update: { show: true },
-        create: { show: true },
-        delete: { show: true }
-      },
+      buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true } },
       keyWord: { edit: 'MainInternship', view: 'ViewMainInternship' },
       allTableColumns: [
         { id: 1, showName: '所属院系', theOrder: 1, tableColumnName: 'universityName' },
