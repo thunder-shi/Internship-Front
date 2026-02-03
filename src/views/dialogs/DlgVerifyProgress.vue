@@ -37,7 +37,7 @@
               <template v-else>
                 <div class="info-row">
                   <span class="label">审核人:</span>
-                  <span class="value">{{ record.verifyUserName || '系统自动' }}</span>
+                  <span class="value">{{ record.verifyUserName }}</span>
                 </div>
 
                 <!-- 审核理由 -->
@@ -72,6 +72,7 @@ import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import listAPI from '@/api/list';
 import moment from 'moment';
+import { normalizeFormForDisplay } from '@/utils/common';
 
 const props = defineProps({
   modelValue: {
@@ -142,9 +143,9 @@ function getCurrentRoleName() {
 // 实习项目创建者名称（从第一条记录获取）
 const internshipCreatorName = computed(() => {
   if (verifyRecords.value.length > 0) {
-    return verifyRecords.value[0].createUserName || '--';
+    return verifyRecords.value[0].createUserName;
   }
-  return '--';
+  return '-';
 });
 
 // 统计已通过的审核数
@@ -313,7 +314,7 @@ function getStatusText(isAudit) {
 
 // 格式化时间（使用北京时间 UTC+8）
 function formatTime(time) {
-  if (!time) return '--';
+  if (!time) return '-';
   // 如果后端返回的是 UTC 时间，转换为北京时间（UTC+8）
   return moment.utc(time).utcOffset(8).format('YYYY-MM-DD HH:mm:ss');
 }
@@ -324,7 +325,18 @@ async function loadVerifyProgress() {
   if (props.processInfo?._allRecords && props.processInfo._allRecords.length > 0) {
     let records = [...props.processInfo._allRecords].sort((a, b) => (a.id || 0) - (b.id || 0));
     await fillVerifyUserNames(records);
-    verifyRecords.value = records;
+    // 规范化显示字段：将字符串类型的空值替换为 '-'
+    // verifyUserName 如果为空，替换为 '系统自动'
+    verifyRecords.value = records.map(record => {
+      const normalized = normalizeFormForDisplay(record, {
+        excludeFields: ['id', 'relationId', 'isAudit', 'verifyUserId', 'updateTime', 'createTime']
+      });
+      // 特殊处理：verifyUserName 如果为空，显示 '系统自动'
+      if (!normalized.verifyUserName || normalized.verifyUserName === '-') {
+        normalized.verifyUserName = '系统自动';
+      }
+      return normalized;
+    });
     return;
   }
 
@@ -373,7 +385,18 @@ async function loadVerifyProgress() {
       // 为每条记录补充审核人姓名（verifyUserId 是 string，BaseUser.id 是 int）
       await fillVerifyUserNames(records);
 
-      verifyRecords.value = records;
+      // 规范化显示字段：将字符串类型的空值替换为 '-'
+      // verifyUserName 如果为空，替换为 '系统自动'
+      verifyRecords.value = records.map(record => {
+        const normalized = normalizeFormForDisplay(record, {
+          excludeFields: ['id', 'relationId', 'isAudit', 'verifyUserId', 'updateTime', 'createTime']
+        });
+        // 特殊处理：verifyUserName 如果为空，显示 '系统自动'
+        if (!normalized.verifyUserName || normalized.verifyUserName === '-') {
+          normalized.verifyUserName = '系统自动';
+        }
+        return normalized;
+      });
     } else {
       verifyRecords.value = [];
     }

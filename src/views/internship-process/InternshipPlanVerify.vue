@@ -106,6 +106,7 @@ const handleUpdateRecord = () => {
 const handleAuditClick = (row) => {
   // row 可能是数组（多选）或单个对象（单选）
   // 取第一个选中的项目进行审核
+  console.log(row)
   const selectedRow = Array.isArray(row) ? row[0] : row;
   if (selectedRow) {
     dlgInternshipVerify.value?.showDialog(true, selectedRow);
@@ -121,16 +122,15 @@ const defaultProps = reactive({
   defaultDTLProps: {
     defaultDTHProps: {
       buttonProps: { audit: { show: true, showPass: true, showNotPass: true, showBack: true } },
-      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyInternshipPlanProcess' },
+      keyWord: { edit: 'MainVerifyProcess', view: 'ViewMainVerifyProcess' },
       allTableColumns: [
         { id: 1, showName: '实习项目编码', theOrder: 1, tableColumnName: 'internshipCode' },
         { id: 2, showName: '实习项目名称', theOrder: 2, tableColumnName: 'internshipName' },
         { id: 3, showName: '提交人', theOrder: 3, width: 100, tableColumnName: 'createUserName' },
-        { id: 4, showName: '审核人', theOrder: 4, width: 100, tableColumnName: 'verifyUserName' },
-        { id: 5, showName: '流程开始时间', theOrder: 5, width: 160, tableColumnName: 'startTime' },
-        { id: 6, showName: '流程结束时间', theOrder: 6, width: 160, tableColumnName: 'endTime' },
-        { id: 7, showName: '当前状态', theOrder: 7, width: 100, tableColumnName: 'isAudit' },
-        { id: 8, showName: '审核理由', theOrder: 8, tableColumnName: 'reason' }
+        { id: 4, showName: '流程开始时间', theOrder: 4, width: 160, tableColumnName: 'startTime' },
+        { id: 5, showName: '流程结束时间', theOrder: 5, width: 160, tableColumnName: 'endTime' },
+        { id: 6, showName: '当前状态', theOrder: 6, width: 100, tableColumnName: 'isAudit' },
+        { id: 7, showName: '审核理由', theOrder: 7, tableColumnName: 'reason' }
       ],
     },
     // 设置初始查询条件

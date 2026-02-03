@@ -23,15 +23,15 @@
             <el-tab-pane label="项目基本信息" name="basic">
               <div class="internship-info-section">
                 <el-descriptions :column="2" border>
-                  <el-descriptions-item label="项目编码">{{ form.internshipCode || '-' }}</el-descriptions-item>
-                  <el-descriptions-item label="项目名称">{{ form.internshipName || '-' }}</el-descriptions-item>
-                  <el-descriptions-item label="所属院系">{{ form.universityName || '-' }}</el-descriptions-item>
-                  <el-descriptions-item label="实习类型">{{ form.intTypeName || '-' }}</el-descriptions-item>
-                  <el-descriptions-item label="实习模板">{{ form.internshipTypeName || '-' }}</el-descriptions-item>
-                  <el-descriptions-item label="创建者">{{ form.creatorName || '-' }}</el-descriptions-item>
-                  <el-descriptions-item label="创建时间">{{ form.createTime || '-' }}</el-descriptions-item>
+                  <el-descriptions-item label="项目编码">{{ form.internshipCode }}</el-descriptions-item>
+                  <el-descriptions-item label="项目名称">{{ form.internshipName }}</el-descriptions-item>
+                  <el-descriptions-item label="所属院系">{{ form.universityName }}</el-descriptions-item>
+                  <el-descriptions-item label="实习类型">{{ form.intTypeName }}</el-descriptions-item>
+                  <el-descriptions-item label="实习模板">{{ form.internshipTypeName }}</el-descriptions-item>
+                  <el-descriptions-item label="创建者">{{ form.creatorName }}</el-descriptions-item>
+                  <el-descriptions-item label="创建时间">{{ form.createTime }}</el-descriptions-item>
                   <el-descriptions-item label="备注" :span="2">
-                    <div class="remarks-content">{{ form.internshipRemarks || '-' }}</div>
+                    <div class="remarks-content">{{ form.internshipRemarks }}</div>
                   </el-descriptions-item>
                 </el-descriptions>
               </div>
@@ -56,14 +56,14 @@
                 </div>
                 <div v-for="(record, index) in auditRecords" :key="record.id || index" class="audit-record-row">
                   <span class="audit-record-item">第{{ index + 1 }}级</span>
-                  <span class="audit-record-item">{{ record.verifyUserName || '-' }}</span>
+                  <span class="audit-record-item">{{ record.verifyUserName }}</span>
                   <span class="audit-record-item">{{ formatAuditTime(record.updateTime) }}</span>
                   <span class="audit-record-item">
                     <el-tag :type="getAuditStatusTagType(record.isAudit)" size="small">
                       {{ formatAuditStatus(record.isAudit) }}
                     </el-tag>
                   </span>
-                  <span class="audit-record-item">{{ record.reason || '-' }}</span>
+                  <span class="audit-record-item">{{ record.reason }}</span>
                 </div>
                 <div v-if="!auditRecords || auditRecords.length === 0" class="audit-empty">
                   暂无审核记录
@@ -88,6 +88,7 @@ import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 import moment from 'moment';
 import internshipProcessAPI from '@/api/internshipProcess';
+import { normalizeFormForDisplay } from '@/utils/common';
 
 const emit = defineEmits(['update-record', 'close-dialog']);
 
@@ -112,36 +113,7 @@ const defaultProps = reactive({
   },
 });
 
-const form = reactive({
-  id: null,
-  name: '',
-  universityName: '',
-  typeName: '',
-  internshipTypeName: '',
-  creatorName: '',
-  remarks: '',
-  auditResult: null,
-  auditReason: '',
-  // 审核相关信息
-  verifyUserName: '',
-  verifyTime: '',
-  updateTime: '',
-  isAudit: null,
-  reason: '',
-  // 流程关联信息
-  relationId: null,
-  createUserId: null,
-  internshipId: null,
-  // 审核级别信息
-  verifyTypeId: null,        // 需要的审核级别（如 3 表示二级审核）
-  currentVerifyTypeId: null, // 当前审核进度
-  // 各级审核角色ID
-  verifyFirstRoleId: null,
-  verifySecondRoleId: null,
-  verifyThirdRoleId: null,
-  verifyFourthRoleId: null,
-  verifyFifthRoleId: null,
-});
+const form = reactive({});
 
 const formRules = {
   auditResult: [{ required: true, message: '请选择审核结果', trigger: 'change' }],
@@ -191,34 +163,23 @@ const formatAuditStatus = (isAudit) => {
     return '-';
   }
   switch (isAudit) {
-    case CONSTANT.AUDIT_STATUS.SAVE:
-      return CONSTANT.AUDIT_STATUS.SAVENAME;
-    case CONSTANT.AUDIT_STATUS.SUBMIT:
-      return CONSTANT.AUDIT_STATUS.SUBMITNAME;
-    case CONSTANT.AUDIT_STATUS.PASS:
-      return CONSTANT.AUDIT_STATUS.PASSNAME;
-    case CONSTANT.AUDIT_STATUS.NOTPASS:
-      return CONSTANT.AUDIT_STATUS.NOTPASSNAME;
-    case CONSTANT.AUDIT_STATUS.BACK:
-      return CONSTANT.AUDIT_STATUS.BACKNAME;
-    default:
-      return '-';
+    case CONSTANT.AUDIT_STATUS.SAVE: return CONSTANT.AUDIT_STATUS.SAVENAME;
+    case CONSTANT.AUDIT_STATUS.SUBMIT: return CONSTANT.AUDIT_STATUS.SUBMITNAME;
+    case CONSTANT.AUDIT_STATUS.PASS: return CONSTANT.AUDIT_STATUS.PASSNAME;
+    case CONSTANT.AUDIT_STATUS.NOTPASS: return CONSTANT.AUDIT_STATUS.NOTPASSNAME;
+    case CONSTANT.AUDIT_STATUS.BACK: return CONSTANT.AUDIT_STATUS.BACKNAME;
+    default: return '-';
   }
 };
 
 // 获取审核状态对应的标签类型
 const getAuditStatusTagType = (isAudit) => {
   switch (isAudit) {
-    case CONSTANT.AUDIT_STATUS.PASS:
-      return 'success';
-    case CONSTANT.AUDIT_STATUS.NOTPASS:
-      return 'danger';
-    case CONSTANT.AUDIT_STATUS.BACK:
-      return 'info';
-    case CONSTANT.AUDIT_STATUS.SUBMIT:
-      return 'warning';
-    default:
-      return 'info';
+    case CONSTANT.AUDIT_STATUS.PASS: return 'success';
+    case CONSTANT.AUDIT_STATUS.NOTPASS: return 'danger';
+    case CONSTANT.AUDIT_STATUS.BACK: return 'info';
+    case CONSTANT.AUDIT_STATUS.SUBMIT: return 'warning';
+    default: return 'info';
   }
 };
 
@@ -250,10 +211,16 @@ async function loadAuditRecords() {
 
     if (res && res.data && res.data.content) {
       // 只显示已完成审核的记录（非待审核状态）
-      auditRecords.value = res.data.content.filter(r =>
+      const filteredRecords = res.data.content.filter(r =>
         r.isAudit === CONSTANT.AUDIT_STATUS.PASS ||
         r.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS ||
         r.isAudit === CONSTANT.AUDIT_STATUS.BACK
+      );
+      // 规范化显示字段：将字符串类型的空值替换为 '-'
+      auditRecords.value = filteredRecords.map(record => 
+        normalizeFormForDisplay(record, {
+          excludeFields: ['id', 'relationId', 'isAudit', 'verifyUserId', 'updateTime']
+        })
       );
     } else {
       auditRecords.value = [];
@@ -381,37 +348,19 @@ async function loadVerifyRoleIds(relationId) {
 
 async function showDialog(val, formData = {}) {
   if (formData !== null) {
+    // 清空 form 的所有现有字段
     const formKeys = Object.keys(form);
     formKeys.forEach((key) => {
       delete form[key];
     });
-    Object.assign(form, {
-      id: null,
-      name: '',
-      universityName: '',
-      typeName: '',
-      internshipTypeName: '',
-      creatorName: '',
-      remarks: '',
-      auditResult: null,
-      auditReason: '',
-      verifyUserName: '',
-      verifyTime: '',
-      updateTime: '',
-      isAudit: null,
-      reason: '',
-      relationId: null,
-      createUserId: null,
-      internshipId: null,
-      verifyTypeId: null,
-      currentVerifyTypeId: null,
-      verifyFirstRoleId: null,
-      verifySecondRoleId: null,
-      verifyThirdRoleId: null,
-      verifyFourthRoleId: null,
-      verifyFifthRoleId: null,
-    });
-    Object.assign(form, _.cloneDeep(formData));
+    // 先深拷贝 formData，保留所有字段
+    const clonedData = _.cloneDeep(formData);
+    
+    // 规范化显示字段：将字符串类型的空值替换为 '-'
+    const normalizedData = normalizeFormForDisplay(clonedData);
+    
+    // 直接将规范化后的数据赋值给 form，保留所有字段
+    Object.assign(form, normalizedData);
   }
 
   // 设置 DataTableList 的过滤条件（通过 internshipId 过滤流程信息）

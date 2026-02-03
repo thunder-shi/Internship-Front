@@ -186,3 +186,53 @@ export function removeHtmlStyle(html) {
   }
   return newHtml
 }
+
+/**
+ * 规范化表单数据用于显示：将字符串类型的空值（null, undefined, ''）替换为 '-'
+ * @param {Object} formData - 要处理的对象
+ * @param {Object} options - 配置选项
+ * @param {Array<string>} options.excludeFields - 排除的字段列表（这些字段不会被处理）
+ * @param {Array<string>} options.includeFields - 只处理这些字段（如果提供，则只处理这些字段）
+ * @param {string} options.defaultValue - 默认替换值，默认为 '-'
+ * @returns {Object} 处理后的新对象（深拷贝）
+ */
+export function normalizeFormForDisplay(formData, options = {}) {
+  if (!formData || typeof formData !== 'object') {
+    return formData
+  }
+
+  const {
+    excludeFields = [],
+    includeFields = null,
+    defaultValue = '-'
+  } = options
+
+  // 深拷贝对象，避免修改原对象
+  const normalized = _.cloneDeep(formData)
+
+  Object.keys(normalized).forEach(key => {
+    const value = normalized[key]
+
+    // 如果指定了 includeFields，只处理列表中的字段
+    if (includeFields && !includeFields.includes(key)) {
+      return
+    }
+
+    // 排除指定的字段
+    if (excludeFields.includes(key)) {
+      return
+    }
+
+    // 只处理字符串类型的空值
+    // null, undefined, '' 都视为空值
+    if (typeof value === 'string' && (value === '' || value === null || value === undefined)) {
+      normalized[key] = defaultValue
+    } else if (value === null || value === undefined) {
+      // 对于非字符串类型，如果是 null 或 undefined，也替换为默认值
+      normalized[key] = defaultValue
+    }
+    // 其他类型（number, boolean, object, array）保持不变
+  })
+
+  return normalized
+}
