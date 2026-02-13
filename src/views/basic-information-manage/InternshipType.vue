@@ -2,20 +2,20 @@
   <div class="internship-type-container">
     <BaseList :default-props="defaultProps" ref="baseList" @append-click="appendClick" @edit-click="editClick" />
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
-    <DlgIntershipType ref="dlgIntershipType" @update-record="handleUpdateRecord" />
+    <DlgInternshipType ref="dlgInternshipType" @update-record="handleUpdateRecord" />
   </div>
 </template>
 <script setup>
 import { reactive, ref, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
-import DlgIntershipType from '@/views/dialogs/DlgIntershipType.vue';
+import DlgInternshipType from '@/views/dialogs/DlgInternshipType.vue';
 
 defineOptions({
   name: 'InternshipType',
 });
 const baseList = ref(null);
-const dlgIntershipType = ref(null);
+const dlgInternshipType = ref(null);
 const store = useStore();
 const defaultProps = reactive({
   defaultDTLProps: {
@@ -67,7 +67,7 @@ const appendClick = () => {
 
 // 处理编辑按钮点击事件，使用自定义的编辑窗口
 const editClick = (row) => {
-  dlgIntershipType.value?.showDialog(true, row);
+  dlgInternshipType.value?.showDialog(true, row);
 };
 
 // 处理更新记录后的回调
@@ -77,6 +77,6 @@ const handleUpdateRecord = () => {
 
 // 组件销毁前关闭所有对话框，防止遮罩层残留导致页面空白
 onBeforeUnmount(() => {
-  dlgIntershipType.value?.closeAllDialogs?.();
+  dlgInternshipType.value?.closeAllDialogs?.();
 });
 </script>
