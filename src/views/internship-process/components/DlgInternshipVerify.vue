@@ -22,15 +22,12 @@
             <!-- 第一页：项目基本信息 -->
             <el-tab-pane label="项目基本信息" name="basic">
               <div class="internship-info-section">
-                <el-descriptions :column="2" border>
-                  <el-descriptions-item label="项目编码">{{ form.internshipCode }}</el-descriptions-item>
-                  <el-descriptions-item label="项目名称">{{ form.internshipName }}</el-descriptions-item>
-                  <el-descriptions-item label="所属院系">{{ form.universityName }}</el-descriptions-item>
+                <el-descriptions :column="1" border>
+                  <!-- <el-descriptions-item label="实习模板">{{ form.internshipTypeName }}</el-descriptions-item> -->
                   <el-descriptions-item label="实习类型">{{ form.intTypeName }}</el-descriptions-item>
-                  <el-descriptions-item label="实习模板">{{ form.internshipTypeName }}</el-descriptions-item>
-                  <el-descriptions-item label="创建者">{{ form.creatorName }}</el-descriptions-item>
-                  <el-descriptions-item label="创建时间">{{ form.createTime }}</el-descriptions-item>
-                  <el-descriptions-item label="备注" :span="2">
+                  <el-descriptions-item label="实习编码">{{ form.internshipCode }}</el-descriptions-item>
+                  <el-descriptions-item label="实习名称">{{ form.internshipName }}</el-descriptions-item>
+                  <el-descriptions-item label="实习计划">
                     <div class="remarks-content">{{ form.internshipRemarks }}</div>
                   </el-descriptions-item>
                 </el-descriptions>
@@ -39,36 +36,12 @@
 
             <!-- 第二页：项目流程信息 -->
             <el-tab-pane label="项目流程信息" name="process">
-              <div class="process-section">
                 <DataTableList ref="dataTableList" :default-props="tableListProps" />
-              </div>
             </el-tab-pane>
 
             <!-- 第三页：当前审核情况 -->
             <el-tab-pane label="当前审核情况" name="audit">
-              <div class="audit-info-section">
-                <div class="audit-header">
-                  <span class="audit-header-item">审核级别</span>
-                  <span class="audit-header-item">审核人</span>
-                  <span class="audit-header-item">审核时间</span>
-                  <span class="audit-header-item">审核状态</span>
-                  <span class="audit-header-item">审核理由</span>
-                </div>
-                <div v-for="(record, index) in auditRecords" :key="record.id || index" class="audit-record-row">
-                  <span class="audit-record-item">第{{ index + 1 }}级</span>
-                  <span class="audit-record-item">{{ record.verifyUserName }}</span>
-                  <span class="audit-record-item">{{ formatAuditTime(record.updateTime) }}</span>
-                  <span class="audit-record-item">
-                    <el-tag :type="getAuditStatusTagType(record.isAudit)" size="small">
-                      {{ formatAuditStatus(record.isAudit) }}
-                    </el-tag>
-                  </span>
-                  <span class="audit-record-item">{{ record.reason }}</span>
-                </div>
-                <div v-if="!auditRecords || auditRecords.length === 0" class="audit-empty">
-                  暂无审核记录
-                </div>
-              </div>
+              <DataTableList ref="auditTableList" :default-props="auditTableListProps" />
             </el-tab-pane>
           </el-tabs>
         </div>
@@ -86,7 +59,6 @@ import DataTableList from '@/components/DataTableList.vue';
 import _ from 'lodash';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
-import moment from 'moment';
 import internshipProcessAPI from '@/api/internshipProcess';
 import { normalizeFormForDisplay } from '@/utils/common';
 
@@ -96,6 +68,7 @@ const store = useStore();
 const dlgBasicRef = ref(null);
 const formPanelRef = ref(null);
 const dataTableList = ref(null);
+const auditTableList = ref(null);
 const activeTab = ref('basic');
 
 const defaultProps = reactive({
@@ -145,9 +118,37 @@ const tableListProps = reactive({
       { id: 3, showName: '流程开始时间', theOrder: 3, tableColumnName: 'startTime', sortable: false },
       { id: 4, showName: '流程结束时间', theOrder: 4, tableColumnName: 'endTime', sortable: false },
     ],
+  }
+});
+
+// 审核记录的 DataTableList 配置
+const auditTableListProps = reactive({
+  keyWord: {},
+  title: {},
+  bottomOffset: 0,
+  sortStr: { properties: 'id', direction: 'ASC' },
+  pageInfo: { page: 1, size: 100 },
+  initSearchWords: {
+    searchKey: { relationId: form.relationId },
+    reg: { relationId: '=' },
   },
-  // 设置固定高度，使表格高度与基本信息区域一致
-  height: 300,
+  someFlags: {
+    operateShow: false, // 审核窗口中的审核记录只读，不显示操作按钮
+    checkFlag: false,
+    showPage: false,
+    autoInit: false,
+  },
+  defaultDTHProps: {
+    keyWord: { edit: 'ViewMainVerifyProcess', view: 'ViewMainVerifyProcess' },
+    buttonProps: { buttonGroup: { show: false } }, // 隐藏刷新和网格按钮
+    allTableColumns: [
+      { id: 1, showName: '发送人', theOrder: 1, tableColumnName: 'createUserName', sortable: false },
+      { id: 2, showName: '审核人', theOrder: 2, tableColumnName: 'verifyUserName', sortable: false },
+      { id: 3, showName: '审核时间', theOrder: 3, tableColumnName: 'updateTime', sortable: false },
+      { id: 4, showName: '审核状态', theOrder: 4, tableColumnName: 'isAudit', sortable: false },
+      { id: 5, showName: '审核理由', theOrder: 5, tableColumnName: 'reason', sortable: false },
+    ],
+  }
 });
 
 // 审核结果对应的文本映射
@@ -157,78 +158,21 @@ const auditResultTextMap = {
   [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
 };
 
-// 格式化审核状态
-const formatAuditStatus = (isAudit) => {
-  if (isAudit === null || isAudit === undefined) {
-    return '-';
-  }
-  switch (isAudit) {
-    case CONSTANT.AUDIT_STATUS.SAVE: return CONSTANT.AUDIT_STATUS.SAVENAME;
-    case CONSTANT.AUDIT_STATUS.SUBMIT: return CONSTANT.AUDIT_STATUS.SUBMITNAME;
-    case CONSTANT.AUDIT_STATUS.PASS: return CONSTANT.AUDIT_STATUS.PASSNAME;
-    case CONSTANT.AUDIT_STATUS.NOTPASS: return CONSTANT.AUDIT_STATUS.NOTPASSNAME;
-    case CONSTANT.AUDIT_STATUS.BACK: return CONSTANT.AUDIT_STATUS.BACKNAME;
-    default: return '-';
-  }
-};
-
-// 获取审核状态对应的标签类型
-const getAuditStatusTagType = (isAudit) => {
-  switch (isAudit) {
-    case CONSTANT.AUDIT_STATUS.PASS: return 'success';
-    case CONSTANT.AUDIT_STATUS.NOTPASS: return 'danger';
-    case CONSTANT.AUDIT_STATUS.BACK: return 'info';
-    case CONSTANT.AUDIT_STATUS.SUBMIT: return 'warning';
-    default: return 'info';
-  }
-};
-
-// 格式化审核时间
-const formatAuditTime = (time) => {
-  if (!time) {
-    return '-';
-  }
-  return moment(time).format('YYYY-MM-DD HH:mm:ss');
-};
-
-// 审核记录列表
-const auditRecords = ref([]);
 
 // 加载审核记录
 async function loadAuditRecords() {
   if (!form.relationId) {
-    auditRecords.value = [];
     return;
   }
 
-  try {
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewVerifyInternshipPlanProcess',
-      searchKey: { relationId: form.relationId },
-      reg: { relationId: '=' },
-      sort: { properties: 'id', direction: 'ASC' }
-    });
-
-    if (res && res.data && res.data.content) {
-      // 只显示已完成审核的记录（非待审核状态）
-      const filteredRecords = res.data.content.filter(r =>
-        r.isAudit === CONSTANT.AUDIT_STATUS.PASS ||
-        r.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS ||
-        r.isAudit === CONSTANT.AUDIT_STATUS.BACK
-      );
-      // 规范化显示字段：将字符串类型的空值替换为 '-'
-      auditRecords.value = filteredRecords.map(record => 
-        normalizeFormForDisplay(record, {
-          excludeFields: ['id', 'relationId', 'isAudit', 'verifyUserId', 'updateTime']
-        })
-      );
-    } else {
-      auditRecords.value = [];
-    }
-  } catch (error) {
-    console.error('加载审核记录失败:', error);
-    auditRecords.value = [];
-  }
+  // 更新审核记录表格的搜索条件
+  auditTableListProps.initSearchWords.searchKey = { 
+    relationId: form.relationId
+  };
+  
+  // 初始化审核记录表格
+  await nextTick();
+  auditTableList.value?.initDataList(true);
 }
 
 // 监听审核结果变化，自动填充审核理由
@@ -297,7 +241,6 @@ function verifyValid(showMessage = true) {
 // 从 RelProcessInternship 加载审核角色配置和审核级别信息（用于显示）
 async function loadVerifyRoleIds(relationId) {
   if (!relationId) {
-    console.log('relationId 为空，无法加载角色配置');
     return;
   }
 
@@ -310,13 +253,8 @@ async function loadVerifyRoleIds(relationId) {
       sort: { properties: 'id', direction: 'ASC' }
     });
 
-    console.log('=== 加载审核角色配置 ===');
-    console.log('relationId:', relationId);
-    console.log('查询结果:', res);
-
     if (res && res.data && res.data.content && res.data.content.length > 0) {
       const processInfo = res.data.content[0];
-      console.log('流程信息:', processInfo);
 
       // 更新 form 中的审核级别信息
       if (processInfo.verifyTypeId) form.verifyTypeId = processInfo.verifyTypeId;
@@ -328,18 +266,6 @@ async function loadVerifyRoleIds(relationId) {
       if (processInfo.verifyThirdRoleId) form.verifyThirdRoleId = processInfo.verifyThirdRoleId;
       if (processInfo.verifyFourthRoleId) form.verifyFourthRoleId = processInfo.verifyFourthRoleId;
       if (processInfo.verifyFifthRoleId) form.verifyFifthRoleId = processInfo.verifyFifthRoleId;
-
-      console.log('审核配置已更新:', {
-        verifyTypeId: form.verifyTypeId,
-        currentVerifyTypeId: form.currentVerifyTypeId,
-        verifyFirstRoleId: form.verifyFirstRoleId,
-        verifySecondRoleId: form.verifySecondRoleId,
-        verifyThirdRoleId: form.verifyThirdRoleId,
-        verifyFourthRoleId: form.verifyFourthRoleId,
-        verifyFifthRoleId: form.verifyFifthRoleId
-      });
-    } else {
-      console.warn('未查询到流程配置数据');
     }
   } catch (error) {
     console.error('加载审核角色配置失败:', error);
@@ -381,9 +307,6 @@ async function showDialog(val, formData = {}) {
     verifyValid(false);
 
     // 并行加载数据
-    console.log('=== 开始加载对话框数据 ===');
-    console.log('relationId:', form.relationId);
-
     const loadPromises = [
       loadVerifyRoleIds(form.relationId),  // 加载审核角色配置（用于显示）
       loadAuditRecords()                    // 加载审核记录
@@ -393,10 +316,6 @@ async function showDialog(val, formData = {}) {
 
     // 加载流程列表
     dataTableList.value?.initDataList(true);
-
-    console.log('=== 对话框数据加载完成 ===');
-    console.log('verifyTypeId:', form.verifyTypeId);
-    console.log('currentVerifyTypeId:', form.currentVerifyTypeId);
   } else {
     dlgBasicRef.value.validate = true;
   }
@@ -437,10 +356,6 @@ async function confirm(_option, type) {
     reason: form.auditReason,
     verifyUserId: parseInt(verifyUserId, 10), // 保存实际审核人ID（整数类型）
   };
-
-  console.log('=== 审核保存调试 ===');
-  console.log('当前用户信息:', userInfo);
-  console.log('保存数据:', saveData);
 
   try {
     // 调用 editOneNode 接口保存到 MainVerifyProcess 表
@@ -496,7 +411,6 @@ defineExpose({
   background-color: #f5f7fa;
   border-radius: 4px;
   padding: 16px;
-  padding-bottom: 20px; // 增加底部内边距，延伸到审核区域
   margin-bottom: 0;
 }
 
@@ -511,15 +425,23 @@ defineExpose({
 
   :deep(.el-descriptions) {
     background-color: #fff;
+    table-layout: auto; // 使用自动表格布局，让列宽自适应内容
 
-    // 调整标签列和内容列的宽度比例
-    .el-descriptions__label {
-      width: 100px !important; // 缩小标签列宽度
-      min-width: 100px;
+    // 让标签列宽度自适应内容，尽可能短
+    .el-descriptions__table {
+      width: 100%;
     }
 
+    .el-descriptions__label {
+      width: 1% !important; // 设置为最小宽度，让内容决定实际宽度
+      min-width: 0;
+      white-space: nowrap; // 防止标签文字换行
+      padding-right: 12px; // 标签和内容之间的间距
+    }
+
+    // 内容列占据剩余空间
     .el-descriptions__content {
-      width: auto !important; // 内容列自动填充剩余空间
+      width: auto !important;
     }
   }
 
@@ -530,109 +452,10 @@ defineExpose({
   }
 }
 
-.process-section {
-  margin-bottom: 20px;
-  height: 200px; // 缩短高度，避免出现垂直滚动条
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-
-  // 隐藏 DataTableHeader 外层容器的边框
-  :deep(> div) {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  // 隐藏所有 el-card 的边框和阴影
-  :deep(.el-card) {
-    height: 100% !important;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-
-    .el-card__header {
-      display: none !important; // 隐藏卡片头部
-    }
-
-    .el-card__body {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
-      padding: 0 !important;
-    }
-  }
-
-  // 设置表格高度和滚动
-  :deep(.el-table) {
-    height: 100% !important;
-    max-height: 100% !important;
-
-    .el-table__body-wrapper {
-      overflow-y: auto !important;
-      max-height: calc(100% - 40px) !important; // 减去表头高度
-    }
-  }
-}
-
 .audit-section-top {
   margin-bottom: 20px;
   padding: 20px;
   background-color: #fff;
   border-radius: 4px;
-}
-
-.audit-info-section {
-  padding: 20px;
-  background-color: #fff;
-  border-radius: 4px;
-
-  .audit-header {
-    display: grid;
-    grid-template-columns: 80px 100px 160px 100px 1fr;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 2px solid #e4e7ed;
-    font-weight: 600;
-    color: #303133;
-    background-color: #f5f7fa;
-
-    .audit-header-item {
-      padding: 0 8px;
-    }
-  }
-
-  .audit-record-row {
-    display: grid;
-    grid-template-columns: 80px 100px 160px 100px 1fr;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid #f0f0f0;
-    line-height: 24px;
-    align-items: center;
-
-    &:last-child {
-      border-bottom: none;
-    }
-
-    .audit-record-item {
-      padding: 0 8px;
-      color: #606266;
-      word-break: break-word;
-    }
-  }
-
-  .audit-empty {
-    padding: 40px 0;
-    text-align: center;
-    color: #909399;
-  }
 }
 </style>
