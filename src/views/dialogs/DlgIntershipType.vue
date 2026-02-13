@@ -41,6 +41,8 @@ const formPanelRef = computed(() => formItemsRef.value?.formPanelRef);
 const form = reactive({});
 const keyWord = ref('BaseInternshipType');
 const processList = ref([]);
+const majorList = ref([]); // 存储已选择的专业列表
+const isInitializing = ref(false); // 标记是否正在初始化，避免触发"已修改"状态
 
 const defaultProps = reactive({
   form: {},
@@ -65,6 +67,7 @@ const formItems = [
   { name: '模板类型', field: 'intTypeId', type: 'select', keyWords: 'BaseIntType' },
   { name: '模板编码', field: 'code', type: 'input' },
   { name: '模板名称', field: 'name', type: 'input' },
+  { name: '专业选择', field: 'majorIds', type: 'cascader', keyWords: 'BaseMajor', multiple: true },
   { name: '模板说明', field: 'remarks', type: 'textarea' }
 ];
 
@@ -103,12 +106,18 @@ const tableListProps = reactive({
 watch(
   form,
   () => {
-    verifyValid(false);
+    // 如果正在初始化，不触发验证（避免误判为数据已修改）
+    if (!isInitializing.value) {
+      verifyValid(false);
+    }
   },
   { deep: true }
 );
 
-function showDialog(val, formData = {}) {
+async function showDialog(val, formData = {}) {
+  // 标记开始初始化
+  isInitializing.value = true;
+  
   if (formData !== null) {
     // 清空 form 的所有属性
     const formKeys = Object.keys(form);
@@ -123,12 +132,22 @@ function showDialog(val, formData = {}) {
   if (formData && formData.id != null && formData.id !== 0) {
     // 编辑模式：设置过滤条件为 internshipTypeId = form.id
     tableListProps.initSearchWords.searchKey = { internshipTypeId: formData.id };
+    // 在打开对话框前先加载专业数据，避免组件初始化后再设置值导致重复加载
+    await loadMajorIds(formData.id);
   } else {
     // 新增模式：清空过滤条件，避免后端查询错误
     tableListProps.initSearchWords.searchKey = {};
+    // 清空专业选择
+    form.majorIds = [];
+    majorList.value = [];
   }
+  
   // 打开对话框
   dlgBasicRef.value?.showDialog(val, form, 'edit');
+  
+  // 标记初始化完成
+  isInitializing.value = false;
+  
   // 设置按钮状态
   setTimeout(() => {
     formPanelRef.value?.clearValidate();
@@ -193,6 +212,16 @@ async function confirm(option, type) {
   const userId = store.getters.userInfo?.id;
   const resInfo = await dlgAPI.commonSubmitDlg(formPanelRef.value, form, keyWord.value, 'edit', false, false, userId);
   if (resInfo && resInfo.message === 'successful') {
+    // 保存基本信息成功后，保存专业关联关系
+    if (resInfo.data && resInfo.data.id) {
+      // 更新 form.id（新增时后端会返回 id）
+      form.id = resInfo.data.id;
+      await saveMajorIds(form.id, form.majorIds || []);
+    } else if (form.id != null && form.id !== 0) {
+      // 编辑模式，直接保存专业关联关系
+      await saveMajorIds(form.id, form.majorIds || []);
+    }
+    
     emit('update-record', form);
     if (type === 'stop') {
       dlgBasicRef.value?.showDialog(false, form);
@@ -213,10 +242,19 @@ function openDialog(row) {
 
 function onSimpleSelectChange(val, field, options) {
   form[field] = val;
+  // 如果是专业选择字段，更新专业列表
+  if (field === 'majorIds') {
+    majorList.value = options || [];
+  }
 }
 
 function onTreeSelectChange(val, field, node) {
   form[field] = val;
+  // 如果是专业选择字段，更新专业列表
+  if (field === 'majorIds') {
+    // node 参数在多选模式下是 checkedNodes 数组
+    majorList.value = Array.isArray(node) ? node : (node ? [node] : []);
+  }
 }
 
 // DataTableList 的事件处理
@@ -297,6 +335,84 @@ function closeAllDialogs() {
   dlgProcessSelect.value?.showDialog?.(false, {});
   // 关闭主对话框
   dlgBasicRef.value?.showDialog?.(false, {});
+}
+
+// 加载已选择的专业ID列表
+async function loadMajorIds(internshipTypeId) {
+  try {
+    // 查询关联表，获取当前实习类型关联的所有专业
+    const resInfo = await listAPI.getSomeRecords({
+      keyWords: 'RelInterTypeMajor',
+      pageInfo: { page: 1, size: 1000 },
+      searchKey: { internshipTypeId: internshipTypeId },
+      reg: { internshipTypeId: '=' }
+    });
+
+    // 注意：后端返回的数据结构可能是 data.content 而不是 data.records
+    const records = resInfo?.data?.records || resInfo?.data?.content || [];
+    
+    if (records && records.length > 0) {
+      // 提取所有专业ID（后端返回的字段名是 majorId）
+      const majorIds = records.map(item => item.majorId);
+      
+      // 在初始化期间设置值，不会触发"已修改"状态
+      form.majorIds = majorIds;
+      majorList.value = records;
+    } else {
+      form.majorIds = [];
+      majorList.value = [];
+    }
+  } catch (error) {
+    console.error('加载专业数据失败:', error);
+    form.majorIds = [];
+    majorList.value = [];
+  }
+}
+
+// 保存专业关联关系
+async function saveMajorIds(internshipTypeId, majorIds) {
+  try {
+    // 先查询现有的关联关系
+    const existingRes = await listAPI.getSomeRecords({
+      keyWords: 'RelInterTypeMajor',
+      pageInfo: { page: 1, size: 1000 },
+      searchKey: { internshipTypeId: internshipTypeId },
+      reg: { internshipTypeId: '=' }
+    });
+
+    // 支持 data.records 和 data.content 两种数据结构
+    const existingRecords = existingRes?.data?.records || existingRes?.data?.content || [];
+    const existingMajorIds = existingRecords.map(item => item.majorId);
+    
+    // 需要删除的专业ID（存在于数据库但不在新列表中）
+    const toDelete = existingMajorIds.filter(id => !majorIds.includes(id));
+    
+    // 需要新增的专业ID（存在于新列表但不在数据库中）
+    const toAdd = majorIds.filter(id => !existingMajorIds.includes(id));
+
+    // 删除不再关联的专业
+    if (toDelete.length > 0) {
+      const deleteIds = existingRecords
+        .filter(item => toDelete.includes(item.majorId))
+        .map(item => item.id);
+      
+      if (deleteIds.length > 0) {
+        await listAPI.delOneOrManyNodes('RelInterTypeMajor', deleteIds);
+      }
+    }
+
+    // 新增关联的专业
+    for (const majorId of toAdd) {
+      const saveData = {
+        internshipTypeId: internshipTypeId,
+        majorId: majorId
+      };
+      await listAPI.editOneNode('RelInterTypeMajor', saveData);
+    }
+  } catch (error) {
+    console.error('保存专业关联关系失败:', error);
+    ElMessage.warning('保存专业关联关系失败');
+  }
 }
 
 // 组件销毁前关闭所有对话框，防止遮罩层残留

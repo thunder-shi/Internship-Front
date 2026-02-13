@@ -80,7 +80,7 @@
         <!-- 关联数据选择框 -->
         <SimpleSelect v-else-if="item.type === 'select'" :ref="'smpSel' + item.field" v-model="form[item.field]" :field="item.field" :select-label="item.selectLabel" :multiple="item.multiple" :key-words="item.keyWords" :search-key="typeof item.searchKeys === 'object' ? item.searchKeys : form[item.searchKeys]" :reg-key="item.regKey" :disabled="item.disabled" :placeholder="item.placeholder ? item.placeholder : '请选择'" :auto-select="item.autoSelect" :sortJson="item.sortJson" @update-value="onSimpleSelectChange" @init-finish="simpleSelectInitFinish" />
         <!-- 级联选择框 -->
-        <SimpleTreeSelect v-else-if="item.type === 'cascader'" v-model="form[item.field]" :field="item.field" :key-words="item.keyWords" :disabled="item.disabled" :check-strictly="item.checkStrictly" :search-keys="item.searchKeys" @update-value="onTreeSelectChange" />
+        <SimpleTreeSelect v-else-if="item.type === 'cascader'" v-model="form[item.field]" :field="item.field" :key-words="item.keyWords" :disabled="item.disabled" :check-strictly="item.checkStrictly" :search-keys="item.searchKeys" :multiple="item.multiple" @update-value="onTreeSelectChange" />
         <!-- 文件上传框 -->
         <SimpleUpload v-else-if="item.type === 'uploadFile'" v-model="form[item.field]" :field="item.field" :up-button-info="item.upButtonInfo" :file-max-size="item.fileMaxSize" :file-allowed-types="item.fileAllowedTypes" :multiple="item.allowMultiFiles" :allow-multi-files="item.allowMultiFiles" />
         <!-- 文件下载链接 -->

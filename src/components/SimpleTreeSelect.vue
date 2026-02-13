@@ -14,8 +14,8 @@ import treeAPI from '@/api/tree';
 import _ from 'lodash';
 
 const props = defineProps({
-  modelValue: { type: Number, default: () => null },
-  value: { type: Number, default: () => null },
+  modelValue: { type: [Number, Array], default: () => null },
+  value: { type: [Number, Array], default: () => null },
   field: { type: String, default: '' },
   keyWords: { type: String, default: '' },
   placeholder: { type: String, default: '请选择' },
@@ -35,6 +35,9 @@ const loading = ref(false);
 const isInitializing = ref(true); // 新增：专门用于控制初始化状态
 const componentKey = ref(0);
 const currentVal = ref([]);
+const isDropdownVisible = ref(false); // 跟踪下拉框是否打开
+const pendingUpdate = ref(false); // 标记是否有待处理的更新
+const isFirstInit = ref(true); // 标记是否是第一次初始化
 
 const actualValue = computed(() => (props.modelValue != null ? props.modelValue : props.value));
 
@@ -57,26 +60,71 @@ async function initData() {
   isInitializing.value = true; // 开始初始化，组件暂时隐藏
 
   try {
-    const targetId = actualValue.value;
-    let pathIds = [];
-
-    // 1. 获取路径
-    if (targetId) {
-      const res = await treeAPI.getAllParentIndex(props.keyWords, targetId);
-      if (res.data && res.data.length > 0) {
-        pathIds = res.data.map((item) => item.id).reverse();
-      }
-    }
-
+    const targetValue = actualValue.value;
+    
     // 2. 加载树结构（这里会请求一次根节点，填充 options）
     if (!props.lazy) {
       await loadFullTree();
     } else {
+      // 多选模式下，需要加载所有选中项的路径
+      if (props.multiple && Array.isArray(targetValue) && targetValue.length > 0) {
+        // 加载第一个选中项的路径，其他路径会在懒加载时自动加载
+        const firstId = targetValue[0];
+        const res = await treeAPI.getAllParentIndex(props.keyWords, firstId);
+        if (res.data && res.data.length > 0) {
+          const firstPathIds = res.data.map((item) => item.id).reverse();
+          await loadPartialTree(firstPathIds);
+        } else {
+          await loadPartialTree([]);
+        }
+      } else if (!props.multiple && targetValue) {
+        // 单选模式
+        const res = await treeAPI.getAllParentIndex(props.keyWords, targetValue);
+        if (res.data && res.data.length > 0) {
+          const pathIds = res.data.map((item) => item.id).reverse();
       await loadPartialTree(pathIds);
+        } else {
+          await loadPartialTree([]);
+        }
+      } else {
+        await loadPartialTree([]);
+      }
     }
 
     // 3. 设置选中值
-    currentVal.value = pathIds;
+    if (props.multiple) {
+      // 多选模式：需要为每个选中的ID获取路径
+      if (Array.isArray(targetValue) && targetValue.length > 0) {
+        const pathPromises = targetValue.map(async (id) => {
+          try {
+            const res = await treeAPI.getAllParentIndex(props.keyWords, id);
+            if (res.data && res.data.length > 0) {
+              return res.data.map((item) => item.id).reverse();
+            }
+            return [id]; // 如果获取路径失败，至少返回ID本身
+          } catch (error) {
+            console.error(`Failed to get path for id ${id}:`, error);
+            return [id];
+          }
+        });
+        const paths = await Promise.all(pathPromises);
+        currentVal.value = paths;
+      } else {
+        currentVal.value = [];
+      }
+    } else {
+      // 单选模式
+      if (targetValue) {
+        const res = await treeAPI.getAllParentIndex(props.keyWords, targetValue);
+        if (res.data && res.data.length > 0) {
+          currentVal.value = res.data.map((item) => item.id).reverse();
+        } else {
+          currentVal.value = [targetValue];
+        }
+      } else {
+        currentVal.value = [];
+      }
+    }
 
     // 4. (可选) 只有在某些极端情况下才需要更新 Key
     // componentKey.value++;
@@ -165,24 +213,111 @@ async function fetchNodes(parentId) {
 
 function handleChange(val) {
   if (!val || val.length === 0) {
-    emit('update:modelValue', null);
-    emit('update-value', null, props.field, []);
+    const emptyValue = props.multiple ? [] : null;
+    emit('update:modelValue', emptyValue);
+    emit('update-value', emptyValue, props.field, []);
     return;
   }
+  
+  if (props.multiple) {
+    // 多选模式：val 是二维数组，每个元素是一个路径数组
+    // 提取每个路径的最后一个ID
+    const selectedIds = val.map(path => path[path.length - 1]);
+    const checkedNodes = cascaderRef.value?.getCheckedNodes() || [];
+    emit('update:modelValue', selectedIds);
+    emit('update-value', selectedIds, props.field, checkedNodes);
+    // 多选模式下，currentVal 已经由 el-cascader 自动更新，不需要手动更新
+  } else {
+    // 单选模式：val 是单个路径数组
   const lastId = val[val.length - 1];
   const checkedNodes = cascaderRef.value?.getCheckedNodes();
   emit('update:modelValue', lastId);
   emit('update-value', lastId, props.field, checkedNodes);
+  }
 }
 
 function handleVisibleChange(visible) {
-    //
+  isDropdownVisible.value = visible;
+  
+  // 下拉框关闭时，如果有待处理的更新，则执行更新
+  if (!visible && pendingUpdate.value) {
+    pendingUpdate.value = false;
+    // 延迟一下，确保 el-cascader 已经完成内部状态更新
+    setTimeout(() => {
+      syncCurrentVal();
+    }, 100);
+  }
+}
+
+// 同步 currentVal 到实际值（不触发 watch）
+async function syncCurrentVal() {
+  const targetValue = actualValue.value;
+  
+  if (props.multiple) {
+    // 多选模式：需要为每个选中的ID获取路径
+    if (Array.isArray(targetValue) && targetValue.length > 0) {
+      const pathPromises = targetValue.map(async (id) => {
+        try {
+          const res = await treeAPI.getAllParentIndex(props.keyWords, id);
+          if (res.data && res.data.length > 0) {
+            return res.data.map((item) => item.id).reverse();
+          }
+          return [id]; // 如果获取路径失败，至少返回ID本身
+        } catch (error) {
+          console.error(`Failed to get path for id ${id}:`, error);
+          return [id];
+        }
+      });
+      const paths = await Promise.all(pathPromises);
+      currentVal.value = paths;
+    } else {
+      currentVal.value = [];
+    }
+  } else {
+    // 单选模式
+    if (targetValue) {
+      const res = await treeAPI.getAllParentIndex(props.keyWords, targetValue);
+      if (res.data && res.data.length > 0) {
+        currentVal.value = res.data.map((item) => item.id).reverse();
+      } else {
+        currentVal.value = [targetValue];
+      }
+    } else {
+      currentVal.value = [];
+    }
+  }
 }
 
 watch(
   [() => actualValue.value, () => props.searchKeys],
   async ([newVal, newParams], [oldVal, oldParams]) => {
-    if (newVal === oldVal && _.isEqual(newParams, oldParams)) return;
+    // searchKeys 变化时，总是需要重新初始化
+    if (!_.isEqual(newParams, oldParams)) {
+      isFirstInit.value = false;
+      await initData();
+      return;
+    }
+    
+    // 值变化时
+    if (newVal === oldVal) return;
+    
+    // 如果是第一次初始化，且值从 undefined/null 变为数组（多选模式）或值（单选模式）
+    // 说明是初始加载数据，直接初始化，不跳过
+    if (isFirstInit.value) {
+      isFirstInit.value = false;
+      await initData();
+      return;
+    }
+    
+    // 如果是多选模式且下拉框正在打开，不重新初始化（避免下拉框关闭）
+    // el-cascader 会自己维护选中状态，我们只需要在关闭时同步一次
+    if (props.multiple && isDropdownVisible.value) {
+      pendingUpdate.value = true;
+      // 不调用任何更新函数，让 el-cascader 自己处理
+      return;
+    }
+    
+    // 否则立即更新（单选模式或下拉框关闭时）
     await initData();
   },
   { deep: true, immediate: true }
