@@ -247,6 +247,12 @@ function verifyValid(showMessage = true) {
 
         // 遍历所有规则字段，手动检查必填规则
         fields.forEach((field) => {
+          // 检查字段是否被隐藏，如果被隐藏则跳过验证
+          const fieldItem = formItems.value.find((item) => item.field === field);
+          if (fieldItem && fieldItem.hidden) {
+            return; // 跳过隐藏字段的验证
+          }
+
           const ruleArray = rules[field];
           if (Array.isArray(ruleArray)) {
             const value = form[field];
@@ -310,6 +316,15 @@ async function _confirm(option, type, formData = null, auditValue = null) {
   if (isAuditMode.value && auditValue !== null) {
     form.isAudit = auditValue;
   }
+
+  // 提交前清理隐藏字段的数据，避免后端反射处理失败
+  const items = formItems.value || [];
+  items.forEach(item => {
+    if (item.hidden && form.hasOwnProperty(item.field)) {
+      // 删除隐藏字段，而不是设置为null，避免后端反射处理失败
+      delete form[item.field];
+    }
+  });
 
   const userId = store.getters.userInfo.id;
   var res = await dlgAPI.commonSubmitDlg(formPanelRef.value, form, keyWord.value, option, isTree, false, userId);
@@ -459,5 +474,6 @@ defineExpose({
   _confirm,
   form,
   formPanelRef,
+  dlgBasicRef,
 });
 </script>

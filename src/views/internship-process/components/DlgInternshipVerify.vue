@@ -140,7 +140,7 @@ const auditTableListProps = reactive({
     autoInit: false,
   },
   defaultDTHProps: {
-    keyWord: { edit: 'ViewMainVerifyProcess', view: 'ViewMainVerifyProcess' },
+    keyWord: { edit: 'ViewVerifyProcessInternship', view: 'ViewVerifyProcessInternship' },
     buttonProps: { buttonGroup: { show: false } }, // 隐藏刷新和网格按钮
     allTableColumns: [
       { id: 1, showName: '发送人', theOrder: 1, tableColumnName: 'createUserName', sortable: false },

@@ -364,7 +364,8 @@ defineExpose({
   clickFull,
   closeDlg,
   validate,
-  _onConfirm
+  _onConfirm,
+  cloneOldData
 })
 </script>
 

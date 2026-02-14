@@ -35,12 +35,14 @@ const SPLIT_OPERATOR = Object.freeze({
 
 // 角色表
 const ROLE_TABLE = Object.freeze({
-  SUPER_ADMIN: 1,
-  CONTEST_ADMIN: 5,
-  UNIVERSITY_ADMIN: 7,
-  STUDENT: 3,
-  TEACHER: 2,
-  EXPERT: 4
+  SUPER_ADMIN: 1,              // 超级管理员
+  SCHOOL_ADMIN: 2,            // 学校管理员
+  ACADEMIC_AFFAIRS_ADMIN: 3,   // 教务处管理员
+  DEPARTMENT_ADMIN: 4,         // 院系管理员
+  COMPANY_ADMIN: 5,            // 企业管理员
+  COMPANY_TUTOR: 6,            // 企业导师
+  SCHOOL_TEACHER: 7,           // 学校教师
+  STUDENT: 8                   // 学生
 })
 
 // 文件类型
@@ -52,16 +54,11 @@ const FILE_TYPE = Object.freeze({
 
 // 审核状态
 const AUDIT_STATUS = Object.freeze({
-  SAVE: -1,
-  SAVENAME: '待提交',
-  SUBMIT: 0,
-  SUBMITNAME: '待审核',
-  PASS: 1,
-  PASSNAME: '审核通过',
-  NOTPASS: 2,
-  NOTPASSNAME: '审核不通过',
-  BACK: 3,
-  BACKNAME: '审核退回'
+  SAVE: -1,  SAVENAME: '待提交',
+  SUBMIT: 0,  SUBMITNAME: '待审核',
+  PASS: 1,  PASSNAME: '审核通过',
+  NOTPASS: 2,  NOTPASSNAME: '审核不通过',
+  BACK: 3,  BACKNAME: '审核退回'
 })
 
 export default Object.freeze({

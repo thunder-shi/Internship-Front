@@ -4,7 +4,7 @@
     <DataTableTree ref="dataTableTreeRef" :default-props="defaultProps.defaultDTTProps" @edit-click="editClick" @append-click="appendClick" @batch-import-click="batchImportClick" />
     <slot name="dlg">
       <!-- 简单窗口 -->
-      <SimpleDialog ref="simpleDialogRef" :default-props="defaultProps.defaultSDProps" @update-record="updateDataTree" @simple-select-change="onSimpleSelectChange" @simple-select-init-finish="onSimpleSelectInitFinish"/>
+      <SimpleDialog ref="simpleDialogRef" :default-props="defaultProps.defaultSDProps" @update-record="updateDataTree" @simple-select-change="onSimpleSelectChange" @simple-select-init-finish="onSimpleSelectInitFinish" @open-dialog="onOpenDialog"/>
     </slot>
     <slot name="batch">
       <!-- 批量录入窗口 -->
@@ -47,7 +47,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit-click', 'append-click'])
+const emit = defineEmits(['edit-click', 'append-click', 'open-dialog'])
 
 const dataTableTreeRef = ref(null)
 const simpleDialogRef = ref(null)
@@ -142,6 +142,10 @@ function onSimpleSelectChange(val, field, form, options) {
 
 function onSimpleSelectInitFinish(field, options, form) {
   emit('simple-select-init-finish', field, options, form)
+}
+
+function onOpenDialog(row, form) {
+  emit('open-dialog', row, form)
 }
 
 </script>
