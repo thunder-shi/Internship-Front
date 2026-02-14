@@ -104,11 +104,14 @@ defineOptions({
 });
 
 // 过滤器函数
+// 格式化时间（使用北京时间 UTC+8）
+// 如果后端返回的是 UTC 时间，转换为北京时间（UTC+8）
 const filterDateTime = (val) => {
   if (!val) {
     return '--';
   } else {
-    return moment(val).format('YYYY-MM-DD HH:mm');
+    // 使用 UTC 模式解析，然后转换为北京时间（UTC+8）
+    return moment.utc(val).utcOffset(8).format('YYYY-MM-DD HH:mm');
   }
 };
 

@@ -24,6 +24,7 @@
               <div class="internship-info-section">
                 <el-descriptions :column="1" border>
                   <!-- <el-descriptions-item label="实习模板">{{ form.internshipTypeName }}</el-descriptions-item> -->
+                  <el-descriptions-item label="所属专业">{{ form.majorNames }}</el-descriptions-item>
                   <el-descriptions-item label="实习类型">{{ form.intTypeName }}</el-descriptions-item>
                   <el-descriptions-item label="实习编码">{{ form.internshipCode }}</el-descriptions-item>
                   <el-descriptions-item label="实习名称">{{ form.internshipName }}</el-descriptions-item>
