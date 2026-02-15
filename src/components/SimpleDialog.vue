@@ -130,16 +130,22 @@ const isAuditMode = computed(() => {
 // 动态合并 footButtons 配置，审核模式下显示提交按钮
 const mergedDefaultDBProps = computed(() => {
   const dbProps = props.defaultProps.defaultDBProps || {};
+  // 合并 defaultProps 顶层的属性（如 dlgTitle）到 defaultDBProps
+  const mergedProps = {
+    ...dbProps,
+    // 如果 defaultProps 顶层有 dlgTitle，则使用它
+    dlgTitle: props.defaultProps.dlgTitle || dbProps.dlgTitle,
+  };
   if (isAuditMode.value) {
     return {
-      ...dbProps,
+      ...mergedProps,
       footButtons: {
         ...dbProps.footButtons,
         submit: { show: true, name: '提 交', type: 'success' },
       },
     };
   }
-  return dbProps;
+  return mergedProps;
 });
 
 // watch

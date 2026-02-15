@@ -7,7 +7,7 @@
       <el-row type="flex" justify="space-between">
         <!--左侧插槽-->
         <slot v-if="$slots.left" name="left" />
-        <el-button v-if="button.more1.show" :type="button.more1.type" :icon="CirclePlus" @click="more1Click(selectedColumns)">{{ button.more1.name }}</el-button>
+        <el-button v-if="button.more1.show" :type="button.more1.type" :icon="CirclePlus" :disabled="button.more1.disabled" @click="more1Click(selectedColumns)">{{ button.more1.name }}</el-button>
         <el-button v-if="button.create.show" :type="button.create.type" :icon="Plus" @click="$emit('append-click')">{{ button.create.name }}</el-button>
         <el-button v-if="button.update.show" :type="button.update.type" :icon="Edit" :disabled="selectedColumns.length != 1 || (selectedColumns.length === 1 && !isButtonVisible('update', selectedColumns[0]))" @click="edit(selectedColumns[0])">{{ button.update.name }}</el-button>
         <el-button v-if="button.delete.show" :type="button.delete.type" :icon="Delete" :disabled="selectedColumns.length < 1 || (selectedColumns.length > 0 && selectedColumns.some(row => !isButtonVisible('delete', row)))" @click="remove(selectedColumns)">{{ button.delete.name }}</el-button>

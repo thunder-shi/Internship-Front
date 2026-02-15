@@ -1,6 +1,7 @@
 /** 封装一些常用的、全局调用的js方法 */
 // import CONSTANT from '@/constant'
 import _ from 'lodash'
+import moment from 'moment'
 // 获取导入/导出文件名及导入文件模板id
 export function getTemplateFile(keywords, suffix = '') {
   switch (keywords) {
@@ -35,6 +36,16 @@ export function convertDateStr(inputDate, simple) {
   return simple
     ? `${year}-${month}-${strDate}`
     : `${year}-${month}-${strDate} ${hour}:${minute}:${second}`
+}
+
+/**
+ * 格式化日期为 YYYY-MM-DD 格式
+ * @param {string|Date|moment.Moment} dateStr - 日期字符串、Date 对象或 moment 对象
+ * @returns {string} 格式化后的日期字符串，如果输入为空则返回空字符串
+ */
+export function formatDate(dateStr) {
+  if (!dateStr) return ''
+  return moment(dateStr).format('YYYY-MM-DD')
 }
 
 export function compareTime(gettime) {

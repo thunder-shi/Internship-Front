@@ -78,7 +78,7 @@
           <el-option v-for="(sitem, sindex) in item.options" :key="sindex" :label="sitem.name" :value="sitem.id" />
         </el-select>
         <!-- 关联数据选择框 -->
-        <SimpleSelect v-else-if="item.type === 'select'" :ref="'smpSel' + item.field" v-model="form[item.field]" :field="item.field" :select-label="item.selectLabel" :multiple="item.multiple" :key-words="item.keyWords" :search-key="typeof item.searchKeys === 'object' ? item.searchKeys : form[item.searchKeys]" :reg-key="item.regKey" :disabled="item.disabled" :placeholder="item.placeholder ? item.placeholder : '请选择'" :auto-select="item.autoSelect" :sortJson="item.sortJson" @update-value="onSimpleSelectChange" @init-finish="simpleSelectInitFinish" />
+        <SimpleSelect v-else-if="item.type === 'select'" :ref="'smpSel' + item.field" v-model="form[item.field]" :field="item.field" :select-label="item.selectLabel" :change-label="item.changeLabel" :multiple="item.multiple" :key-words="item.keyWords" :search-key="typeof item.searchKeys === 'object' ? item.searchKeys : form[item.searchKeys]" :reg-key="item.regKey" :disabled="item.disabled" :placeholder="item.placeholder ? item.placeholder : '请选择'" :auto-select="item.autoSelect" :sortJson="item.sortJson" @update-value="onSimpleSelectChange" @init-finish="simpleSelectInitFinish" />
         <!-- 级联选择框 -->
         <SimpleTreeSelect v-else-if="item.type === 'cascader'" v-model="form[item.field]" :field="item.field" :key-words="item.keyWords" :disabled="item.disabled" :check-strictly="item.checkStrictly" :search-keys="item.searchKeys" :multiple="item.multiple" @update-value="onTreeSelectChange" />
         <!-- 文件上传框 -->

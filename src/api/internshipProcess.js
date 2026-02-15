@@ -20,7 +20,19 @@ async function activateProcess() {
   })
 }
 
+// 获取满足当前要求的实习项目
+async function getNowInternship(processTypeCode) {
+  return request({
+    url: '/internshipProcess/getNowInternship',
+    method: 'post',
+    data: {
+      processTypeCode: processTypeCode
+    }
+  })
+}
+
 export default {
     auditProcess,
-    activateProcess
+    activateProcess,
+    getNowInternship
 }
