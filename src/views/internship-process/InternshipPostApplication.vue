@@ -1,14 +1,18 @@
 <template>
-  <BaseList :default-props="defaultProps" ref="baseListRef" @more1-click="handleMore1Click" />
+  <BaseList :default-props="defaultProps" ref="baseListRef" @more1-click="handleMore1Click" @append-click="handleAppendClick" />
   <!-- 实习项目选择对话框 -->
   <SimpleDialog ref="projectSelectDialog" :default-props="projectSelectDialogProps" :simpledialog-confirm="handleProjectSelectConfirm" @simple-select-change="handleInternshipSelectChange" />
+  <!-- 新增岗位对话框 -->
+  <DlgNewPost ref="dlgNewPost" :current-internship="currentInternship" @close-dialog="handleNewPostClose" @success="handleNewPostSuccess" />
 </template>
 
 <script setup>
 import { reactive, ref, computed, nextTick, onMounted } from 'vue';
+import { ElMessage } from 'element-plus';
 import _ from 'lodash';
 import BaseList from '@/views/master-page/BaseList.vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
+import DlgNewPost from './components/DlgNewPost.vue';
 import CONSTANT from '@/utils/constant';
 import internshipProcessAPI from '@/api/internshipProcess';
 import { formatDate } from '@/utils/common';
@@ -19,6 +23,7 @@ defineOptions({
 
 const baseListRef = ref(null);
 const projectSelectDialog = ref(null);
+const dlgNewPost = ref(null);
 
 // 当前选中的实习项目信息（深拷贝整个对象）
 const currentInternship = ref(null);
@@ -40,6 +45,7 @@ function handleSelectChange(item, val, form) {
 // 实习项目选择对话框配置
 const projectSelectDialogProps = reactive({
   keyWord: 'ProjectSelect',
+  dlgTitle: '实习项目选择',
   handleSelectChange: handleSelectChange, // 添加处理函数
   formItems: [
     { 
@@ -57,9 +63,6 @@ const projectSelectDialogProps = reactive({
     internshipId: [{ required: true, message: '请选择实习项目', trigger: 'change' }],
   },
   defaultDBProps: {
-    dialog: {
-      title: '实习项目选择'
-    },
     footButtons: {
       repeatAdd: { show: false }, // 隐藏"继续添加"按钮
     },
@@ -120,6 +123,26 @@ async function handleProjectSelectConfirm(option, type, form) {
   
   // 返回 true 表示保存成功，允许关闭对话框
   return true;
+}
+
+// 处理新增按钮点击
+function handleAppendClick() {
+  if (!currentInternship.value || !currentInternship.value.id) {
+    ElMessage.warning('请先选择实习项目');
+    return;
+  }
+  dlgNewPost.value?.showDialog(true, {});
+}
+
+// 处理新增岗位对话框关闭
+function handleNewPostClose() {
+  // 可以在这里处理关闭后的逻辑
+}
+
+// 处理新增岗位成功
+function handleNewPostSuccess() {
+  // 刷新数据列表
+  baseListRef.value?.initDataList();
 }
 
 // 处理 more1 按钮点击事件（实习项目选择）

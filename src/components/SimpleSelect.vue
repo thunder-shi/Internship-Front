@@ -26,7 +26,8 @@ const props = defineProps({
   autoInit: { type: Boolean, default: true },
   disabled: { type: Boolean, default: false },
   autoSelect: { type: Boolean, default: true },
-  changeLabel: { type: String, default: '' }
+  changeLabel: { type: String, default: '' },
+  clientFilterFn: { type: Function, default: null } // 客户端过滤函数
 })
 
 const emit = defineEmits(['update:modelValue', 'update-value', 'init-finish'])
@@ -106,12 +107,17 @@ async function initOptions() {
       sort: props.sortJson,
       reg: props.regKey
     })
-    options.value = _.cloneDeep(resp.data.content)
+    let loadedOptions = _.cloneDeep(resp.data.content)
     if (props.changeLabel !== '') {
-      options.value.forEach(item => {
+      loadedOptions.forEach(item => {
         item.name = item[props.changeLabel]
       })
     }
+    // 应用客户端过滤函数（如果提供）
+    if (props.clientFilterFn && typeof props.clientFilterFn === 'function') {
+      loadedOptions = props.clientFilterFn(loadedOptions)
+    }
+    options.value = loadedOptions
     emit('init-finish', props.field, options.value)
 
     // 数据加载回来后，立即进行一次值的匹配

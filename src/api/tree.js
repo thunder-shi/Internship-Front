@@ -107,6 +107,19 @@ const getAllBrotherIndex = async (keyWords, nodeId) => {
   })
 }
 
+// 获得当前节点所有子节点ID构成的集合
+const getAllChildIndex = async (keyWords, nodeId) => {
+  const encryptedKeyWords = await getEncryptKeyWord(keyWords)
+  return request({
+    url: '/dataTree/getAllChildIndex',
+    method: 'post',
+    data: {
+      keyWords: encryptedKeyWords,
+      nodeId
+    }
+  })
+}
+
 // 树结构条件的列表查询
 const commonSearch = ({ treeInfo, listKeyWords, searchKey, regKey, pageInfo, sortJson }) => {
   return request({
@@ -131,5 +144,6 @@ export default {
   editOneNode,
   getAllBrotherIndex,
   getAllParentIndex,
+  getAllChildIndex,
   commonSearch
 }
