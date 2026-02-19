@@ -231,8 +231,7 @@ async function confirm(option, type) {
     } else if (form.id != null && form.id !== 0) {
       // 编辑模式，直接保存专业关联关系
       await saveMajorIds(form.id, form.majorIds || []);
-    }
-    
+    }    
     emit('update-record', form);
     if (type === 'stop') {
       dlgBasicRef.value?.showDialog(false, form);
@@ -286,6 +285,7 @@ function handleProcessSelectSave(processData) {
 function handleTableEdit(row) {
   const rowData = Array.isArray(row) ? row[0] : row;
   if (rowData) {
+    // 传递表单数据和整行数据（ViewRelProcessInternship）
     dlgProcessSelect.value?.showDialog(true, {
       id: rowData.id,
       processTypeId: rowData.processTypeId,
@@ -297,7 +297,7 @@ function handleTableEdit(row) {
       verifyThirdRoleId: rowData.verifyThirdRoleId,
       verifyFourthRoleId: rowData.verifyFourthRoleId,
       verifyFifthRoleId: rowData.verifyFifthRoleId
-    });
+    }, rowData); // 传递整行数据作为第三个参数
   }
 }
 
@@ -343,28 +343,23 @@ async function saveMajorIds(internshipId, majorIds) {
   try {
     // 先查询现有的关联关系
     const existingRes = await listAPI.getSomeRecords({
-      keyWords: 'RelInterMajor',
-      pageInfo: { page: 1, size: 1000 },
-      searchKey: { internshipId: internshipId },
-      reg: { internshipId: '=' }
+      keyWords: 'RelInterMajor',      
+      searchKey: { internshipId: internshipId }
+      // reg: { internshipId: '=' }
     });
 
     // 支持 data.records 和 data.content 两种数据结构
     const existingRecords = existingRes?.data?.records || existingRes?.data?.content || [];
-    const existingMajorIds = existingRecords.map(item => item.majorId);
-    
+    const existingMajorIds = existingRecords.map(item => item.majorId);    
     // 需要删除的专业ID（存在于数据库但不在新列表中）
-    const toDelete = existingMajorIds.filter(id => !majorIds.includes(id));
-    
+    const toDelete = existingMajorIds.filter(id => !majorIds.includes(id));    
     // 需要新增的专业ID（存在于新列表但不在数据库中）
     const toAdd = majorIds.filter(id => !existingMajorIds.includes(id));
-
     // 删除不再关联的专业
     if (toDelete.length > 0) {
       const deleteIds = existingRecords
         .filter(item => toDelete.includes(item.majorId))
-        .map(item => item.id);
-      
+        .map(item => item.id);      
       if (deleteIds.length > 0) {
         await listAPI.delOneOrManyNodes('RelInterMajor', deleteIds);
       }
