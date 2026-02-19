@@ -76,7 +76,8 @@ const formItems = [
 ];
 
 const formRules = {
-  name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }]
+  name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],
+  majorIds: [{ required: true, message: '请选择专业', trigger: 'change' }]
 };
 
 // DataTableList 的配置

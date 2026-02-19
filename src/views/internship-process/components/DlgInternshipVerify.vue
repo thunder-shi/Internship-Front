@@ -130,8 +130,7 @@ const auditTableListProps = reactive({
   sortStr: { properties: 'id', direction: 'ASC' },
   pageInfo: { page: 1, size: 100 },
   initSearchWords: {
-    searchKey: { relationId: form.relationId },
-    reg: { relationId: '=' },
+    searchKey: { processId: form.processId }
   },
   someFlags: {
     operateShow: false, // 审核窗口中的审核记录只读，不显示操作按钮
@@ -162,13 +161,13 @@ const auditResultTextMap = {
 
 // 加载审核记录
 async function loadAuditRecords() {
-  if (!form.relationId) {
+  if (!form.processId) {
     return;
   }
 
   // 更新审核记录表格的搜索条件
   auditTableListProps.initSearchWords.searchKey = { 
-    relationId: form.relationId
+    processId: form.processId
   };
   
   // 初始化审核记录表格
@@ -232,7 +231,6 @@ function verifyValid(showMessage = true) {
             }
           }
         });
-
         dlgBasicRef.value.validate = hasError;
       }
     }
@@ -240,8 +238,8 @@ function verifyValid(showMessage = true) {
 }
 
 // 从 RelProcessInternship 加载审核角色配置和审核级别信息（用于显示）
-async function loadVerifyRoleIds(relationId) {
-  if (!relationId) {
+async function loadVerifyRoleIds(processId) {
+  if (!processId) {
     return;
   }
 
@@ -249,9 +247,7 @@ async function loadVerifyRoleIds(relationId) {
     const res = await listAPI.getSomeRecords({
       keyWords: 'ViewRelProcessInternship',
       pageInfo: { page: 1, size: 1 },
-      searchKey: { id: relationId },
-      reg: { id: '=' },
-      sort: { properties: 'id', direction: 'ASC' }
+      searchKey: { id: processId },
     });
 
     if (res && res.data && res.data.content && res.data.content.length > 0) {
@@ -262,11 +258,11 @@ async function loadVerifyRoleIds(relationId) {
       if (processInfo.currentVerifyTypeId) form.currentVerifyTypeId = processInfo.currentVerifyTypeId;
 
       // 更新 form 中的角色ID（排除旧版占位值 17，0 和 null 视为未设置）
-      if (processInfo.verifyFirstRoleId && processInfo.verifyFirstRoleId !== 17) form.verifyFirstRoleId = processInfo.verifyFirstRoleId;
-      if (processInfo.verifySecondRoleId && processInfo.verifySecondRoleId !== 17) form.verifySecondRoleId = processInfo.verifySecondRoleId;
-      if (processInfo.verifyThirdRoleId && processInfo.verifyThirdRoleId !== 17) form.verifyThirdRoleId = processInfo.verifyThirdRoleId;
-      if (processInfo.verifyFourthRoleId && processInfo.verifyFourthRoleId !== 17) form.verifyFourthRoleId = processInfo.verifyFourthRoleId;
-      if (processInfo.verifyFifthRoleId && processInfo.verifyFifthRoleId !== 17) form.verifyFifthRoleId = processInfo.verifyFifthRoleId;
+      if (processInfo.verifyFirstRoleId) form.verifyFirstRoleId = processInfo.verifyFirstRoleId;
+      if (processInfo.verifySecondRoleId) form.verifySecondRoleId = processInfo.verifySecondRoleId;
+      if (processInfo.verifyThirdRoleId) form.verifyThirdRoleId = processInfo.verifyThirdRoleId;
+      if (processInfo.verifyFourthRoleId) form.verifyFourthRoleId = processInfo.verifyFourthRoleId;
+      if (processInfo.verifyFifthRoleId) form.verifyFifthRoleId = processInfo.verifyFifthRoleId;
     }
   } catch (error) {
     console.error('加载审核角色配置失败:', error);
@@ -309,7 +305,7 @@ async function showDialog(val, formData = {}) {
 
     // 并行加载数据
     const loadPromises = [
-      loadVerifyRoleIds(form.relationId),  // 加载审核角色配置（用于显示）
+      loadVerifyRoleIds(form.processId),  // 加载审核角色配置（用于显示）
       loadAuditRecords()                    // 加载审核记录
     ];
 
@@ -352,7 +348,7 @@ async function confirm(_option, type) {
   // 构建保存数据对象
   // 注意：verifyUserId 必须是整数类型，否则后端 join BaseUser 时会失败
   const saveData = {
-    id: form.id,
+    ...form, // 包含 form 中的所有信息（包括 id）
     isAudit: form.auditResult,
     reason: form.auditReason,
     verifyUserId: parseInt(verifyUserId, 10), // 保存实际审核人ID（整数类型）

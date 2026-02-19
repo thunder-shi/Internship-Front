@@ -27,16 +27,7 @@
 </template>
 
 <script setup>
-import {
-  ref,
-  reactive,
-  computed,
-  watch,
-  nextTick,
-  onMounted,
-  useAttrs,
-  getCurrentInstance,
-} from 'vue';
+import { ref, reactive, computed, watch, nextTick, onMounted, useAttrs, getCurrentInstance } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';

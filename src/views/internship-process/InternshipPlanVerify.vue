@@ -47,15 +47,12 @@ const getInitSearchWords = () => {
 
   // 获取当前时间字符串（格式：YYYY-MM-DD HH:mm:ss）
   const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
-
   // 条件1: isAudit 等于"提交待审核"状态 (CONSTANT.AUDIT_STATUS.SUBMIT = 0)
   searchKey.isAudit = CONSTANT.AUDIT_STATUS.SUBMIT;
   regKey.isAudit = CONSTANT.SEARCH_OPERATOR.EQ;
-
   // 条件2: startTime <= 当前时间
   searchKey.startTime = currentTime;
   regKey.startTime = CONSTANT.SEARCH_OPERATOR.LE;
-
   // 条件3: endTime >= 当前时间
   searchKey.endTime = currentTime;
   regKey.endTime = CONSTANT.SEARCH_OPERATOR.GE;

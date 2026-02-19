@@ -306,7 +306,8 @@ const defaultProps = computed(() => ({
     initSearchWords: initSearchWords.value,
     defaultDTHProps: {
       buttonProps: { create: { show: false }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true }, delete: { show: false } },
-      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyInternshipPlanProcess' },
+      // keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyInternshipPlanProcess' },
+      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternship' },
       allTableColumns: [
         { id: 1, showName: '实习项目编号', theOrder: 1, tableColumnName: 'internshipCode' },
         { id: 2, showName: '实习项目名称', theOrder: 2, tableColumnName: 'internshipName' },

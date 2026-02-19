@@ -147,7 +147,9 @@ function onSimpleSelectChange(val, field, form) {
   }
 }
 
-function showDialog(val, formData = {}) {
+function showDialog(val, formData = {}, rowData = null) {
+  // 保存整行数据
+  fullRowData.value = rowData || formData;
   // 根据是否有 id 来判断是新增还是编辑，更新标题
   const isEdit = formData && formData.id != null && formData.id !== 0;
   defaultProps.defaultDBProps.dlgTitle = isEdit ? '编辑流程' : '新增流程';
@@ -246,7 +248,27 @@ async function confirm(option, type, form) {
           tableName: 'MainInternship',
           createUserId: store.getters.userInfo?.id
         };
-        await internshipProcessAPI.activateProcess(activateParams);
+        
+        // 先查询 MainVerifyProcess 表，检查是否存在相同记录
+        try {
+          const queryRes = await listAPI.getSomeRecords({
+            keyWords: 'MainVerifyProcess',
+            searchKey: {
+              processId: activateParams.processId,
+              relationId: activateParams.relationId,
+              tableName: activateParams.tableName
+            }
+          });
+          // 获取查询结果
+          const existingRecords = queryRes?.data?.records || queryRes?.data?.content || [];
+          // 如果不存在记录，才执行激活流程
+          if (existingRecords.length == 0) {
+            await internshipProcessAPI.activateProcess(activateParams);
+          }
+        } catch (error) {
+          console.error('查询 MainVerifyProcess 失败:', error);
+          // 查询失败时可以选择是否继续执行，这里选择不执行激活流程
+        }
       }
       // 保存成功后，触发更新事件，让父组件刷新列表
       emit('update-record', saveData);
