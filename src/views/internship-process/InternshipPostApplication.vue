@@ -233,10 +233,10 @@ const defaultProps = reactive({
         delete: { show: true },
         more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value }
       })),
-      keyWord: { edit: 'InternshipPostApplication', view: 'ViewInternshipPostApplication' },
+      keyWord: { edit: 'MainInternshipPost', view: 'ViewMainInternshipPost' },
       allTableColumns: [
-        { id: 1, showName: '岗位名称', tableColumnName: 'postName', sortable: true },
-        { id: 2, showName: '企业名称', tableColumnName: 'companyName', sortable: true },
+        { id: 1, showName: '企业名称', tableColumnName: 'companyName', sortable: true },
+        { id: 2, showName: '岗位类型', tableColumnName: 'companyName', sortable: true },
         { id: 3, showName: '岗位人数', tableColumnName: 'personNum', sortable: true },
         { id: 4, showName: '申报状态', tableColumnName: 'status', sortable: true },
         { id: 5, showName: '申报时间', tableColumnName: 'applicationTime', sortable: true },

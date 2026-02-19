@@ -4,17 +4,23 @@
 
 <script setup>
 import { ref, reactive, onBeforeUnmount } from 'vue';
+import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
 import moment from 'moment';
+import constant from '@/utils/constant';
 
 const props = defineProps({
   internshipTypeId: { type: Number, default: null }, // 从父组件传入的 internshipTypeId（模板用）
   internshipId: { type: Number, default: null } // 从父组件传入的 internshipId（实习项目用）
 });
 
+// 存储整行数据（ViewRelProcessInternship 或 ViewRelProcessInternshipType）
+const fullRowData = ref(null);
+
+const store = useStore();
 const emit = defineEmits(['update-record', 'close-dialog']);
 
 const simpleDialogRef = ref(null);
@@ -34,6 +40,9 @@ const verifyRoleFields = [
 // 判断是否为实习项目模式（有 internshipId 时为实习项目，否则为模板）
 const isInternshipMode = () => props.internshipId != null;
 
+// 审核角色字段的公共配置
+const verifyRoleCommonConfig = { type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } };
+
 const defaultProps = reactive({
   labelWidth: '110px',
   keyWord: ' ', // 动态设置，不自动保存
@@ -43,11 +52,11 @@ const defaultProps = reactive({
     { name: '审核要求', field: 'verifyTypeId', type: 'select', keyWords: 'BaseVerifyType', placeholder: '请选择审核要求' },
     { name: '流程开始时间', field: 'startTime', type: 'datetime', hidden: true },
     { name: '流程结束时间', field: 'endTime', type: 'datetime', hidden: true },
-    { name: '一审角色', field: 'verifyFirstRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
-    { name: '二审角色', field: 'verifySecondRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
-    { name: '三审角色', field: 'verifyThirdRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
-    { name: '四审角色', field: 'verifyFourthRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
-    { name: '五审角色', field: 'verifyFifthRoleId', type: 'select', keyWords: 'SysRole', placeholder: '请选择审核角色', hidden: true, autoSelect: false, searchKeys: { name: '超级管理员,--,学生' }, regKey: { name: '!()' } },
+    { name: '一审角色', field: 'verifyFirstRoleId', ...verifyRoleCommonConfig },
+    { name: '二审角色', field: 'verifySecondRoleId', ...verifyRoleCommonConfig },
+    { name: '三审角色', field: 'verifyThirdRoleId', ...verifyRoleCommonConfig },
+    { name: '四审角色', field: 'verifyFourthRoleId', ...verifyRoleCommonConfig },
+    { name: '五审角色', field: 'verifyFifthRoleId', ...verifyRoleCommonConfig },
   ],
   formRules: {
     processTypeId: [{ required: true, message: '请选择流程模板', trigger: 'change' }],
@@ -142,13 +151,10 @@ function showDialog(val, formData = {}) {
   // 根据是否有 id 来判断是新增还是编辑，更新标题
   const isEdit = formData && formData.id != null && formData.id !== 0;
   defaultProps.defaultDBProps.dlgTitle = isEdit ? '编辑流程' : '新增流程';
-
   // 根据模式设置 keyWord：实习项目用 RelProcessInternship，模板用 RelProcessInternshipType
   defaultProps.keyWord = isInternshipMode() ? 'RelProcessInternship' : 'RelProcessInternshipType';
-
   // 更新时间字段的显示状态（仅在实习项目模式下显示）
   updateTimeFields(isInternshipMode());
-
   // 如果是编辑模式，根据已有的 verifyTypeId 初始化审核角色显示状态
   if (isEdit && formData.verifyTypeId) {
     // 编辑模式：设置初始化标记，防止 SimpleSelect 初始化时清空已有值
@@ -171,7 +177,6 @@ function showDialog(val, formData = {}) {
   }
 
   simpleDialogRef.value?.showDialog(val, formData);
-
   // 延迟重置初始化标记，确保 SimpleSelect 初始化完成后用户修改能正常清空值
   if (isEdit) {
     setTimeout(() => { isInitializing = false; }, 500);
@@ -189,12 +194,18 @@ async function confirm(option, type, form) {
       return;
     }
   }
-
   // 验证流程时间
   if (!validateProcessTime(form)) {
     return;
   }
 
+  // 确保隐藏的字段值为 17
+  verifyRoleFields.forEach((roleConfig) => {
+    const formItem = defaultProps.formItems.find(item => item.field === roleConfig.field);
+    if (formItem && formItem.hidden) {
+      form[roleConfig.field] = 17;
+    }
+  });
   // 将 internshipTypeId 或 internshipId 添加到表单数据中
   const saveData = {
     ...form,
@@ -217,20 +228,26 @@ async function confirm(option, type, form) {
   if (form.endTime) {
     saveData.endTime = moment(form.endTime, 'YYYY-MM-DD HH:mm:ss').utcOffset('+08:00', true).utc().format('YYYY-MM-DD HH:mm:ss');
   }
-
   // 根据模式确定要使用的 keyWord
   const keyWord = isInternshipMode() ? 'RelProcessInternship' : 'RelProcessInternshipType';
 
   try {
     // 直接调用 API 保存，等待保存完成后再关闭对话框
     const resInfo = await listAPI.editOneNode(keyWord, saveData);
-
     if (resInfo && resInfo.message === 'successful') {
       const isEdit = saveData.id != null && saveData.id !== 0;
       // 显示成功消息
       ElMessage.success(isEdit ? '修改成功！' : '新增成功！');
-      // 激活时间范围内的流程
-      await internshipProcessAPI.activateProcess();
+      // 激活时间范围内的流程（只有当前流程是"实习计划制定"且是实习项目模式时才执行）
+      if (fullRowData.value?.processTypeCode === constant.PROCESS_TYPE.INTERNSHIP_PLAN_MAKE && keyWord === 'RelProcessInternship') {
+        const activateParams = {
+          processId: fullRowData.value?.id,
+          relationId: saveData.internshipId,
+          tableName: 'MainInternship',
+          createUserId: store.getters.userInfo?.id
+        };
+        await internshipProcessAPI.activateProcess(activateParams);
+      }
       // 保存成功后，触发更新事件，让父组件刷新列表
       emit('update-record', saveData);
       // 关闭对话框

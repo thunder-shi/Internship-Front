@@ -282,6 +282,7 @@ function handleTableEdit(row) {
   // row 可能是数组（批量编辑）或单个对象（单行编辑）
   const rowData = Array.isArray(row) ? row[0] : row;
   if (rowData) {
+    // 传递表单数据和整行数据（ViewRelProcessInternshipType）
     dlgProcessSelect.value?.showDialog(true, {
       id: rowData.id,
       processTypeId: rowData.processTypeId,
@@ -291,7 +292,7 @@ function handleTableEdit(row) {
       verifyThirdRoleId: rowData.verifyThirdRoleId,
       verifyFourthRoleId: rowData.verifyFourthRoleId,
       verifyFifthRoleId: rowData.verifyFifthRoleId
-    });
+    }, rowData); // 传递整行数据作为第三个参数
   }
 }
 

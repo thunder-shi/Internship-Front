@@ -549,7 +549,7 @@ async function handleConfirm() {
     }
     
     // 如果有实习项目ID，添加到表单数据中
-    const internshipId = props.currentInternship?.id;
+    const internshipId = props.currentInternship?.internshipId;
     if (!internshipId) {
       ElMessage.warning('请先选择实习项目');
       return false;
@@ -564,18 +564,8 @@ async function handleConfirm() {
       postTypeId: form.postTypeId
     };
 
-    // 如果是企业用户，自动设置单位ID
-    if (isCompanyUser.value && userInfo.value.departmentId) {
-      saveData.departmentId = userInfo.value.departmentId;
-    } else if (form.departmentId) {
-      saveData.departmentId = form.departmentId;
-    }
-
     // 调用保存接口，保存到 MainInternshipPost 表
-    const response = await listAPI.editOneNode({
-      keyWords: 'MainInternshipPost',
-      form: saveData,
-    });
+    const response = await listAPI.editOneNode('MainInternshipPost', saveData);
 
     if (response && response.data) {
       ElMessage.success('保存成功');

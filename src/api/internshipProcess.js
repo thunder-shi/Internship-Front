@@ -13,10 +13,13 @@ async function auditProcess(node) {
   })
 }
 
-async function activateProcess() {
+async function activateProcess(params) {
   return request({
     url: 'internshipProcess/activateProcess',
-    method: 'post'
+    method: 'post',
+    data: {
+      node: JSON.stringify(params)
+    }
   })
 }
 
