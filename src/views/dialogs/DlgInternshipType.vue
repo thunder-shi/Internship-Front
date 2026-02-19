@@ -272,43 +272,9 @@ function handleTableAppend() {
   }
 }
 
-// 处理流程选择窗口的保存
-async function handleProcessSelectSave(processData) {
-  // 保存流程数据到后端
-  const saveData = {
-    internshipTypeId: form.id, // 当前实习类型的 ID
-    processTypeId: processData.processTypeId, // 流程模板 ID
-    verifyTypeId: processData.verifyTypeId, // 审核要求 ID
-    verifyFirstRoleId: processData.verifyFirstRoleId,
-    verifySecondRoleId: processData.verifySecondRoleId,
-    verifyThirdRoleId: processData.verifyThirdRoleId,
-    verifyFourthRoleId: processData.verifyFourthRoleId,
-    verifyFifthRoleId: processData.verifyFifthRoleId
-  };
-
-  // 如果是编辑模式，需要包含 id
-  if (processData.id != null && processData.id !== 0) {
-    saveData.id = processData.id;
-  }
-
-  try {
-    // 直接调用 API 保存，因为表单验证已经在 DlgProcessSelect 中完成
-    const resInfo = await listAPI.editOneNode('RelProcessInternshipType', saveData);
-
-    if (resInfo && resInfo.message === 'successful') {
-      const isEdit = processData.id != null && processData.id !== 0;
-      ElMessage.success(isEdit ? '修改成功！' : '新增成功！');
-      // 保存成功后，刷新流程列表
-      dataTableList.value?.initDataList(true);
-      // 关闭流程选择窗口
-      dlgProcessSelect.value?.showDialog(false, {});
-    } else {
-      ElMessage.warning(resInfo?.message || '保存失败');
-    }
-  } catch (error) {
-    // axios 拦截器已经处理了错误提示，这里不需要重复显示
-    console.error('保存流程数据失败:', error);
-  }
+// 处理流程选择窗口的保存完成事件（数据已经在 DlgProcessSelect 中保存，这里只需要刷新列表）
+function handleProcessSelectSave() {
+  dataTableList.value?.initDataList(true);
 }
 
 function handleTableEdit(row) {

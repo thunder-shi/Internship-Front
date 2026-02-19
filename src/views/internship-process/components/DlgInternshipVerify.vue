@@ -261,12 +261,12 @@ async function loadVerifyRoleIds(relationId) {
       if (processInfo.verifyTypeId) form.verifyTypeId = processInfo.verifyTypeId;
       if (processInfo.currentVerifyTypeId) form.currentVerifyTypeId = processInfo.currentVerifyTypeId;
 
-      // 更新 form 中的角色ID
-      if (processInfo.verifyFirstRoleId) form.verifyFirstRoleId = processInfo.verifyFirstRoleId;
-      if (processInfo.verifySecondRoleId) form.verifySecondRoleId = processInfo.verifySecondRoleId;
-      if (processInfo.verifyThirdRoleId) form.verifyThirdRoleId = processInfo.verifyThirdRoleId;
-      if (processInfo.verifyFourthRoleId) form.verifyFourthRoleId = processInfo.verifyFourthRoleId;
-      if (processInfo.verifyFifthRoleId) form.verifyFifthRoleId = processInfo.verifyFifthRoleId;
+      // 更新 form 中的角色ID（排除旧版占位值 17，0 和 null 视为未设置）
+      if (processInfo.verifyFirstRoleId && processInfo.verifyFirstRoleId !== 17) form.verifyFirstRoleId = processInfo.verifyFirstRoleId;
+      if (processInfo.verifySecondRoleId && processInfo.verifySecondRoleId !== 17) form.verifySecondRoleId = processInfo.verifySecondRoleId;
+      if (processInfo.verifyThirdRoleId && processInfo.verifyThirdRoleId !== 17) form.verifyThirdRoleId = processInfo.verifyThirdRoleId;
+      if (processInfo.verifyFourthRoleId && processInfo.verifyFourthRoleId !== 17) form.verifyFourthRoleId = processInfo.verifyFourthRoleId;
+      if (processInfo.verifyFifthRoleId && processInfo.verifyFifthRoleId !== 17) form.verifyFifthRoleId = processInfo.verifyFifthRoleId;
     }
   } catch (error) {
     console.error('加载审核角色配置失败:', error);

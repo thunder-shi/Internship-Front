@@ -8,6 +8,7 @@ import { ElMessage } from 'element-plus';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
+import moment from 'moment';
 
 const props = defineProps({
   internshipTypeId: { type: Number, default: null }, // 从父组件传入的 internshipTypeId（模板用）
@@ -119,10 +120,10 @@ function updateVerifyRoleFields(verifyTypeId, form, clearValues = true) {
           form[roleConfig.field] = null;
         }
       } else {
-        // 隐藏时移除验证规则，并设置默认值为 17
+        // 隐藏时移除验证规则，并清空字段值
         delete defaultProps.formRules[roleConfig.field];
         if (form) {
-          form[roleConfig.field] = 17;
+          form[roleConfig.field] = null;
         }
       }
     }
@@ -154,9 +155,19 @@ function showDialog(val, formData = {}) {
     isInitializing = true;
     updateVerifyRoleFields(formData.verifyTypeId, null, false);
   } else {
-    // 新增模式，默认隐藏所有审核角色，并设置默认值为 17
+    // 新增模式，默认隐藏所有审核角色
     isInitializing = false;
     updateVerifyRoleFields(1, formData);
+  }
+
+  // 实习项目模式下，将 startTime/endTime 从 UTC 转为北京时间（UTC+8）以便表单正确显示
+  if (isInternshipMode() && formData) {
+    if (formData.startTime) {
+      formData.startTime = moment.utc(formData.startTime).utcOffset(8).format('YYYY-MM-DD HH:mm:ss');
+    }
+    if (formData.endTime) {
+      formData.endTime = moment.utc(formData.endTime).utcOffset(8).format('YYYY-MM-DD HH:mm:ss');
+    }
   }
 
   simpleDialogRef.value?.showDialog(val, formData);
@@ -184,14 +195,6 @@ async function confirm(option, type, form) {
     return;
   }
 
-  // 确保隐藏的字段值为 17
-  verifyRoleFields.forEach((roleConfig) => {
-    const formItem = defaultProps.formItems.find(item => item.field === roleConfig.field);
-    if (formItem && formItem.hidden) {
-      form[roleConfig.field] = 17;
-    }
-  });
-
   // 将 internshipTypeId 或 internshipId 添加到表单数据中
   const saveData = {
     ...form,
@@ -199,12 +202,20 @@ async function confirm(option, type, form) {
     internshipId: props.internshipId
   };
 
-  // 确保时间字段正确传递（datetime 类型会返回字符串格式）
+  // 将隐藏的审核角色字段从提交数据中移除（不传参）
+  verifyRoleFields.forEach((roleConfig) => {
+    const formItem = defaultProps.formItems.find(item => item.field === roleConfig.field);
+    if (formItem && formItem.hidden) {
+      delete saveData[roleConfig.field];
+    }
+  });
+
+  // 实习项目模式下，将 startTime/endTime 从北京时间（UTC+8）转回 UTC 再保存
   if (form.startTime) {
-    saveData.startTime = form.startTime;
+    saveData.startTime = moment(form.startTime, 'YYYY-MM-DD HH:mm:ss').utcOffset('+08:00', true).utc().format('YYYY-MM-DD HH:mm:ss');
   }
   if (form.endTime) {
-    saveData.endTime = form.endTime;
+    saveData.endTime = moment(form.endTime, 'YYYY-MM-DD HH:mm:ss').utcOffset('+08:00', true).utc().format('YYYY-MM-DD HH:mm:ss');
   }
 
   // 根据模式确定要使用的 keyWord

@@ -1,10 +1,6 @@
 <template>
   <div class="build-internship-plan-container">
     <BaseList :default-props="defaultProps" :button-condition="buttonCondition" :client-filter-fn="clientFilterFn" :enable-audit-status-custom="true" :get-verify-role-name="getVerifyRoleName" :baselist-confirm="handleSave" :baselist-submit="handleSubmit" ref="baseList" @edit-click="editClick" @view-click="viewClick">
-      <!-- 自定义操作按钮：查看进度（已提交、审核通过、审核不通过状态显示） -->
-      <template #rightOperate="{ row }">
-        <el-button v-if="row.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT || row.isAudit === CONSTANT.AUDIT_STATUS.PASS || row.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS" type="primary" size="small" title="查看进度" @click="viewClick(row)"><el-icon><View /></el-icon></el-button>
-      </template>
     </BaseList>
     <!-- 审核进度查看对话框 -->
     <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" />
@@ -25,7 +21,6 @@
 import { ref, reactive, computed } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { View } from '@element-plus/icons-vue';
 import moment from 'moment';
 import BaseList from '@/views/master-page/BaseList.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
@@ -77,7 +72,7 @@ const getVerifyRoleName = (row) => {
     { roleId: row.verifyThirdRoleId, roleName: row.verifyThirdRoleName },
     { roleId: row.verifyFourthRoleId, roleName: row.verifyFourthRoleName },
     { roleId: row.verifyFifthRoleId, roleName: row.verifyFifthRoleName }
-  ].filter(level => level.roleId); // 过滤掉空值
+  ].filter(level => level.roleId && level.roleId !== 17); // 过滤掉空值及旧版占位值 17
 
   // 返回第一个有值的角色名（当前记录对应的审核级别）
   if (levels.length > 0 && levels[0].roleName) {
@@ -200,8 +195,9 @@ const editClick = async (row) => {
 };
 
 // 查看进度按钮点击
-const viewClick = (row) => {
-  // 将当前行和所有相关记录传递给进度对话框
+// 注意：DataTableList 的内置 view 按钮通过 view([scope.row]) 传入数组，需要解包
+const viewClick = (rowOrArray) => {
+  const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
   currentRow.value = {
     ...row,
     _allRecords: row._allRecords || allRecordsMap.value.get(row.relationId) || [row],
@@ -309,7 +305,7 @@ const defaultProps = computed(() => ({
   defaultDTLProps: {
     initSearchWords: initSearchWords.value,
     defaultDTHProps: {
-      buttonProps: { create: { show: false }, update: { show: true }, delete: { show: false } },
+      buttonProps: { create: { show: false }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true }, delete: { show: false } },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyInternshipPlanProcess' },
       allTableColumns: [
         { id: 1, showName: '实习项目编号', theOrder: 1, tableColumnName: 'internshipCode' },

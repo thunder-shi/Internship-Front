@@ -17,7 +17,7 @@
  *
  * 注意：项目创建本身不涉及审核流程。
  * 审核发生在后续的具体流程中（如"实习计划制定"），
- * 由学生提交计划后，按照流程配置的审核要求进行审核。
+ * 提交计划后，按照流程配置的审核要求进行审核。
  */
 import { ref, computed, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';

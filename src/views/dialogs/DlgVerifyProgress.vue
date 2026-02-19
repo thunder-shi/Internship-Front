@@ -17,9 +17,7 @@
           <el-card shadow="never" class="timeline-card">
             <template #header>
               <div class="card-header">
-                <span class="step-title">
-                  第 {{ index + 1 }} 步 - {{ getStepRoleName(index + 1) }}
-                </span>
+                <span class="step-title">{{ getStepRoleName(getRecordLevel(index)) }}</span>
                 <el-tag :type="getStatusTagType(record.isAudit)" size="small">
                   {{ getStatusText(record.isAudit) }}
                 </el-tag>
@@ -248,6 +246,13 @@ const currentStatusType = computed(() => {
   }
   return 'info';
 });
+
+// 获取记录的实际审核等级（用已通过的记录数推算，而非数组下标）
+// 退回重提时新记录和原记录属于同一等级
+function getRecordLevel(index) {
+  const passCount = verifyRecords.value.slice(0, index).filter(r => r.isAudit === 1).length;
+  return passCount + 1;
+}
 
 // 获取步骤对应的角色名称
 function getStepRoleName(stepNumber) {
