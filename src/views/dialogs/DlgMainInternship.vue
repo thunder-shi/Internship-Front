@@ -77,7 +77,20 @@ const formItems = [
 
 const formRules = {
   name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],
-  majorIds: [{ required: true, message: '请选择专业', trigger: 'change' }]
+  majorIds: [
+    { 
+      required: true, 
+      message: '请选择专业', 
+      trigger: 'change',
+      validator: (rule, value, callback) => {
+        if (!value || (Array.isArray(value) && value.length === 0)) {
+          callback(new Error('请选择专业'));
+        } else {
+          callback();
+        }
+      }
+    }
+  ]
 };
 
 // DataTableList 的配置
@@ -205,6 +218,12 @@ function verifyValid(showMessage = true) {
  * 检查不通过时返回 false 阻止弹窗关闭
  */
 async function confirm(option, type) {
+  // 检查专业选择
+  if (!form.majorIds || (Array.isArray(form.majorIds) && form.majorIds.length === 0)) {
+    ElMessage.warning('请选择专业');
+    return false; // 阻止弹窗关闭
+  }
+
   // 检查"实习计划制定"流程
   const planProcess = processList.value.find(
     (p) => p.processTypeName === '实习计划制定'
