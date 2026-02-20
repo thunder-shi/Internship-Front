@@ -110,6 +110,7 @@ import { ElMessage } from 'element-plus';
 import listAPI from '@/api/list';
 import treeAPI from '@/api/tree';
 import CONSTANT from '@/utils/constant';
+import internshipProcessAPI from '@/api/internshipProcess';
 
 defineOptions({
   name: 'DlgNewPost',
@@ -530,6 +531,7 @@ const defaultProps = reactive({
   footButtons: {
     confirm: { show: true, name: '保 存', type: 'primary' },
     cancel: { show: true, name: '取 消', type: '' },
+    repeatAdd: { show: true, name: '提 交', type: 'warning' },
   },
   someFlags: {
     needValidate: true, // 启用表单校验
@@ -562,10 +564,37 @@ async function handleConfirm() {
       name: form.name || '',
       allPersonNum: form.allPersonNum,
       postTypeId: form.postTypeId
-    };
-
-    // 调用保存接口，保存到 MainInternshipPost 表
+    };    // 调用保存接口，保存到 MainInternshipPost 表
     const response = await listAPI.editOneNode('MainInternshipPost', saveData);
+
+    // 保存成功后，新增一条记录到 MainVerifyProcess 表
+    if (response && response.message === 'successful' && response.data && response.data.id) {
+      const activateParams = {
+        processId: props.currentInternship?.id,
+        relationId: response.data.id, // 新增数据的返回id
+        tableName: 'MainInternshipPost',
+        createUserId: store.getters.userInfo?.id // 当前操作用户的id
+      };
+      // 先查询 MainVerifyProcess 表，检查是否存在相同记录
+      try {
+        const queryRes = await listAPI.getSomeRecords({
+          keyWords: 'MainVerifyProcess',
+          searchKey: {
+            processId: activateParams.processId,
+            relationId: activateParams.relationId,
+            tableName: activateParams.tableName
+          }
+        });
+        // 获取查询结果
+        const existingRecords = queryRes?.data?.records || queryRes?.data?.content || [];
+        // 如果不存在记录，才执行激活流程
+        if (existingRecords.length == 0) {
+          await internshipProcessAPI.activateProcess(activateParams);
+        }
+      } catch (error) {
+        console.error('查询 MainVerifyProcess 失败:', error);
+      }
+    }
 
     if (response && response.data) {
       ElMessage.success('保存成功');

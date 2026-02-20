@@ -58,7 +58,15 @@ const PROCESS_TYPE = Object.freeze({
   EXTERNAL_ENTERPRISE_ASSIGN_TUTOR: 'EXTERNAL_ENTERPRISE_ASSIGN_TUTOR' // 校外实习-企业分配指导老师
 })
 
-
+// 审核级别
+const VERIFY_LEVEL = Object.freeze({
+  NO_VERIFY: 1,      // 无需审核
+  ONE_VERIFY: 2,     // 一级审核
+  TWO_VERIFYS: 3,    // 二级审核
+  THREE_VERIFYS: 4,  // 三级审核
+  FOUR_VERIFYS: 5,   // 四级审核
+  FIVE_VERIFYS: 6    // 五级审核
+})
 
 // 文件类型
 const FILE_TYPE = Object.freeze({
@@ -83,6 +91,7 @@ export default Object.freeze({
   SPLIT_OPERATOR,
   ROLE_TABLE,
   PROCESS_TYPE,
+  VERIFY_LEVEL,
   FILE_MAX_SIZE,
   IMAGE_MAX_SIZE,
   REMARKS_MAX_LENGTH,

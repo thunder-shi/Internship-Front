@@ -1,5 +1,5 @@
 <template>
-  <SimpleDialog ref="simpleDialogRef" :default-props="defaultProps" :simpledialog-confirm="confirm" @simple-select-change="onSimpleSelectChange" />
+  <SimpleDialog ref="simpleDialogRef" :default-props="defaultProps" :simpledialog-confirm="confirm" @simple-select-change="onSimpleSelectChange" @simple-select-init-finish="onSimpleSelectInitFinish" />
 </template>
 
 <script setup>
@@ -19,6 +19,9 @@ const props = defineProps({
 
 // 存储整行数据（ViewRelProcessInternship 或 ViewRelProcessInternshipType）
 const fullRowData = ref(null);
+
+// 存储审核要求选项信息（用于获取 code 字段）
+const verifyTypeOption = ref(null);
 
 const store = useStore();
 const emit = defineEmits(['update-record', 'close-dialog']);
@@ -140,10 +143,33 @@ function updateVerifyRoleFields(verifyTypeId, form, clearValues = true) {
 }
 
 // 监听下拉框变化
-function onSimpleSelectChange(val, field, form) {
+function onSimpleSelectChange(val, field, form, options) {
   if (field === 'verifyTypeId') {
+    // 保存选中的审核要求选项信息（用于获取 code 字段）
+    if (options && options.length > 0) {
+      verifyTypeOption.value = options[0]; // 单选模式下，options 是数组，取第一个
+    } else {
+      verifyTypeOption.value = null;
+    }
     // 初始化时不清空已有值，用户主动修改时才清空
     updateVerifyRoleFields(val, form, !isInitializing);
+  }
+}
+
+// 监听下拉框初始化完成事件
+function onSimpleSelectInitFinish(field, options) {
+  if (field === 'verifyTypeId' && options && options.length > 0) {
+    // 如果当前有选中的值，找到对应的选项并保存
+    const formPanelRef = simpleDialogRef.value?.formPanelRef;
+    if (formPanelRef && formPanelRef.form) {
+      const currentValue = formPanelRef.form.verifyTypeId;
+      if (currentValue != null) {
+        const matchedOption = options.find(opt => opt.id === currentValue);
+        if (matchedOption) {
+          verifyTypeOption.value = matchedOption;
+        }
+      }
+    }
   }
 }
 
@@ -185,7 +211,8 @@ function showDialog(val, formData = {}, rowData = null) {
   }
 }
 
-async function confirm(option, type, form) {
+// 保存流程数据
+async function saveProcessData(form) {
   // 先进行表单验证
   const formPanelRef = simpleDialogRef.value?.formPanelRef;
   if (formPanelRef) {
@@ -193,21 +220,14 @@ async function confirm(option, type, form) {
       await formPanelRef.validate();
     } catch (error) {
       // 表单验证失败，不继续执行
-      return;
+      return null;
     }
   }
   // 验证流程时间
   if (!validateProcessTime(form)) {
-    return;
+    return null;
   }
-
-  // 确保隐藏的字段值为 17
-  verifyRoleFields.forEach((roleConfig) => {
-    const formItem = defaultProps.formItems.find(item => item.field === roleConfig.field);
-    if (formItem && formItem.hidden) {
-      form[roleConfig.field] = 17;
-    }
-  });
+  
   // 将 internshipTypeId 或 internshipId 添加到表单数据中
   const saveData = {
     ...form,
@@ -232,6 +252,20 @@ async function confirm(option, type, form) {
   }
   // 根据模式确定要使用的 keyWord
   const keyWord = isInternshipMode() ? 'RelProcessInternship' : 'RelProcessInternshipType';
+  
+  // 根据审核要求设置 currentVerifyTypeId
+  // 如果审核要求的 code 是"NO_VERIFY"（无需审核），则 currentVerifyTypeId = 1；否则 = 2
+  if (keyWord === 'RelProcessInternship') {
+    let verifyTypeCode = null;
+    if (verifyTypeOption.value && verifyTypeOption.value.code) {
+      verifyTypeCode = verifyTypeOption.value.code;
+      if (verifyTypeCode === 'NO_VERIFY') {
+        saveData.currentVerifyTypeId = 1;
+      } else {
+        saveData.currentVerifyTypeId = 2;
+      }
+    }
+  }
 
   try {
     // 直接调用 API 保存，等待保存完成后再关闭对话框
@@ -240,48 +274,67 @@ async function confirm(option, type, form) {
       const isEdit = saveData.id != null && saveData.id !== 0;
       // 显示成功消息
       ElMessage.success(isEdit ? '修改成功！' : '新增成功！');
-      // 激活时间范围内的流程（只有当前流程是"实习计划制定"且是实习项目模式时才执行）
-      if (fullRowData.value?.processTypeCode === constant.PROCESS_TYPE.INTERNSHIP_PLAN_MAKE && keyWord === 'RelProcessInternship') {
-        const activateParams = {
-          processId: fullRowData.value?.id,
-          relationId: saveData.internshipId,
-          tableName: 'MainInternship',
-          createUserId: store.getters.userInfo?.id
-        };
-        
-        // 先查询 MainVerifyProcess 表，检查是否存在相同记录
-        try {
-          const queryRes = await listAPI.getSomeRecords({
-            keyWords: 'MainVerifyProcess',
-            searchKey: {
-              processId: activateParams.processId,
-              relationId: activateParams.relationId,
-              tableName: activateParams.tableName
-            }
-          });
-          // 获取查询结果
-          const existingRecords = queryRes?.data?.records || queryRes?.data?.content || [];
-          // 如果不存在记录，才执行激活流程
-          if (existingRecords.length == 0) {
-            await internshipProcessAPI.activateProcess(activateParams);
-          }
-        } catch (error) {
-          console.error('查询 MainVerifyProcess 失败:', error);
-          // 查询失败时可以选择是否继续执行，这里选择不执行激活流程
-        }
-      }
-      // 保存成功后，触发更新事件，让父组件刷新列表
-      emit('update-record', saveData);
-      // 关闭对话框
-      if (type === 'stop') {
-        simpleDialogRef.value?.showDialog(false, form);
-      }
+      return { success: true, saveData, keyWord, resInfo };
     } else {
       ElMessage.warning(resInfo?.message || '保存失败');
+      return { success: false };
     }
   } catch (error) {
     // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('保存流程数据失败:', error);
+    return { success: false };
+  }
+}
+
+// 处理激活流程操作
+async function handleActivateProcess(saveData, keyWord) {
+  // 激活时间范围内的流程（只有当前流程是"实习计划制定"且是实习项目模式时才执行）
+  if (fullRowData.value?.processTypeCode === constant.PROCESS_TYPE.INTERNSHIP_PLAN_MAKE && keyWord === 'RelProcessInternship') {
+    const activateParams = {
+      processId: fullRowData.value?.id,
+      relationId: saveData.internshipId,
+      tableName: 'MainInternship',
+      createUserId: store.getters.userInfo?.id
+    };
+    
+    // 先查询 MainVerifyProcess 表，检查是否存在相同记录
+    try {
+      const queryRes = await listAPI.getSomeRecords({
+        keyWords: 'MainVerifyProcess',
+        searchKey: {
+          processId: activateParams.processId,
+          relationId: activateParams.relationId,
+          tableName: activateParams.tableName
+        }
+      });
+      // 获取查询结果
+      const existingRecords = queryRes?.data?.records || queryRes?.data?.content || [];
+      // 如果不存在记录，才执行激活流程
+      if (existingRecords.length == 0) {
+        await internshipProcessAPI.activateProcess(activateParams);
+      }
+    } catch (error) {
+      console.error('查询 MainVerifyProcess 失败:', error);
+      // 查询失败时可以选择是否继续执行，这里选择不执行激活流程
+    }
+  }
+}
+
+async function confirm(option, type, form) {
+  // 第一步：保存流程数据
+  const saveResult = await saveProcessData(form);
+  if (!saveResult || !saveResult.success) {
+    return;
+  }
+
+  // 第二步：处理激活流程操作
+  await handleActivateProcess(saveResult.saveData, saveResult.keyWord);
+
+  // 保存成功后，触发更新事件，让父组件刷新列表
+  emit('update-record', saveResult.saveData);
+  // 关闭对话框
+  if (type === 'stop') {
+    simpleDialogRef.value?.showDialog(false, form);
   }
 }
 

@@ -125,9 +125,7 @@ const tableListProps = reactive({
 });
 
 // 监听表单变化，更新按钮状态
-watch(
-  form,
-  () => {
+watch( form, () => {
     // 如果正在初始化，不触发验证（避免误判为数据已修改）
     if (!isInitializing.value) {
       verifyValid(false);

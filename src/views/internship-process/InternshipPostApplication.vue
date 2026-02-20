@@ -236,35 +236,35 @@ const defaultProps = reactive({
       keyWord: { edit: 'MainInternshipPost', view: 'ViewMainInternshipPost' },
       allTableColumns: [
         { id: 1, showName: '企业名称', tableColumnName: 'companyName', sortable: true },
-        { id: 2, showName: '岗位类型', tableColumnName: 'companyName', sortable: true },
-        { id: 3, showName: '岗位人数', tableColumnName: 'personNum', sortable: true },
-        { id: 4, showName: '申报状态', tableColumnName: 'status', sortable: true },
-        { id: 5, showName: '申报时间', tableColumnName: 'applicationTime', sortable: true },
+        { id: 2, showName: '岗位类型', tableColumnName: 'postTypeName', sortable: true },
+        { id: 3, showName: '岗位编码', tableColumnName: 'code', sortable: true },
+        { id: 4, showName: '岗位名称', tableColumnName: 'name', sortable: true },
+        { id: 5, showName: '岗位人数', tableColumnName: 'allPersonNum', sortable: true },
       ],
     },
     defaultDBIProps: {},
   },
-  defaultSDProps: {
-    keyWord: 'InternshipPostApplication',
-    dlgTitle: '实习项目选择',
-    formItems: [
-      { name: '岗位名称', field: 'postName', type: 'input' },
-      { name: '企业名称', field: 'companyId', type: 'select', keyWords: 'BaseDepartment', searchKeys: { typeId: 1 } },
-      { name: '岗位人数', field: 'personNum', type: 'input' },
-      { name: '岗位描述', field: 'description', type: 'textarea' },
-      { name: '备注', field: 'remarks', type: 'textarea' },
-    ],
-    formRules: {
-      postName: [{ required: true, message: '岗位名称不能为空', trigger: 'blur' }],
-      companyId: [{ required: true, message: '企业名称不能为空', trigger: 'blur' }],
-      personNum: [{ required: true, message: '岗位人数不能为空', trigger: 'blur' }],
-    },
-    defaultDBProps: {
-      dialog: {},
-    },
-  },
-  defaultDBIProps: {
-    keyWords: 'InternshipPostApplication',
-  },
+  // defaultSDProps: {
+  //   keyWord: 'InternshipPostApplication',
+  //   dlgTitle: '实习项目选择',
+  //   formItems: [
+  //     { name: '岗位名称', field: 'postName', type: 'input' },
+  //     { name: '企业名称', field: 'companyId', type: 'select', keyWords: 'BaseDepartment', searchKeys: { typeId: 1 } },
+  //     { name: '岗位人数', field: 'personNum', type: 'input' },
+  //     { name: '岗位描述', field: 'description', type: 'textarea' },
+  //     { name: '备注', field: 'remarks', type: 'textarea' },
+  //   ],
+  //   formRules: {
+  //     postName: [{ required: true, message: '岗位名称不能为空', trigger: 'blur' }],
+  //     companyId: [{ required: true, message: '企业名称不能为空', trigger: 'blur' }],
+  //     personNum: [{ required: true, message: '岗位人数不能为空', trigger: 'blur' }],
+  //   },
+  //   defaultDBProps: {
+  //     dialog: {},
+  //   },
+  // },
+  // defaultDBIProps: {
+  //   keyWords: 'InternshipPostApplication',
+  // },
 });
 </script>
