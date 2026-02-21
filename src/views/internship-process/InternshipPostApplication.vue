@@ -1,20 +1,25 @@
 <template>
-  <BaseList :default-props="defaultProps" ref="baseListRef" @more1-click="handleMore1Click" @append-click="handleAppendClick" />
+  <BaseList :default-props="defaultProps" ref="baseListRef" @more1-click="handleMore1Click" @append-click="handleAppendClick" @edit-click="handleEditClick" @delete-click="handleDeleteClick" @view-click="handleViewClick" />
   <!-- 实习项目选择对话框 -->
   <SimpleDialog ref="projectSelectDialog" :default-props="projectSelectDialogProps" :simpledialog-confirm="handleProjectSelectConfirm" @simple-select-change="handleInternshipSelectChange" />
-  <!-- 新增岗位对话框 -->
-  <DlgNewPost ref="dlgNewPost" :current-internship="currentInternship" @close-dialog="handleNewPostClose" @success="handleNewPostSuccess" />
+  <!-- 岗位详情对话框（新增/编辑） -->
+  <DlgPostDetail ref="dlgPostDetail" :current-internship="currentInternship" @close-dialog="handlePostDetailClose" @success="handlePostDetailSuccess" />
+  <!-- 审核进度查看对话框 -->
+  <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" key-words="ViewVerifyProcessInternshipPost" />
 </template>
 
 <script setup>
 import { reactive, ref, computed, nextTick, onMounted } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import _ from 'lodash';
+import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
-import DlgNewPost from './components/DlgNewPost.vue';
+import DlgPostDetail from './components/DlgPostDetail.vue';
+import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import CONSTANT from '@/utils/constant';
 import internshipProcessAPI from '@/api/internshipProcess';
+import listAPI from '@/api/list';
 import { formatDate } from '@/utils/common';
 
 defineOptions({
@@ -23,13 +28,40 @@ defineOptions({
 
 const baseListRef = ref(null);
 const projectSelectDialog = ref(null);
-const dlgNewPost = ref(null);
+const dlgPostDetail = ref(null);
+
+// Vuex store
+const store = useStore();
+
+// 当前操作的行数据（用于查看进度）
+const currentRow = ref({});
+
+// 审核进度对话框显示状态
+const showProgressDialog = ref(false);
 
 // 当前选中的实习项目信息（深拷贝整个对象）
 const currentInternship = ref(null);
 
 // 是否禁用"实习项目选择"按钮
 const isMore1Disabled = ref(false);
+
+// 获取用户信息和角色
+const userInfo = computed(() => store.getters.userInfo || {});
+const roles = computed(() => store.getters.roles || []);
+
+// 判断是否是企业用户（企业管理员或企业导师）
+const isCompanyUser = computed(() => {
+  return roles.value.some(role => 
+    role === CONSTANT.ROLE_TABLE.COMPANY_ADMIN || role === CONSTANT.ROLE_TABLE.COMPANY_TUTOR
+  );
+});
+
+// 查询关键字（nowSearchWords）
+const nowSearchWords = reactive({
+  searchKey: {},
+  regKey: {},
+  andor: {}
+});
 
 // 处理 select_noremote 类型的选择变化
 function handleSelectChange(item, val, form) {
@@ -82,6 +114,66 @@ function generateTitleWithDate(internship) {
   return `当前实习项目：${name}`;
 }
 
+// 更新查询条件并刷新列表
+async function updateSearchWordsAndRefresh() {
+  // 获取实习项目的 internshipId
+  const internshipId = currentInternship.value?.internshipId;
+  
+  if (!internshipId) {
+    console.warn('updateSearchWordsAndRefresh: 没有找到实习项目 ID', currentInternship.value);
+    return;
+  }
+
+  // 构建查询条件
+  const searchKey = {
+    internshipId: internshipId
+  };
+
+  // 如果是企业用户，添加 createUserId 条件
+  if (isCompanyUser.value && userInfo.value?.id) {
+    searchKey.createUserId = userInfo.value.id;
+  }
+
+  // 更新 nowSearchWords（先清空再设置，确保响应式更新）
+  // 清空旧的查询条件
+  Object.keys(nowSearchWords.searchKey).forEach(key => {
+    delete nowSearchWords.searchKey[key];
+  });
+  // 设置新的查询条件
+  Object.assign(nowSearchWords.searchKey, searchKey);
+  
+  console.log('updateSearchWordsAndRefresh: 查询条件已更新', nowSearchWords.searchKey);
+
+  // 刷新数据列表（确保响应式更新完成后再调用）
+  // 使用 setTimeout 延迟，确保 DataTableList 能够检测到 nowSearchWords 的变化
+  await nextTick();
+  await nextTick(); // 再等待一个 tick，确保响应式更新完成
+  
+  setTimeout(() => {
+      console.log('updateSearchWordsAndRefresh: 准备刷新，baseListRef.value =', baseListRef.value);
+      if (baseListRef.value) {
+        console.log('updateSearchWordsAndRefresh: 开始刷新数据列表');
+        try {
+          baseListRef.value.initDataList(true); // 传递 true 表示手动刷新
+          console.log('updateSearchWordsAndRefresh: initDataList 调用成功');
+        } catch (error) {
+          console.error('updateSearchWordsAndRefresh: initDataList 调用失败', error);
+        }
+      } else {
+        console.warn('updateSearchWordsAndRefresh: baseListRef 尚未准备好，尝试延迟重试');
+        // 如果 baseListRef 还没准备好，再延迟重试
+        setTimeout(() => {
+          if (baseListRef.value) {
+            console.log('updateSearchWordsAndRefresh: 延迟重试，开始刷新数据列表');
+            baseListRef.value.initDataList(true); // 传递 true 表示手动刷新
+          } else {
+            console.error('updateSearchWordsAndRefresh: 延迟重试后 baseListRef 仍然未准备好');
+          }
+        }, 500);
+      }
+  }, 200); // 增加延迟时间到 200ms
+}
+
 // 处理实习项目选择变化
 // 注意：SimpleDialog 传递的参数是 (val, field, form, options)
 // 这里只保存选中的值，不更新 title（title 只在保存时更新）
@@ -115,11 +207,8 @@ async function handleProjectSelectConfirm(option, type, form) {
     await nextTick();
   }
   
-  // 保存成功后，加载数据列表
-  if (currentInternship.value?.id) {
-    await nextTick();
-    baseListRef.value?.initDataList();
-  }
+  // 更新查询条件并刷新列表
+  updateSearchWordsAndRefresh();
   
   // 返回 true 表示保存成功，允许关闭对话框
   return true;
@@ -127,22 +216,133 @@ async function handleProjectSelectConfirm(option, type, form) {
 
 // 处理新增按钮点击
 function handleAppendClick() {
-  if (!currentInternship.value || !currentInternship.value.id) {
+  if (!currentInternship.value || !currentInternship.value.internshipId) {
     ElMessage.warning('请先选择实习项目');
     return;
   }
-  dlgNewPost.value?.showDialog(true, {});
+  dlgPostDetail.value?.showDialog(true, {});
 }
 
-// 处理新增岗位对话框关闭
-function handleNewPostClose() {
+// 处理修改按钮点击
+function handleEditClick(row) {
+  // 从当前行数据中提取实习项目信息，如果行数据中有则使用，否则使用已有的currentInternship
+  let internshipInfo = currentInternship.value;
+  
+  // 如果当前行包含实习项目信息，优先使用行数据中的信息
+  if (row && (row.internshipId || row.internshipName)) {
+    internshipInfo = {
+      ...currentInternship.value,
+      internshipId: row.internshipId || currentInternship.value?.internshipId,
+      internshipName: row.internshipName || currentInternship.value?.internshipName,
+      name: row.internshipName || currentInternship.value?.name,
+      id: row.internshipId || currentInternship.value?.id,
+      majorIds: row.majorIds || currentInternship.value?.majorIds,
+      majorNames: row.majorNames || currentInternship.value?.majorNames,
+      startTime: row.startTime || currentInternship.value?.startTime,
+      endTime: row.endTime || currentInternship.value?.endTime,
+      companyName: row.companyName || currentInternship.value?.companyName, // 添加企业名称
+      companyId: row.companyId || currentInternship.value?.companyId // 添加企业ID
+    };
+  }
+  
+  if (!internshipInfo || !internshipInfo.internshipId) {
+    ElMessage.warning('请先选择实习项目');
+    return;
+  }
+  
+  // 更新currentInternship为从行数据中提取的信息
+  currentInternship.value = _.cloneDeep(internshipInfo);
+  
+  // 将当前行数据传入对话框
+  // row 可能包含 postId 或 relationId（MainInternshipPost 表的主键）
+  dlgPostDetail.value?.showDialog(true, {}, row);
+}
+
+// 处理岗位详情对话框关闭
+function handlePostDetailClose() {
   // 可以在这里处理关闭后的逻辑
 }
 
-// 处理新增岗位成功
-function handleNewPostSuccess() {
+// 处理岗位详情保存成功
+function handlePostDetailSuccess() {
   // 刷新数据列表
-  baseListRef.value?.initDataList();
+  baseListRef.value?.initDataList(true);
+}
+
+// 查看进度按钮点击
+// 注意：DataTableList 的内置 view 按钮通过 view([scope.row]) 传入数组，需要解包
+function handleViewClick(rowOrArray) {
+  const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
+  currentRow.value = {
+    ...row,
+    // 这里可以根据需要添加其他字段
+  };
+  showProgressDialog.value = true;
+}
+
+// 处理删除按钮点击
+async function handleDeleteClick(rows) {
+  // 将 rows 转换为数组
+  const rowsToDelete = Array.isArray(rows) ? rows : [rows];
+  
+  if (!rowsToDelete || rowsToDelete.length === 0) {
+    ElMessage.warning('请选择要删除的记录');
+    return;
+  }
+
+  // 1. 检查状态：只有"待提交"（-1）或"审核退回"（3）状态的项目才可以删除
+  const invalidRows = rowsToDelete.filter(row => {
+    const isAudit = row.isAudit;
+    return isAudit !== CONSTANT.AUDIT_STATUS.SAVE;
+  });
+
+  if (invalidRows.length > 0) {
+    ElMessage.warning('只能删除"待提交"状态的记录');
+    return;
+  }
+
+  try {
+    // 收集需要删除的 ID
+    const verifyProcessIds = []; // MainVerifyProcess 表的 id
+    const internshipPostIds = []; // MainInternshipPost 表的 id（relationId）
+
+    rowsToDelete.forEach(row => {
+      if (row.id) {
+        verifyProcessIds.push(row.id);
+      }
+      // postId 或 relationId 是 MainInternshipPost 表的主键
+      // 优先使用 postId，如果没有则使用 relationId
+      const postId = row.postId || row.relationId;
+      if (postId) {
+        internshipPostIds.push(postId);
+      }
+    });
+
+    // 2. 先删除 MainVerifyProcess 表中的记录（流程表）
+    if (verifyProcessIds.length > 0) {
+      const deleteVerifyProcessRes = await listAPI.delOneOrManyNodes('MainVerifyProcess', verifyProcessIds);
+      if (!deleteVerifyProcessRes || deleteVerifyProcessRes.message !== 'successful') {
+        ElMessage.error(deleteVerifyProcessRes?.message || '删除流程记录失败');
+        return;
+      }
+    }
+
+    // 3. 再删除 MainInternshipPost 表中的记录（岗位表）
+    if (internshipPostIds.length > 0) {
+      const deletePostRes = await listAPI.delOneOrManyNodes('MainInternshipPost', internshipPostIds);
+      if (!deletePostRes || deletePostRes.message !== 'successful') {
+        ElMessage.error(deletePostRes?.message || '删除岗位记录失败');
+        return;
+      }
+    }
+    ElMessage.success('删除成功');
+    // 刷新数据列表（强制刷新）
+    await nextTick();
+    baseListRef.value?.initDataList(true);
+  } catch (error) {
+    console.error('删除失败:', error);
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
+  }
 }
 
 // 处理 more1 按钮点击事件（实习项目选择）
@@ -200,9 +400,11 @@ async function initInternshipList() {
         currentInternship.value = _.cloneDeep(internshipList[0]);
         titleObj.mainTitle = generateTitleWithDate(currentInternship.value);
         isMore1Disabled.value = false; // 确保按钮启用
-        // 加载数据列表
+        // 等待 DOM 更新和 baseListRef 准备就绪
         await nextTick();
-        baseListRef.value?.initDataList();
+        // 再等待一个 tick，确保 BaseList 组件已经完全初始化
+        await nextTick();
+        await updateSearchWordsAndRefresh();
       } else {
         // 返回多条：显示待选择
         titleObj.mainTitle = '当前实习项目：待选择';
@@ -226,45 +428,36 @@ const defaultProps = reactive({
     someFlags: {
       autoInit: false, // 初始时不自动加载数据
     },
+    nowSearchWords: nowSearchWords, // 动态查询关键字
+    // 启用审核状态自定义显示
+    enableAuditStatusCustom: true,
     defaultDTHProps: {
       buttonProps: computed(() => ({
         update: { show: true },
-        create: { show: true, disabled: !currentInternship.value || !currentInternship.value.id },
-        delete: { show: true },
+        create: { show: true, disabled: !currentInternship.value || !currentInternship.value.internshipId },
+        delete: { show: true }, // 显示删除按钮，删除时会有校验
+        visible: { show: true, type: 'primary', name: '查看进度' }, // 添加查看进度按钮
         more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value }
       })),
-      keyWord: { edit: 'MainInternshipPost', view: 'ViewMainInternshipPost' },
+      // 按钮条件：根据审核状态控制按钮显示
+      buttonCondition: {
+        update: (row) => {
+          const isAudit = row?.isAudit;
+          // 只有待提交(SAVE=-1)、审核退回(BACK=3)或未设置状态时可以修改
+          return isAudit === null || isAudit === undefined || isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
+        }
+      },
+      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipPost' },
       allTableColumns: [
         { id: 1, showName: '企业名称', tableColumnName: 'companyName', sortable: true },
-        { id: 2, showName: '岗位类型', tableColumnName: 'postTypeName', sortable: true },
-        { id: 3, showName: '岗位编码', tableColumnName: 'code', sortable: true },
-        { id: 4, showName: '岗位名称', tableColumnName: 'name', sortable: true },
-        { id: 5, showName: '岗位人数', tableColumnName: 'allPersonNum', sortable: true },
+        { id: 2, showName: '岗位编码', tableColumnName: 'postCode', sortable: true },
+        { id: 3, showName: '岗位名称', tableColumnName: 'postName', sortable: true },
+        { id: 4, showName: '岗位人数', tableColumnName: 'allPersonNum', sortable: true },
+        { id: 5, showName: '创建人', tableColumnName: 'createUserName' },
+        { id: 6, showName: '状态', tableColumnName: 'customize-status' }
       ],
     },
     defaultDBIProps: {},
-  },
-  // defaultSDProps: {
-  //   keyWord: 'InternshipPostApplication',
-  //   dlgTitle: '实习项目选择',
-  //   formItems: [
-  //     { name: '岗位名称', field: 'postName', type: 'input' },
-  //     { name: '企业名称', field: 'companyId', type: 'select', keyWords: 'BaseDepartment', searchKeys: { typeId: 1 } },
-  //     { name: '岗位人数', field: 'personNum', type: 'input' },
-  //     { name: '岗位描述', field: 'description', type: 'textarea' },
-  //     { name: '备注', field: 'remarks', type: 'textarea' },
-  //   ],
-  //   formRules: {
-  //     postName: [{ required: true, message: '岗位名称不能为空', trigger: 'blur' }],
-  //     companyId: [{ required: true, message: '企业名称不能为空', trigger: 'blur' }],
-  //     personNum: [{ required: true, message: '岗位人数不能为空', trigger: 'blur' }],
-  //   },
-  //   defaultDBProps: {
-  //     dialog: {},
-  //   },
-  // },
-  // defaultDBIProps: {
-  //   keyWords: 'InternshipPostApplication',
-  // },
+  }
 });
 </script>

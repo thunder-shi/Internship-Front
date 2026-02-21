@@ -1,9 +1,9 @@
 <template>
   <div class="build-internship-plan-container">
-    <BaseList :default-props="defaultProps" :button-condition="buttonCondition" :client-filter-fn="clientFilterFn" :enable-audit-status-custom="true" :get-verify-role-name="getVerifyRoleName" :baselist-confirm="handleSave" :baselist-submit="handleSubmit" ref="baseList" @edit-click="editClick" @view-click="viewClick">
+    <BaseList :default-props="defaultProps" :baselist-confirm="handleSave" :baselist-submit="handleSubmit" ref="baseList" @edit-click="editClick" @view-click="viewClick">
     </BaseList>
     <!-- 审核进度查看对话框 -->
-    <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" />
+    <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" key-words="ViewVerifyProcessInternship" />
   </div>
 </template>
 
@@ -304,6 +304,14 @@ const handleSubmit = async (form) => {
 const defaultProps = computed(() => ({
   defaultDTLProps: {
     initSearchWords: initSearchWords.value,
+    // 按钮条件配置
+    buttonCondition: buttonCondition,
+    // 客户端过滤函数
+    clientFilterFn: clientFilterFn,
+    // 启用审核状态自定义显示
+    enableAuditStatusCustom: true,
+    // 获取审核角色名称函数
+    getVerifyRoleName: getVerifyRoleName,
     defaultDTHProps: {
       buttonProps: { create: { show: false }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true }, delete: { show: false } },
       // keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyInternshipPlanProcess' },

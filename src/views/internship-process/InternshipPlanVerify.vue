@@ -1,6 +1,6 @@
 <template>
   <div class="internship-verify-container">
-    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" :client-filter-fn="clientFilterFn" @audit-click="handleAuditClick" />
+    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @audit-click="handleAuditClick" />
     <!-- 审核对话框 -->
     <DlgInternshipVerify ref="dlgInternshipVerify" @update-record="handleUpdateRecord" />
   </div>
@@ -117,6 +117,8 @@ onBeforeUnmount(() => {
 
 const defaultProps = reactive({
   defaultDTLProps: {
+    // 客户端过滤函数
+    clientFilterFn: clientFilterFn,
     defaultDTHProps: {
       buttonProps: { audit: { show: true, showPass: true, showNotPass: true, showBack: true } },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternship' },

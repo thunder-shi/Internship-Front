@@ -18,7 +18,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, useAttrs, getCurrentInstance } from 'vue';
+import { ref, reactive, computed, onMounted, useAttrs, getCurrentInstance } from 'vue';
 import DataTableList from '@/components/DataTableList.vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import { resetForm } from '@/utils/common';
@@ -54,6 +54,14 @@ const props = defineProps({
             allTableColumns: {},
             buttonProps: {},
           },
+          // 按钮条件配置：控制各按钮在不同行数据条件下的显示/隐藏
+          buttonCondition: undefined,
+          // 客户端过滤函数：在数据加载后进行前端过滤
+          clientFilterFn: undefined,
+          // 是否启用审核状态自定义显示（用于 customize-status 列）
+          enableAuditStatusCustom: false,
+          // 审核状态自定义显示函数：返回当前审核级别的角色名称
+          getVerifyRoleName: undefined,
         },
         defaultSDProps: {
           // defaultDBProps: {
@@ -63,7 +71,7 @@ const props = defineProps({
       };
     },
   },
-  // 按钮条件配置：控制各按钮在不同行数据条件下的显示/隐藏
+  // 向后兼容：保留单独的 props，但优先使用 defaultProps 中的值
   buttonCondition: {
     type: Object,
     default: () => ({})
@@ -74,11 +82,11 @@ const props = defineProps({
   checkRowEdit: { type: Function, default: null },
   checkRowDelete: { type: Function, default: null },
   searchPlaceholder: { type: String, default: '请输入名称' },
-  // 客户端过滤函数：在数据加载后进行前端过滤
+  // 向后兼容：保留单独的 props，但优先使用 defaultProps 中的值
   clientFilterFn: { type: Function, default: null },
-  // 是否启用审核状态自定义显示（用于 customize-status 列）
+  // 向后兼容：保留单独的 props，但优先使用 defaultProps 中的值
   enableAuditStatusCustom: { type: Boolean, default: false },
-  // 审核状态自定义显示函数：返回当前审核级别的角色名称
+  // 向后兼容：保留单独的 props，但优先使用 defaultProps 中的值
   getVerifyRoleName: { type: Function, default: null },
 });
 
@@ -111,9 +119,34 @@ const keyWord = reactive({ edit: '', view: '' });
 const treeInfo = reactive({});
 const searchName = ref('');
 
+// 从 defaultProps 中读取属性，如果没有则使用单独的 props（向后兼容）
+const buttonCondition = computed(() => {
+  return props.defaultProps?.defaultDTLProps?.buttonCondition !== undefined 
+    ? props.defaultProps.defaultDTLProps.buttonCondition 
+    : props.buttonCondition;
+});
 
-const initDataList = async () => {
-  dataTableList.value?.initDataList();
+const clientFilterFn = computed(() => {
+  return props.defaultProps?.defaultDTLProps?.clientFilterFn !== undefined 
+    ? props.defaultProps.defaultDTLProps.clientFilterFn 
+    : props.clientFilterFn;
+});
+
+const enableAuditStatusCustom = computed(() => {
+  return props.defaultProps?.defaultDTLProps?.enableAuditStatusCustom !== undefined 
+    ? props.defaultProps.defaultDTLProps.enableAuditStatusCustom 
+    : props.enableAuditStatusCustom;
+});
+
+const getVerifyRoleName = computed(() => {
+  return props.defaultProps?.defaultDTLProps?.getVerifyRoleName !== undefined 
+    ? props.defaultProps.defaultDTLProps.getVerifyRoleName 
+    : props.getVerifyRoleName;
+});
+
+
+const initDataList = async (manual = false) => {
+  dataTableList.value?.initDataList(manual);
 };
 
 // 当前行的改变
@@ -266,8 +299,8 @@ const submitMore = (row) => {
 };
 
 const handleUpdateRecord = (form) => {
-  // 先刷新列表
-  initDataList();
+  // 先刷新列表（手动刷新）
+  initDataList(true);
   // 然后触发事件给父组件
   emit('update-record', form);
 };
@@ -340,8 +373,8 @@ defineExpose({
     }
     try {
       await simpleDialog.value?._confirm(option, type, form);
-      // 只有成功时才刷新列表
-      initDataList();
+      // 只有成功时才刷新列表（手动刷新）
+      initDataList(true);
       return true;
     } catch (error) {
       // 如果失败，不刷新列表

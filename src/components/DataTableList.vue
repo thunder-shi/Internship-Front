@@ -1,5 +1,5 @@
 <template>
-  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns" :default-props="defaultProps.defaultDTHProps" :button-condition="buttonCondition" @init-click="refreshInit" @show-search="showSearchPanel" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
+  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns" :default-props="defaultDTHPropsWithButtonCondition" @init-click="refreshInit" @show-search="showSearchPanel" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
     <template #searchPanel>
       <!-- v-model="searchName" -->
       <slot name="searchPanel">
@@ -187,8 +187,8 @@ const formatCron = (cron) => {
 
 // 获取审核角色名称（用于审核状态显示）
 const getVerifyRoleNameText = (row) => {
-  if (props.getVerifyRoleName && typeof props.getVerifyRoleName === 'function') {
-    return props.getVerifyRoleName(row);
+  if (getVerifyRoleName.value && typeof getVerifyRoleName.value === 'function') {
+    return getVerifyRoleName.value(row);
   }
   // 默认逻辑：返回第一个有值的角色名
   const levels = [
@@ -349,6 +349,31 @@ const title = computed(() => {
   return props.defaultProps.title ? props.defaultProps.title : null;
 });
 
+// 从 defaultProps 中读取属性，如果没有则使用单独的 props（向后兼容）
+const buttonCondition = computed(() => {
+  return props.defaultProps?.buttonCondition !== undefined 
+    ? props.defaultProps.buttonCondition 
+    : props.buttonCondition;
+});
+
+const clientFilterFn = computed(() => {
+  return props.defaultProps?.clientFilterFn !== undefined 
+    ? props.defaultProps.clientFilterFn 
+    : props.clientFilterFn;
+});
+
+const enableAuditStatusCustom = computed(() => {
+  return props.defaultProps?.enableAuditStatusCustom !== undefined 
+    ? props.defaultProps.enableAuditStatusCustom 
+    : props.enableAuditStatusCustom;
+});
+
+const getVerifyRoleName = computed(() => {
+  return props.defaultProps?.getVerifyRoleName !== undefined 
+    ? props.defaultProps.getVerifyRoleName 
+    : props.getVerifyRoleName;
+});
+
 // 判断是否有卡片标题（用于控制是否显示 header）
 const hasCardTitle = computed(() => {
   // 检查是否有 cardTitle slot
@@ -366,14 +391,22 @@ const button = computed(() => {
   return dataTBLMother.value?.button;
 });
 
+// 将 buttonCondition 合并到 defaultDTHProps 中
+const defaultDTHPropsWithButtonCondition = computed(() => {
+  return {
+    ...props.defaultProps.defaultDTHProps,
+    buttonCondition: buttonCondition.value
+  };
+});
+
 // 判断按钮是否可见（基于行数据的条件判断）
 const isButtonVisible = (buttonName, row) => {
   // 如果没有配置条件函数，默认显示
-  if (!props.buttonCondition || !props.buttonCondition[buttonName]) {
+  if (!buttonCondition.value || !buttonCondition.value[buttonName]) {
     return true;
   }
   // 调用条件函数判断是否显示
-  const conditionFn = props.buttonCondition[buttonName];
+  const conditionFn = buttonCondition.value[buttonName];
   if (typeof conditionFn === 'function') {
     return conditionFn(row);
   }
@@ -748,8 +781,8 @@ const _initDataList = async () => {
     }
 
     // 应用客户端过滤函数（如果有）
-    if (props.clientFilterFn && typeof props.clientFilterFn === 'function') {
-      sortedContent = props.clientFilterFn(sortedContent);
+    if (clientFilterFn.value && typeof clientFilterFn.value === 'function') {
+      sortedContent = clientFilterFn.value(sortedContent);
     }
 
     dataList.value = sortedContent;

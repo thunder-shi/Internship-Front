@@ -86,6 +86,11 @@ const props = defineProps({
   processInfo: {
     type: Object,
     default: () => ({})
+  },
+  // 查询使用的视图名称
+  keyWords: {
+    type: String,
+    default: 'ViewVerifyProcessInternship' // 默认值，保持向后兼容
   }
 });
 
@@ -352,14 +357,14 @@ async function loadVerifyProgress() {
 
   loading.value = true;
   try {
-    // 使用 ViewVerifyInternshipPlanProcess 视图查询审核记录
+    // 使用传入的 keyWords 视图查询审核记录
     // 优先使用 relationId 查询，因为同一个流程的多个审核级别共享同一个 relationId
     const searchKey = props.processInfo?.relationId
       ? { relationId: props.processInfo.relationId }
       : { internshipId: props.mainInternshipId };
 
     const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewVerifyInternshipPlanProcess',
+      keyWords: props.keyWords,
       pageInfo: { page: 1, size: 100 },
       searchKey,
       sort: { properties: 'id', direction: 'ASC' }

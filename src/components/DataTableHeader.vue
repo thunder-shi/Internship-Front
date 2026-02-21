@@ -92,9 +92,7 @@ const props = defineProps({
     },
   },
   selectedColumns: { type: Array, default: () => [] },
-  // 按钮条件配置：控制各按钮在不同行数据条件下的显示/隐藏
-  // 格式: { buttonName: (row) => boolean }
-  // 例如: { update: (row) => row.isAudit === -1 || row.isAudit === 2 }
+  // 向后兼容：保留单独的 props，但优先使用 defaultProps 中的值
   buttonCondition: {
     type: Object,
     default: () => ({})
@@ -139,6 +137,13 @@ const hasListener = (eventName) => {
   // 检查 vnode.props 中是否存在对应的事件监听器
   return instance?.vnode?.props?.[camelCaseName] !== undefined;
 };
+
+// 从 defaultProps 中读取属性，如果没有则使用单独的 props（向后兼容）
+const buttonCondition = computed(() => {
+  return props.defaultProps?.buttonCondition !== undefined 
+    ? props.defaultProps.buttonCondition 
+    : props.buttonCondition;
+});
 
 // computed 属性
 const keyWord = computed(() => {
@@ -312,11 +317,11 @@ function auditDropdownClick(selectedColumns) {
 // 检查按钮是否应该显示（基于 buttonCondition）
 function isButtonVisible(buttonName, row) {
   // 如果没有配置条件函数，默认显示
-  if (!props.buttonCondition || !props.buttonCondition[buttonName]) {
+  if (!buttonCondition.value || !buttonCondition.value[buttonName]) {
     return true;
   }
   // 调用条件函数判断是否显示
-  const conditionFn = props.buttonCondition[buttonName];
+  const conditionFn = buttonCondition.value[buttonName];
   if (typeof conditionFn === 'function') {
     return conditionFn(row);
   }

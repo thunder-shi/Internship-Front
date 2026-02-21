@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-confirm="handleConfirm" @close-dialog="handleCloseDialog">
+  <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-confirm="handleConfirm" :dlgbasic-spec-submit="handleSubmit" @close-dialog="handleCloseDialog">
     <template #mainForm>
       <el-form ref="formPanelRef" :model="form" :rules="formRules" label-width="120px">
         <el-row>
@@ -16,16 +16,19 @@
         </el-row>
         <el-row>
           <el-col :span="12">
-            <el-form-item label="单位部门：">
-              <!-- 如果是企业导师或企业管理员，显示label -->
-              <span v-if="isCompanyUser">{{ userDepartmentName || '--' }}</span>
-              <!-- 其他情况，显示树型选择框 -->
+            <el-form-item label="企业名称：">
+              <!-- 如果是企业导师或企业管理员，或者编辑模式，显示label -->
+              <span v-if="isCompanyUser || isEditMode">{{ displayDepartmentName || '--' }}</span>
+              <!-- 其他情况（新增模式且非企业用户），显示树型选择框 -->
               <SimpleTreeSelect v-else ref="departmentSelectRef" v-model="form.departmentId" key-words="BaseDepartment" :search-keys="{ typeId: 1 }" placeholder="请选择单位部门" @update-value="handleDepartmentChange" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="岗位类型：">
-              <SimpleSelect ref="postTypeSelectRef" v-model="form.postTypeId" key-words="ViewBasePostType" :search-key="postTypeSearchKey" :reg-key="postTypeRegKey" :auto-init="hasValidSchoolId" :disabled="!hasValidSchoolId" :client-filter-fn="postTypeClientFilterFn" placeholder="请选择岗位类型" @init-finish="handlePostTypeInitFinish" />
+              <!-- 编辑模式下显示label -->
+              <span v-if="isEditMode">{{ displayPostTypeName || '--' }}</span>
+              <!-- 新增模式下显示选择框 -->
+              <SimpleSelect v-else ref="postTypeSelectRef" v-model="form.postTypeId" key-words="ViewBasePostType" :search-key="postTypeSearchKey" :reg-key="postTypeRegKey" :auto-init="hasValidSchoolId" :disabled="!hasValidSchoolId" :client-filter-fn="postTypeClientFilterFn" placeholder="请选择岗位类型" @init-finish="handlePostTypeInitFinish" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -106,14 +109,15 @@ import { useStore } from 'vuex';
 import DlgBasic from '@/components/DlgBasic.vue';
 import SimpleTreeSelect from '@/components/SimpleTreeSelect.vue';
 import SimpleSelect from '@/components/SimpleSelect.vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import listAPI from '@/api/list';
 import treeAPI from '@/api/tree';
 import CONSTANT from '@/utils/constant';
 import internshipProcessAPI from '@/api/internshipProcess';
+import _ from 'lodash';
 
 defineOptions({
-  name: 'DlgNewPost',
+  name: 'DlgPostDetail',
 });
 
 const props = defineProps({
@@ -140,6 +144,15 @@ const store = useStore();
 const dlgBasicRef = ref(null);
 const formPanelRef = ref(null);
 const form = reactive({});
+
+// 是否为编辑模式
+const isEditMode = ref(false);
+// 当前编辑的岗位ID（MainInternshipPost表的主键）
+const currentPostId = ref(null);
+// 当前行数据（用于获取companyName等字段）
+const currentRowData = ref(null);
+// 当前行的审核状态
+const currentAuditStatus = ref(null);
 
 // 表单验证规则
 const formRules = reactive({
@@ -272,6 +285,23 @@ const selectedPostTypeInfo = ref(null);
 // 选中的单位名称
 const selectedDepartmentName = ref('');
 
+// 显示的单位部门名称（用于编辑模式）
+const displayDepartmentName = computed(() => {
+  if (isCompanyUser.value) {
+    return userDepartmentName.value;
+  }
+  // 编辑模式下，优先使用rowData中的companyName，其次使用currentInternship中的companyName
+  if (isEditMode.value) {
+    return currentRowData.value?.companyName || props.currentInternship?.companyName || selectedDepartmentName.value;
+  }
+  return selectedDepartmentName.value;
+});
+
+// 显示的岗位类型名称（用于编辑模式）
+const displayPostTypeName = computed(() => {
+  return selectedPostTypeInfo.value?.name || '';
+});
+
 // 获取当前年份
 function getCurrentYear() {
   return new Date().getFullYear();
@@ -296,8 +326,8 @@ async function handleDepartmentChange(val, field, nodes) {
     selectedDepartmentName.value = '';
   }
   
-  // 如果已选中岗位类型，重新生成岗位名称
-  if (form.postTypeId && selectedPostTypeInfo.value) {
+  // 如果已选中岗位类型，重新生成岗位名称（仅在新增模式下）
+  if (!isEditMode.value && form.postTypeId && selectedPostTypeInfo.value) {
     const generatedName = generatePostName();
     if (generatedName) {
       form.name = generatedName;
@@ -321,9 +351,11 @@ function generatePostName() {
 async function loadPostTypeInfo(postTypeId) {
   if (!postTypeId) {
     selectedPostTypeInfo.value = null;
-    // 清空具体岗位编码和名称
-    form.code = '';
-    form.name = '';
+    // 仅在新增模式下自动填充
+    if (!isEditMode.value) {
+      form.code = '';
+      form.name = '';
+    }
     return;
   }
   
@@ -338,26 +370,33 @@ async function loadPostTypeInfo(postTypeId) {
     if (response && response.data && response.data.content && response.data.content.length > 0) {
       selectedPostTypeInfo.value = response.data.content[0];
       
-      // 自动填充具体岗位编码（从岗位类型编码）
-      if (selectedPostTypeInfo.value.code) {
-        form.code = selectedPostTypeInfo.value.code;
-      }
-      
-      // 自动生成具体岗位名称
-      const generatedName = generatePostName();
-      if (generatedName) {
-        form.name = generatedName;
+      // 仅在新增模式下自动填充
+      if (!isEditMode.value) {
+        // 自动填充具体岗位编码（从岗位类型编码）
+        if (selectedPostTypeInfo.value.code) {
+          form.code = selectedPostTypeInfo.value.code;
+        }
+        
+        // 自动生成具体岗位名称
+        const generatedName = generatePostName();
+        if (generatedName) {
+          form.name = generatedName;
+        }
       }
     } else {
       selectedPostTypeInfo.value = null;
-      form.code = '';
-      form.name = '';
+      if (!isEditMode.value) {
+        form.code = '';
+        form.name = '';
+      }
     }
   } catch (error) {
     console.error('加载岗位类型信息失败:', error);
     selectedPostTypeInfo.value = null;
-    form.code = '';
-    form.name = '';
+    if (!isEditMode.value) {
+      form.code = '';
+      form.name = '';
+    }
   }
 }
 
@@ -470,8 +509,8 @@ function handlePostTypeInitFinish(field, options) {
 watch(() => form.departmentId, async (newVal, oldVal) => {
   if (!isCompanyUser.value) {
     if (newVal) {
-      // 如果单位部门变化了，清空之前选中的岗位类型
-      if (oldVal !== undefined && oldVal !== null && oldVal !== newVal) {
+      // 如果单位部门变化了，清空之前选中的岗位类型（仅在新增模式下）
+      if (!isEditMode.value && oldVal !== undefined && oldVal !== null && oldVal !== newVal) {
         form.postTypeId = null;
       }
       // 查询单位名称
@@ -493,7 +532,9 @@ watch(() => form.departmentId, async (newVal, oldVal) => {
       // 如果清空了选择，清空查询条件和岗位类型
       postTypeSearchKey.value = {};
       postTypeRegKey.value = {};
-      form.postTypeId = null;
+      if (!isEditMode.value) {
+        form.postTypeId = null;
+      }
       selectedDepartmentName.value = '';
     }
   }
@@ -506,8 +547,8 @@ watch(() => {
 }, async (newVal, oldVal) => {
   if (isCompanyUser.value) {
     if (newVal) {
-      // 如果schoolId变化了，清空之前选中的岗位类型
-      if (oldVal !== undefined && oldVal !== null && oldVal !== newVal) {
+      // 如果schoolId变化了，清空之前选中的岗位类型（仅在新增模式下）
+      if (!isEditMode.value && oldVal !== undefined && oldVal !== null && oldVal !== newVal) {
         form.postTypeId = null;
       }
       // 企业用户的单位名称从 userDepartmentName 获取
@@ -517,7 +558,9 @@ watch(() => {
       // 如果没有schoolId，清空查询条件和岗位类型
       postTypeSearchKey.value = {};
       postTypeRegKey.value = {};
-      form.postTypeId = null;
+      if (!isEditMode.value) {
+        form.postTypeId = null;
+      }
       selectedDepartmentName.value = '';
     }
   }
@@ -525,28 +568,37 @@ watch(() => {
 
 // 对话框配置
 const defaultProps = reactive({
-  dlgTitle: '新增实习岗位',
+  dlgTitle: computed(() => isEditMode.value ? '编辑实习岗位' : '新增实习岗位'),
   width: '50%',
   formRules: formRules,
-  footButtons: {
-    confirm: { show: true, name: '保 存', type: 'primary' },
-    cancel: { show: true, name: '取 消', type: '' },
-    repeatAdd: { show: true, name: '提 交', type: 'warning' },
-  },
+  footButtons: computed(() => {
+    // 判断是否可以编辑：只有待提交(SAVE=-1)或审核退回(BACK=3)状态可以编辑
+    const canEdit = currentAuditStatus.value === null || 
+                 currentAuditStatus.value === undefined || 
+                 currentAuditStatus.value === CONSTANT.AUDIT_STATUS.SAVE || 
+                 currentAuditStatus.value === CONSTANT.AUDIT_STATUS.BACK;
+    
+    return {
+      confirm: { show: canEdit, name: '保 存', type: 'primary' },
+      cancel: { show: true, name: '取 消', type: '' },
+      submit: { show: canEdit, name: '提 交', type: 'warning' },
+      repeatAdd: { show: false }, // 隐藏继续添加按钮
+    };
+  }),
   someFlags: {
     needValidate: true, // 启用表单校验
   },
 });
 
-// 处理确认保存
-async function handleConfirm() {
+// 保存数据到 MainInternshipPost 表（公共方法）
+async function savePostData() {
   try {
     // 表单验证
     if (formPanelRef.value) {
       const valid = await formPanelRef.value.validate();
       if (!valid) {
         ElMessage.warning('请填写完整信息');
-        return false;
+        return { success: false };
       }
     }
     
@@ -554,7 +606,7 @@ async function handleConfirm() {
     const internshipId = props.currentInternship?.internshipId;
     if (!internshipId) {
       ElMessage.warning('请先选择实习项目');
-      return false;
+      return { success: false };
     }
 
     // 构建保存的数据对象
@@ -564,11 +616,21 @@ async function handleConfirm() {
       name: form.name || '',
       allPersonNum: form.allPersonNum,
       postTypeId: form.postTypeId
-    };    // 调用保存接口，保存到 MainInternshipPost 表
+    };
+
+    // 如果是编辑模式，添加ID（MainInternshipPost表的主键）
+    if (isEditMode.value) {
+      // postId 应该从当前行数据或 currentPostId 中获取
+      const postId = currentPostId.value || currentRowData.value?.postId;
+      if (postId) {
+        saveData.id = postId;
+      }
+    }
+    // 调用保存接口，保存到 MainInternshipPost 表
     const response = await listAPI.editOneNode('MainInternshipPost', saveData);
 
-    // 保存成功后，新增一条记录到 MainVerifyProcess 表
-    if (response && response.message === 'successful' && response.data && response.data.id) {
+    // 仅在新增模式下，保存成功后新增一条记录到 MainVerifyProcess 表
+    if (!isEditMode.value && response && response.message === 'successful' && response.data && response.data.id) {
       const activateParams = {
         processId: props.currentInternship?.id,
         relationId: response.data.id, // 新增数据的返回id
@@ -597,19 +659,28 @@ async function handleConfirm() {
     }
 
     if (response && response.data) {
-      ElMessage.success('保存成功');
-      emit('success', saveData);
-      emit('close-dialog');
-      return true; // 返回 true 表示保存成功，允许关闭对话框
+      return { success: true, saveData }; // 返回成功状态和数据
     } else {
       ElMessage.error('保存失败');
-      return false;
+      return { success: false };
     }
   } catch (error) {
     console.error('保存失败:', error);
     ElMessage.error('保存失败');
-    return false;
+    return { success: false };
   }
+}
+
+// 处理确认保存
+async function handleConfirm() {
+  const result = await savePostData();
+  if (result.success) {
+    ElMessage.success(isEditMode.value ? '修改成功' : '保存成功');
+    emit('success', result.saveData);
+    emit('close-dialog');
+    return true; // 返回 true 表示保存成功，允许关闭对话框
+  }
+  return false;
 }
 
 // 处理关闭对话框
@@ -617,59 +688,181 @@ function handleCloseDialog() {
   emit('close-dialog');
 }
 
+// 更新 MainVerifyProcess 表的审核状态
+async function updateVerifyProcess(isAudit) {
+  try {
+    // 获取 MainVerifyProcess 表的主键（当前行的 id）
+    const processId = currentRowData.value?.id;
+    if (!processId) {
+      ElMessage.warning('无法获取流程记录ID');
+      return false;
+    }
+    
+    // 更新流程状态到 MainVerifyProcess
+    const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
+      id: processId, // MainVerifyProcess 表的主键
+      isAudit: isAudit
+    });
+    if (resInfo && resInfo.message === 'successful') {
+      return true;
+    } else {
+      ElMessage.warning(resInfo?.message || '更新审核状态失败');
+      return false;
+    }
+  } catch (error) {
+    console.error('更新审核状态失败:', error);
+    return false;
+  }
+}
+
+// 处理提交按钮点击
+async function handleSubmit() {
+  try {
+    await ElMessageBox.confirm('提交后将进入审核流程，信息将不可修改，确定提交吗？', '提示', { 
+      confirmButtonText: '确定', 
+      cancelButtonText: '取消', 
+      type: 'warning' 
+    });
+  } catch {
+    return false; // 用户取消提交
+  }
+
+  // 先调用保存功能（直接调用 savePostData，不关闭对话框）
+  const saveResult = await savePostData();
+  if (!saveResult.success) {
+    return false;
+  }
+  
+  // 然后更新 MainVerifyProcess 表的审核状态
+  const updateSuccess = await updateVerifyProcess(CONSTANT.AUDIT_STATUS.SUBMIT);
+  if (updateSuccess) {
+    ElMessage.success('提交成功，等待审核');
+    emit('success', saveResult.saveData);
+    emit('close-dialog');
+    return true; // 返回 true，DlgBasic 会自动关闭对话框
+  }
+  return false;
+}
+
 // 显示对话框
-async function showDialog(val, formData = {}) {
+async function showDialog(val, formData = {}, rowData = null) {
+  // 判断是否为编辑模式
+  isEditMode.value = !!(rowData && (rowData.id || rowData.relationId || rowData.postId));
+  // 保存当前行数据（用于获取companyName等字段）
+  currentRowData.value = rowData;
+  // 保存当前行的审核状态
+  currentAuditStatus.value = rowData?.isAudit;
+  
   // 重置表单
   Object.keys(form).forEach(key => {
     delete form[key];
   });
-  // 赋值新数据
-  Object.assign(form, formData);
   
-  // 如果是企业用户，自动设置单位ID和单位名称
-  if (val && isCompanyUser.value && userInfo.value.departmentId) {
-    form.departmentId = userInfo.value.departmentId;
-    selectedDepartmentName.value = userDepartmentName.value;
-  } else {
-    selectedDepartmentName.value = '';
-  }
-  
-  // 只有在有schoolId的情况下才更新岗位类型的查询条件
-  const schoolId = isCompanyUser.value 
-    ? (userInfo.value.schoolId || userInfo.value.departmentId)
-    : form.departmentId;
-  
-  if (schoolId) {
-    await updatePostTypeSearchKey();
-    // 如果不是企业用户，查询单位名称
-    if (!isCompanyUser.value && form.departmentId) {
+  // 如果是编辑模式，从当前行数据加载岗位信息
+  if (isEditMode.value && rowData) {
+    // 获取岗位ID（优先使用postId，其次relationId）
+    const postId = rowData.postId;
+    currentPostId.value = postId;
+    
+    if (postId) {
       try {
+        // 从MainInternshipPost表加载完整数据
         const response = await listAPI.getSomeRecords({
-          keyWords: 'BaseDepartment',
-          searchKey: { id: form.departmentId },
+          keyWords: 'MainInternshipPost',
+          searchKey: { id: postId },
           reg: { id: '=' },
           pageInfo: { page: 1, size: 1 }
         });
+        
         if (response && response.data && response.data.content && response.data.content.length > 0) {
-          selectedDepartmentName.value = response.data.content[0].name || '';
+          const postData = response.data.content[0];
+          // 填充表单数据
+          form.code = postData.code || '';
+          form.name = postData.name || '';
+          form.allPersonNum = postData.allPersonNum;
+          form.postTypeId = postData.postTypeId;
+          form.departmentId = postData.departmentId;
+          
+          // 加载岗位类型信息（用于显示岗位类型名称）
+          if (postData.postTypeId) {
+            await loadPostTypeInfo(postData.postTypeId);
+          }
+          
+          // 如果不是企业用户，查询单位名称（用于显示）
+          if (!isCompanyUser.value && postData.departmentId) {
+            try {
+              const deptResponse = await listAPI.getSomeRecords({
+                keyWords: 'BaseDepartment',
+                searchKey: { id: postData.departmentId },
+                reg: { id: '=' },
+                pageInfo: { page: 1, size: 1 }
+              });
+              if (deptResponse && deptResponse.data && deptResponse.data.content && deptResponse.data.content.length > 0) {
+                selectedDepartmentName.value = deptResponse.data.content[0].name || '';
+              }
+            } catch (error) {
+              console.error('获取单位名称失败:', error);
+            }
+          }
         }
       } catch (error) {
-        console.error('获取单位名称失败:', error);
+        console.error('加载岗位数据失败:', error);
+        ElMessage.error('加载岗位数据失败');
+        return;
       }
     }
   } else {
-    // 如果没有schoolId，清空查询条件
-    postTypeSearchKey.value = {};
-    postTypeRegKey.value = {};
-  }
-  
-  // 如果表单中有岗位类型ID，加载详细信息
-  if (form.postTypeId) {
-    await loadPostTypeInfo(form.postTypeId);
-  } else {
-    selectedPostTypeInfo.value = null;
-    form.code = '';
-    form.name = '';
+    // 新增模式：使用传入的formData
+    Object.assign(form, formData);
+    currentPostId.value = null;
+    // 新增模式下，审核状态为 null，可以编辑
+    currentAuditStatus.value = null;
+    
+    // 如果是企业用户，自动设置单位ID和单位名称
+    if (val && isCompanyUser.value && userInfo.value.departmentId) {
+      form.departmentId = userInfo.value.departmentId;
+      selectedDepartmentName.value = userDepartmentName.value;
+    } else {
+      selectedDepartmentName.value = '';
+    }
+    
+    // 只有在有schoolId的情况下才更新岗位类型的查询条件
+    const schoolId = isCompanyUser.value 
+      ? (userInfo.value.schoolId || userInfo.value.departmentId)
+      : form.departmentId;
+    
+    if (schoolId) {
+      await updatePostTypeSearchKey();
+      // 如果不是企业用户，查询单位名称
+      if (!isCompanyUser.value && form.departmentId) {
+        try {
+          const response = await listAPI.getSomeRecords({
+            keyWords: 'BaseDepartment',
+            searchKey: { id: form.departmentId },
+            reg: { id: '=' },
+            pageInfo: { page: 1, size: 1 }
+          });
+          if (response && response.data && response.data.content && response.data.content.length > 0) {
+            selectedDepartmentName.value = response.data.content[0].name || '';
+          }
+        } catch (error) {
+          console.error('获取单位名称失败:', error);
+        }
+      }
+    } else {
+      // 如果没有schoolId，清空查询条件
+      postTypeSearchKey.value = {};
+      postTypeRegKey.value = {};
+    }
+    
+    // 如果表单中有岗位类型ID，加载详细信息
+    if (form.postTypeId) {
+      await loadPostTypeInfo(form.postTypeId);
+    } else {
+      selectedPostTypeInfo.value = null;
+      form.code = '';
+      form.name = '';
+    }
   }
   
   // 清空表单验证状态
@@ -681,8 +874,23 @@ async function showDialog(val, formData = {}) {
   // 调用 DlgBasic 的 showDialog 方法
   dlgBasicRef.value?.showDialog(val, form);
   
-  // 对话框打开后，延迟更新验证状态（确保DOM已渲染）
+  // 对话框打开后，等待DOM完全渲染
   await nextTick();
+  await nextTick();
+  
+  // 如果是编辑模式且非企业用户，确保SimpleTreeSelect组件已正确初始化
+  if (isEditMode.value && !isCompanyUser.value && form.departmentId && departmentSelectRef.value) {
+    // 等待SimpleTreeSelect组件初始化完成
+    setTimeout(async () => {
+      // 可能需要手动触发组件的更新
+      if (departmentSelectRef.value) {
+        // SimpleTreeSelect组件应该会自动响应form.departmentId的变化
+        // 这里只是确保有足够的时间让组件初始化
+      }
+    }, 200);
+  }
+  
+  // 延迟更新验证状态（确保DOM已渲染）
   setTimeout(() => {
     updateValidateState();
   }, 100);
