@@ -17,7 +17,7 @@
         <el-button v-if="button.more2.show" :type="button.more2.type" :icon="Promotion" @click="more2Click(selectedColumns)">{{ button.more2.name }}</el-button>
         <el-button v-if="button.batchCreate.show" :icon="UploadFilled" :type="button.batchCreate.type" @click="handleUpload">{{ button.batchCreate.name }}</el-button>
         <div v-if="button.audit.show" style="padding-left:10px;padding-right:10px;">
-          <el-dropdown ref="auditButton" split-button size="mini" :type="button.audit.type" :disabled="selectedColumns.length < 1" @command="auditDropdownSelect" @click="auditDropdownClick(selectedColumns)">{{ auditButtonName }}
+          <el-dropdown ref="auditButton" split-button size="small" :type="button.audit.type" :disabled="selectedColumns.length < 1" @command="auditDropdownSelect" @click="auditDropdownClick(selectedColumns)">{{ auditButtonName }}
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="button.audit.showPass" :command="CONSTANT.AUDIT_STATUS.PASS">批量{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-dropdown-item>
