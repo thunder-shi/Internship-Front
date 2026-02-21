@@ -5,6 +5,8 @@
     <SimpleDialog ref="projectSelectDialog" :default-props="projectSelectDialogProps" :simpledialog-confirm="handleProjectSelectConfirm" @simple-select-change="handleInternshipSelectChange" />
     <!-- 审核对话框 -->
     <DlgInternshipVerify ref="dlgInternshipVerify" @update-record="handleUpdateRecord" />
+    <!-- 岗位详情对话框（用于审核） -->
+    <DlgPostDetail ref="dlgPostDetail" :current-internship="currentInternship" @close-dialog="handlePostDetailClose" @success="handlePostDetailSuccess" />
     <!-- 审核进度查看对话框 -->
     <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" key-words="ViewVerifyProcessInternshipPost" />
   </div>
@@ -17,6 +19,7 @@ import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import DlgInternshipVerify from '@/views/internship-process/components/DlgInternshipVerify.vue';
+import DlgPostDetail from '@/views/internship-process/components/DlgPostDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import CONSTANT from '@/utils/constant';
 import internshipProcessAPI from '@/api/internshipProcess';
@@ -29,6 +32,7 @@ defineOptions({
 const baseListRef = ref(null);
 const projectSelectDialog = ref(null);
 const dlgInternshipVerify = ref(null);
+const dlgPostDetail = ref(null);
 
 // Vuex store
 const store = useStore();
@@ -244,13 +248,25 @@ const handleAuditClick = (row) => {
   // row 可能是数组（多选）或单个对象（单选）
   // 取第一个选中的项目进行审核
   const selectedRow = Array.isArray(row) ? row[0] : row;
-  if (selectedRow) {
-    dlgInternshipVerify.value?.showDialog(true, selectedRow);
+  if (selectedRow && currentInternship.value) {
+    // 打开 DlgPostDetail 对话框，传入审核模式标志
+    dlgPostDetail.value?.showDialog(true, {}, selectedRow, true);
   }
 };
 
 // 处理更新记录后的回调
 const handleUpdateRecord = () => {
+  baseListRef.value?.initDataList();
+};
+
+// 处理岗位详情对话框关闭
+const handlePostDetailClose = () => {
+  // 对话框关闭时的处理
+};
+
+// 处理岗位详情对话框成功事件
+const handlePostDetailSuccess = () => {
+  // 审核成功后刷新列表
   baseListRef.value?.initDataList();
 };
 

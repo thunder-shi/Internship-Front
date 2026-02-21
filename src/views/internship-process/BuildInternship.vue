@@ -53,8 +53,8 @@ const initSearchWords = computed(() => {
   }
   if (userDepartmentId.value) {
     return {
-      searchKey: { universityId: userDepartmentId.value },
-      regKey: { universityId: '=' }
+      searchKey: { universityId: userDepartmentId.value }
+      // 默认使用 EQ 操作符，不需要 regKey
     };
   }
   return {};

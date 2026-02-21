@@ -359,17 +359,16 @@ async function handleAdminApply(row) {
       id: excludedIds,
     };
     adminDialogProps.formItems[0].regKey = {
-      jobName: '=',
       id: '!()', // NOT IN 操作符
+      // jobName 默认使用 EQ 操作符，不需要 regKey
     };
   } else {
     // 如果没有已报名的老师，只过滤 jobName
     adminDialogProps.formItems[0].searchKeys = {
       jobName: '老师',
     };
-    adminDialogProps.formItems[0].regKey = {
-      jobName: '=',
-    };
+    // jobName 默认使用 EQ 操作符，不需要 regKey
+    adminDialogProps.formItems[0].regKey = {};
     // 确保删除 id 相关的过滤条件
     if (adminDialogProps.formItems[0].regKey.id) {
       delete adminDialogProps.formItems[0].regKey.id;
@@ -506,17 +505,16 @@ async function handleAdminCancel(row) {
       id: includedIds,
     };
     adminCancelDialogProps.formItems[0].regKey = {
-      jobName: '=',
       id: '()', // IN 操作符
+      // jobName 默认使用 EQ 操作符，不需要 regKey
     };
   } else {
     // 如果没有已报名的老师，清空选择框
     adminCancelDialogProps.formItems[0].searchKeys = {
       jobName: '老师',
     };
-    adminCancelDialogProps.formItems[0].regKey = {
-      jobName: '=',
-    };
+    // jobName 默认使用 EQ 操作符，不需要 regKey
+    adminCancelDialogProps.formItems[0].regKey = {};
   }
 
   // 重置表单并打开对话框
