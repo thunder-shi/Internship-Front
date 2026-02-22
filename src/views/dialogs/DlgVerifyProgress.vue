@@ -70,7 +70,8 @@ import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import listAPI from '@/api/list';
 import moment from 'moment';
-import { normalizeFormForDisplay } from '@/utils/common';
+import { normalizeFormForDisplay, formatDateTime } from '@/utils/common';
+import CONSTANT from '@/utils/constant';
 
 const props = defineProps({
   modelValue: {
@@ -179,13 +180,13 @@ const currentStatusText = computed(() => {
     // 对于待审核状态，显示角色名称
     if (auditStatus === 0) {
       const roleName = props.processInfo?._currentRoleName || getCurrentRoleName();
-      return roleName ? `${roleName}审核中` : '待审核';
+      return roleName ? `${roleName}审核中` : CONSTANT.AUDIT_STATUS.SUBMITNAME;
     }
     const statusMap = {
-      '-1': '待提交',
-      '1': '审核通过',
-      '2': '审核不通过',
-      '3': '审核退回'
+      '-1': CONSTANT.AUDIT_STATUS.SAVENAME,
+      '1': CONSTANT.AUDIT_STATUS.PASSNAME,
+      '2': CONSTANT.AUDIT_STATUS.NOTPASSNAME,
+      '3': CONSTANT.AUDIT_STATUS.BACKNAME
     };
     return statusMap[String(auditStatus)] || '未知状态';
   }
@@ -196,7 +197,7 @@ const currentStatusText = computed(() => {
   }
 
   if (passedCount.value >= actualVerifyTypeId.value) {
-    return '审核通过';
+    return CONSTANT.AUDIT_STATUS.PASSNAME;
   }
 
   const lastRecord = verifyRecords.value[verifyRecords.value.length - 1];
@@ -208,9 +209,9 @@ const currentStatusText = computed(() => {
     const nextStep = passedCount.value + 1;
     return `${getStepRoleName(nextStep)}审核中`;
   } else if (lastRecord.isAudit === 2) {
-    return '审核不通过';
+    return CONSTANT.AUDIT_STATUS.NOTPASSNAME;
   } else if (lastRecord.isAudit === 3) {
-    return '审核退回';
+    return CONSTANT.AUDIT_STATUS.BACKNAME;
   }
   return '未知状态';
 });
@@ -313,21 +314,17 @@ function getStatusTagType(isAudit) {
 // -1: 待提交, 0: 提交待审核, 1: 审核通过, 2: 审核不通过, 3: 审核退回
 function getStatusText(isAudit) {
   const textMap = {
-    '-1': '待提交',
-    '0': '待审核',
-    '1': '已通过',
-    '2': '不通过',
-    '3': '已退回'
+    '-1': CONSTANT.AUDIT_STATUS.SAVENAME,
+    '0': CONSTANT.AUDIT_STATUS.SUBMITNAME,
+    '1': CONSTANT.AUDIT_STATUS.PASSNAME,
+    '2': CONSTANT.AUDIT_STATUS.NOTPASSNAME,
+    '3': CONSTANT.AUDIT_STATUS.BACKNAME
   };
   return textMap[String(isAudit)] || '未知';
 }
 
-// 格式化时间（使用北京时间 UTC+8）
-function formatTime(time) {
-  if (!time) return '-';
-  // 如果后端返回的是 UTC 时间，转换为北京时间（UTC+8）
-  return moment.utc(time).utcOffset(8).format('YYYY-MM-DD HH:mm:ss');
-}
+// 使用统一的时间格式化函数
+const formatTime = formatDateTime;
 
 // 加载审核进度数据
 async function loadVerifyProgress() {

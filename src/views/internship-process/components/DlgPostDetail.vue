@@ -789,7 +789,7 @@ async function handleSubmit() {
   // 然后更新 MainVerifyProcess 表的审核状态
   const updateSuccess = await updateVerifyProcess(CONSTANT.AUDIT_STATUS.SUBMIT);
   if (updateSuccess) {
-    ElMessage.success('提交成功，等待审核');
+    ElMessage.success(`提交成功，${CONSTANT.AUDIT_STATUS.SUBMITNAME}`);
     emit('success', saveResult.saveData);
     emit('close-dialog');
     return true; // 返回 true，DlgBasic 会自动关闭对话框

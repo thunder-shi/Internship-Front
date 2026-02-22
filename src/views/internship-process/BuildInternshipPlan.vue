@@ -1,7 +1,9 @@
 <template>
   <div class="build-internship-plan-container">
-    <BaseList :default-props="defaultProps" :baselist-confirm="handleSave" :baselist-submit="handleSubmit" ref="baseList" @edit-click="editClick" @view-click="viewClick">
+    <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" :baselist-submit="handleSubmit" ref="baseList" @append-click="appendClick" @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick">
     </BaseList>
+    <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
+    <DlgInternshipDetail ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin" @update-record="handleUpdateRecord" />
     <!-- 审核进度查看对话框 -->
     <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" key-words="ViewVerifyProcessInternship" />
   </div>
@@ -18,14 +20,16 @@
  * - 提交：提交审核（isAudit = 0）
  * - 提交后显示查看进度按钮
  */
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import moment from 'moment';
 import BaseList from '@/views/master-page/BaseList.vue';
+import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
+import otherAPI from '@/api/other';
 
 defineOptions({
   name: 'BuildInternshipPlan',
@@ -33,6 +37,30 @@ defineOptions({
 
 const store = useStore();
 const baseList = ref(null);
+const dlgMainInternship = ref(null);
+
+// 获取用户信息和角色
+const userInfo = computed(() => store.getters.userInfo || {});
+const roles = computed(() => store.getters.roles || []);
+
+// 判断是否是超级管理员
+const isSuperAdmin = computed(() => {
+  return roles.value.some(role => role.name === '超级管理员');
+});
+
+// 用户所属院系ID
+const userDepartmentId = computed(() => userInfo.value.departmentId);
+
+// 计算实习模板下拉框的查询条件（非超级管理员只能选择自己院系的模板）
+const templateSearchKey = computed(() => {
+  if (isSuperAdmin.value) {
+    return {};
+  }
+  if (userDepartmentId.value) {
+    return { universityId: userDepartmentId.value };
+  }
+  return {};
+});
 
 // 当前时间
 const currentTime = computed(() => moment().format('YYYY-MM-DD HH:mm:ss'));
@@ -42,17 +70,6 @@ const currentRow = ref({});
 
 // 审核进度对话框显示状态
 const showProgressDialog = ref(false);
-
-// 按钮条件配置：控制各按钮在不同行数据条件下的显示/隐藏
-// 编辑按钮在未提交和审核退回状态显示
-// 删除按钮可以根据需要配置（这里暂时不限制，如果需要可以添加）
-const buttonCondition = {
-  update: (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE ||
-                   row.isAudit === CONSTANT.AUDIT_STATUS.BACK ||
-                   row.isAudit === null ||
-                   row.isAudit === undefined
-  // delete: (row) => true, // 如果需要限制删除按钮，可以在这里配置
-};
 
 // 存储所有记录，用于查看进度时显示完整审核历史
 const allRecordsMap = ref(new Map());
@@ -134,64 +151,26 @@ const clientFilterFn = (dataList) => {
 };
 
 
-/**
- * 列表查询条件：
- * - 从 ViewVerifyInternshipPlanProcess 查询数据
- * - 筛选正在流程时间内的项目
- */
-const initSearchWords = computed(() => ({
-  searchKey: {
-    startTime: currentTime.value,
-    endTime: currentTime.value
-  },
-  regKey: {
-    startTime: CONSTANT.SEARCH_OPERATOR.LE,
-    endTime: CONSTANT.SEARCH_OPERATOR.GE
-  }
-}));
+// /**
+//  * 列表查询条件：
+//  * - 从 ViewVerifyInternshipPlanProcess 查询数据
+//  * - 筛选正在流程时间内的项目
+//  */
+// const initSearchWords = computed(() => ({
+//   searchKey: {
+//     startTime: currentTime.value,
+//     endTime: currentTime.value
+//   },
+//   regKey: {
+//     startTime: CONSTANT.SEARCH_OPERATOR.LE,
+//     endTime: CONSTANT.SEARCH_OPERATOR.GE
+//   }
+// }));
 
-// 编辑按钮点击
-// 注意：row 来自 ViewVerifyInternshipPlanProcess 视图，需要将 internshipId 映射为 id
-// 因为弹出窗口操作的表是 MainInternship，主键是 id
-// 同时需要保留 row.id（MainVerifyProcess 表的主键）用于后续更新
-const editClick = async (row) => {
-  try {
-    // 先根据 internshipId 从 MainInternship 表加载完整数据
-    // 注意：MainInternship 表没有 theOrder 字段，所以使用 id 排序
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'MainInternship',
-      searchKey: { id: row.internshipId },
-      reg: { id: '=' }
-    });
-
-    let mainInternshipData = {};
-    if (res && res.data && res.data.content && res.data.content.length > 0) {
-      mainInternshipData = res.data.content[0];
-    }
-
-    // 将 row.internshipId 映射为 form.id，以便 SimpleDialog 正确识别为编辑模式
-    // 保留 row.id 作为 processId，用于后续更新 MainVerifyProcess 表
-    // 字段映射：数据库字段名 -> 视图字段名（用于表单显示）
-    const formData = {
-      ...row,
-      id: row.internshipId, // 将 internshipId 映射为 id（用于 MainInternship 表）
-      processId: row.id, // 保留原始的 MainVerifyProcess 表的主键
-      // 将数据库字段映射为视图字段名，以便表单正确显示
-      internshipCode: mainInternshipData.code,
-      internshipName: mainInternshipData.name,
-      internshipRemarks: mainInternshipData.remarks
-    };
-    baseList.value?.openDlg('edit', formData);
-  } catch (error) {
-    console.error('加载数据失败:', error);
-    // 如果加载失败，仍然使用视图数据
-    const formData = {
-      ...row,
-      id: row.internshipId,
-      processId: row.id
-    };
-    baseList.value?.openDlg('edit', formData);
-  }
+// 处理编辑按钮点击事件，使用自定义的编辑窗口
+// 与 BuildInternship.vue 中的实现完全一样
+const editClick = (row) => {
+  dlgMainInternship.value?.showDialog(true, row);
 };
 
 // 查看进度按钮点击
@@ -217,13 +196,13 @@ const saveInternshipData = async (form, successMessage) => {
   try {
     // 更新 MainInternship 表（项目编号、实习名称、备注等）
     // 注意：form.id 现在是 internshipId（MainInternship 表的主键）
-    // 字段映射：视图字段名 -> 数据库字段名
-    // internshipCode -> code, internshipName -> name, internshipRemarks -> remarks
+    // 字段映射：表单字段名 -> 数据库字段名
+    // 支持两种字段名（向后兼容）：code/name/remarks 或 internshipCode/internshipName/internshipRemarks
     const mainInternshipRes = await listAPI.editOneNode('MainInternship', {
       id: form.id, // internshipId
-      code: form.internshipCode || form.code, // 优先使用视图字段名，如果没有则使用数据库字段名
-      name: form.internshipName || form.name,
-      remarks: form.internshipRemarks || form.remarks
+      code: form.code || form.internshipCode, // 优先使用新字段名，如果没有则使用旧字段名
+      name: form.name || form.internshipName,
+      remarks: form.remarks || form.internshipRemarks
     });
     if (mainInternshipRes && mainInternshipRes.message === 'successful') {
       ElMessage.success(successMessage);
@@ -269,11 +248,77 @@ const updateVerifyProcess = async (form, isAudit) => {
 };
 
 /**
- * 暂存：保存但不提交
- * 只保存 MainInternship 表，不更新 MainVerifyProcess 表
+ * 新增项目确认函数
+ * 创建项目后需要进入编辑页面配置流程列表
+ * 与 BuildInternship.vue 中的实现完全一样
+ * 
+ * 同时处理新增和编辑两种情况：
+ * - option === 'append': 新增模式，使用新增逻辑
+ * - option === 'edit': 编辑模式，使用暂存逻辑
  */
-const handleSave = async (option, type, form) => {
-  return await saveInternshipData(form, '暂存成功');
+const handleConfirm = async (option, type, form) => {
+  // 编辑模式：使用暂存逻辑
+  if (option === 'edit') {
+    return await saveInternshipData(form, '暂存成功');
+  }  
+  // 新增模式：与 BuildInternship.vue 中的实现完全一样
+  try {
+    await ElMessageBox.confirm('新增后，实习模板将不能修改，确定新增吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
+
+    const userInfo = store.getters.userInfo;
+    if (userInfo && userInfo.id) {
+      form.creatorId = userInfo.id;
+    }
+    form.studentNum = 0;
+
+    const resInfo = await otherAPI.addNewInternship(form);
+    if (resInfo && resInfo.message === 'successful') {
+      ElMessage({
+        message: '新增项目成功！请点击编辑按钮继续进行实习计划制定。',
+        type: 'success',
+        duration: 5000
+      });
+      baseList.value?.initDataList();
+      return true;
+    } else {
+      ElMessage.warning(resInfo?.message || '新增失败');
+      return false;
+    }
+  } catch {
+    return false;
+  }
+};
+
+// 处理新增按钮点击事件
+const appendClick = () => {
+  baseList.value?.openDlg('append', {});
+};
+
+// 自定义删除处理
+// 检查审核状态，只有待提交状态（isAudit = -1）的项目才能删除
+const handleDeleteClick = async (rows) => {
+  const items = Array.isArray(rows) ? rows : rows ? [rows] : [];
+  // 检查是否有项目已经进入审核状态（isAudit !== -1）
+  const hasAuditedItem = items.some(item => item.isAudit !== CONSTANT.AUDIT_STATUS.SAVE);
+  if (hasAuditedItem) {
+    ElMessage.warning('选择项目已经进入审核状态，无法删除！');
+    return;
+  }
+  // 提取 internshipId
+  const ids = items.map(item => item.internshipId).filter(id => id != null);
+  try {
+    const res = await otherAPI.deleteNewInternship(ids);
+    if (res?.message === 'successful') {
+      ElMessage.success('删除成功');
+      baseList.value?.initDataList();
+    } else {
+      ElMessage.error(res?.message || '删除失败');
+    }
+  } catch (error) {
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
+    // 如果拦截器没有显示（比如被 suppress），这里也不显示，避免重复
+    console.error('删除失败:', error);
+  }
 };
 
 /**
@@ -288,7 +333,7 @@ const handleSubmit = async (form) => {
   } catch { return false }
 
   // 先保存 MainInternship 表
-  const saveSuccess = await saveInternshipData(form, '提交成功，等待审核');
+  const saveSuccess = await saveInternshipData(form, `提交成功，${CONSTANT.AUDIT_STATUS.SUBMITNAME}`);
   if (!saveSuccess) {
     return false;
   }
@@ -300,12 +345,20 @@ const handleSubmit = async (form) => {
   return false;
 };
 
+// 处理更新记录后的回调
+const handleUpdateRecord = () => {
+  baseList.value?.initDataList();
+};
+
+// 组件销毁前关闭所有对话框，防止遮罩层残留
+onBeforeUnmount(() => {
+  dlgMainInternship.value?.closeAllDialogs?.();
+});
+
 // 列表配置
 const defaultProps = computed(() => ({
   defaultDTLProps: {
-    initSearchWords: initSearchWords.value,
-    // 按钮条件配置
-    buttonCondition: buttonCondition,
+    // initSearchWords: initSearchWords.value,
     // 客户端过滤函数
     clientFilterFn: clientFilterFn,
     // 启用审核状态自定义显示
@@ -313,7 +366,7 @@ const defaultProps = computed(() => ({
     // 获取审核角色名称函数
     getVerifyRoleName: getVerifyRoleName,
     defaultDTHProps: {
-      buttonProps: { create: { show: false }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true }, delete: { show: false } },
+      buttonProps: { create: { show: true }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true }, delete: { show: true } },
       // keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyInternshipPlanProcess' },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternship' },
       allTableColumns: [
@@ -329,24 +382,24 @@ const defaultProps = computed(() => ({
   defaultSDProps: {
     keyWord: 'MainInternship',
     formItems: [
-      { name: '实习编号', field: 'internshipCode', type: 'input' },
-      { name: '实习名称', field: 'internshipName', type: 'input' },
-      { name: '详细计划', field: 'internshipRemarks', type: 'textarea' }
+      { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'}, searchKeys: templateSearchKey.value },
+      { name: '项目编号', field: 'code', type: 'input' },
+      { name: '实习名称', field: 'name', type: 'input' },
+      { name: '报告周期', field: 'cron', type: 'cron' },
+      { name: '备注', field: 'remarks', type: 'textarea' }
     ],
-    formRules: {},
+    formRules: {
+      name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],
+      internshipTypeId: [{ required: true, message: '请选择实习模板', trigger: 'blur' }],
+    },
     defaultDBProps: {
       footButtons: {
         cancel: { show: true, name: '取 消', type: '' },
-        confirm: { show: true, name: '暂 存', type: 'primary' },
-        submit: { show: true, name: '提 交', type: 'success' }
+        confirm: { show: true, name: '新增', type: 'primary' },
+        submit: { show: false },
+        repeatAdd: { show: false }
       },
-      dialog: {
-        width: '50%',
-        title: '编辑实习计划'
-      },
-      someFlags: {
-        needVerifyUpdate: false // 禁用数据变更检查，允许直接关闭对话框
-      }
+      dialog: {}
     }
   }
 }));

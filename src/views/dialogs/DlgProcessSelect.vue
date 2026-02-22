@@ -194,16 +194,6 @@ function showDialog(val, formData = {}, rowData = null) {
     updateVerifyRoleFields(1, formData);
   }
 
-  // 实习项目模式下，将 startTime/endTime 从 UTC 转为北京时间（UTC+8）以便表单正确显示
-  if (isInternshipMode() && formData) {
-    if (formData.startTime) {
-      formData.startTime = moment.utc(formData.startTime).utcOffset(8).format('YYYY-MM-DD HH:mm:ss');
-    }
-    if (formData.endTime) {
-      formData.endTime = moment.utc(formData.endTime).utcOffset(8).format('YYYY-MM-DD HH:mm:ss');
-    }
-  }
-
   simpleDialogRef.value?.showDialog(val, formData);
   // 延迟重置初始化标记，确保 SimpleSelect 初始化完成后用户修改能正常清空值
   if (isEdit) {
@@ -243,26 +233,20 @@ async function saveProcessData(form) {
     }
   });
 
-  // 实习项目模式下，将 startTime/endTime 从北京时间（UTC+8）转回 UTC 再保存
-  if (form.startTime) {
-    saveData.startTime = moment(form.startTime, 'YYYY-MM-DD HH:mm:ss').utcOffset('+08:00', true).utc().format('YYYY-MM-DD HH:mm:ss');
-  }
-  if (form.endTime) {
-    saveData.endTime = moment(form.endTime, 'YYYY-MM-DD HH:mm:ss').utcOffset('+08:00', true).utc().format('YYYY-MM-DD HH:mm:ss');
-  }
+  // 后端直接使用北京时间，无需转换
   // 根据模式确定要使用的 keyWord
   const keyWord = isInternshipMode() ? 'RelProcessInternship' : 'RelProcessInternshipType';
   
   // 根据审核要求设置 currentVerifyTypeId
-  // 如果审核要求的 code 是"NO_VERIFY"（无需审核），则 currentVerifyTypeId = 1；否则 = 2
+  // 如果审核要求的 code 是"NO_VERIFY"（无需审核），则 currentVerifyTypeId = NO_VERIFY；否则 = ONE_VERIFY
   if (keyWord === 'RelProcessInternship') {
     let verifyTypeCode = null;
     if (verifyTypeOption.value && verifyTypeOption.value.code) {
       verifyTypeCode = verifyTypeOption.value.code;
       if (verifyTypeCode === 'NO_VERIFY') {
-        saveData.currentVerifyTypeId = 1;
+        saveData.currentVerifyTypeId = constant.VERIFY_LEVEL.NO_VERIFY;
       } else {
-        saveData.currentVerifyTypeId = 2;
+        saveData.currentVerifyTypeId = constant.VERIFY_LEVEL.ONE_VERIFY;
       }
     }
   }
@@ -328,7 +312,7 @@ async function confirm(option, type, form) {
   }
 
   // 第二步：处理激活流程操作
-  await handleActivateProcess(saveResult.saveData, saveResult.keyWord);
+  // await handleActivateProcess(saveResult.saveData, saveResult.keyWord);
 
   // 保存成功后，触发更新事件，让父组件刷新列表
   emit('update-record', saveResult.saveData);

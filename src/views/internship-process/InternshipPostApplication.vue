@@ -293,7 +293,7 @@ async function handleDeleteClick(rows) {
   });
 
   if (invalidRows.length > 0) {
-    ElMessage.warning('只能删除"待提交"状态的记录');
+    ElMessage.warning(`只能删除"${CONSTANT.AUDIT_STATUS.SAVENAME}"状态的记录`);
     return;
   }
 

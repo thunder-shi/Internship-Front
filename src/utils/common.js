@@ -48,6 +48,28 @@ export function formatDate(dateStr) {
   return moment(dateStr).format('YYYY-MM-DD')
 }
 
+/**
+ * 格式化日期时间为 YYYY-MM-DD HH:mm:ss 格式（后端已统一返回北京时间，直接格式化即可）
+ * @param {string|Date|moment.Moment} time - 时间字符串、Date 对象或 moment 对象
+ * @returns {string} 格式化后的时间字符串，如果输入为空则返回 '-'
+ */
+export function formatDateTime(time) {
+  if (!time) return '-'
+  // 后端已统一返回北京时间，直接格式化，无需转换
+  return moment(time).format('YYYY-MM-DD HH:mm:ss')
+}
+
+/**
+ * 格式化日期时间为 YYYY-MM-DD HH:mm 格式（用于表格显示，后端已统一返回北京时间，直接格式化即可）
+ * @param {string|Date|moment.Moment} time - 时间字符串、Date 对象或 moment 对象
+ * @returns {string} 格式化后的时间字符串，如果输入为空则返回 '--'
+ */
+export function formatDateTimeShort(time) {
+  if (!time) return '--'
+  // 后端已统一返回北京时间，直接格式化，无需转换
+  return moment(time).format('YYYY-MM-DD HH:mm')
+}
+
 export function compareTime(gettime) {
   const today = new Date()
   const endTime = new Date(gettime.replace(/-/g, '/'))

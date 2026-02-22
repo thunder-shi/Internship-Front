@@ -96,6 +96,7 @@ import VPage from '@/components/Pagination.vue';
 import moment from 'moment';
 import adaptive from '@/directive/el-table';
 import CONSTANT from '@/utils/constant';
+import { formatDateTimeShort } from '@/utils/common';
 import _ from 'lodash';
 import '@/assets/css/table.scss';
 
@@ -104,16 +105,8 @@ defineOptions({
 });
 
 // 过滤器函数
-// 格式化时间（使用北京时间 UTC+8）
-// 如果后端返回的是 UTC 时间，转换为北京时间（UTC+8）
-const filterDateTime = (val) => {
-  if (!val) {
-    return '--';
-  } else {
-    // 使用 UTC 模式解析，然后转换为北京时间（UTC+8）
-    return moment.utc(val).utcOffset(8).format('YYYY-MM-DD HH:mm');
-  }
-};
+// 使用统一的时间格式化函数
+const filterDateTime = formatDateTimeShort;
 
 
 const formatCron = (cron) => {

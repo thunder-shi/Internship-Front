@@ -43,7 +43,7 @@ import { ElMessage } from 'element-plus'
 import { Plus, Edit, Delete, Top, Bottom } from '@element-plus/icons-vue'
 import DataTableHeader from '@/components/DataTableHeader.vue'
 import treeAPI from '@/api/tree'
-import moment from 'moment'
+import { formatDateTimeShort } from '@/utils/common'
 
 // 懒加载，新增第一个节点不展开，不出现小箭头，暂时未解决
 // 遗留思路，新增第一个节点，让上级节点出现小箭头
@@ -108,10 +108,8 @@ const hasListener = (eventName) => {
   return instance?.vnode?.props?.[camelCaseName] !== undefined;
 };
 
-// 过滤器改为方法
-function filterDateTime(val) {
-  return moment(val).format('YYYY-MM-DD HH:mm')
-}
+// 使用统一的时间格式化函数
+const filterDateTime = formatDateTimeShort
 
 // computed 属性
 const button = computed(() => {
