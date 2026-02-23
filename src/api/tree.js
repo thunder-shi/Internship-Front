@@ -1,6 +1,7 @@
 import request from '@/utils/request'
 import { getEncryptKeyWord } from '@/utils/rsaEncrypt'
 import constant from '@/utils/constant'
+import { safeStringify } from '@/utils/common'
 
 // 获得所有树节点
 const getAllNodes = async ({ keyWords, parentId = -1, virtualRootFlag = true, searchKey = '', lazy = false, preName = '', sort = {properties: 'theOrder', direction: 'ASC'} }) => {
@@ -47,7 +48,7 @@ const delOneNode = async (keyWords, node) => {
     method: 'post',
     data: {
       keyWords: encryptedKeyWords,
-      node: JSON.stringify(node)
+      node: safeStringify(node)
     }
   })
 }
@@ -61,7 +62,7 @@ const delManyNode = async (keyWords, nodes) => {
     method: 'post',
     data: {
       keyWords: encryptedKeyWords,
-      nodes: JSON.stringify(nodes)
+      nodes: safeStringify(nodes)
       // nodes: getEncryptKeyWord(nodes.map(e => e.id).join(constant.SPLIT_OPERATOR.COMMA))
     }
   })
@@ -76,7 +77,7 @@ const editOneNode = async (keyWords, node) => {
     method: 'post',
     data: {
       keyWords: encryptedKeyWords,
-      node: JSON.stringify(node)
+      node: safeStringify(node)
     }
   })
 }

@@ -1,6 +1,7 @@
 import request from '@/utils/request'
 import { getEncryptKeyWord } from '@/utils/rsaEncrypt'
 import CONSTANT from '@/utils/constant'
+import { safeStringify } from '@/utils/common'
 
 // 列表结构的新增/编辑
 async function editOneNode(keyWords, node) {
@@ -10,7 +11,7 @@ async function editOneNode(keyWords, node) {
     method: 'post',
     data: {
       keyWords: keyWords,
-      node: JSON.stringify(node)
+      node: safeStringify(node)
     }
   })
 }
@@ -54,9 +55,9 @@ async function getSomeRecords({ keyWords, pageInfo, treeInfo, searchKey, sort = 
       keyWords,
       pageInfo,
       treeInfo,
-      searchKey: await getEncryptKeyWord(JSON.stringify(searchKey)),
+      searchKey: await getEncryptKeyWord(safeStringify(searchKey)),
       sort,
-      reg: await getEncryptKeyWord(JSON.stringify(reg)),
+      reg: await getEncryptKeyWord(safeStringify(reg)),
       andor
     }
   })

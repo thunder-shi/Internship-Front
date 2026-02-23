@@ -9,7 +9,7 @@
       <template v-if="!noFooter" #footer>
         <div class="dialog-footer">
           <slot name="otherBtn" />
-          <el-button v-if="buttonProps.cancel.show" :type="buttonProps.cancel.type" @click="beforeCloseDlg">{{ buttonProps.cancel.name }}</el-button>
+          <el-button v-if="buttonProps.cancel.show" :type="buttonProps.cancel.type" @click.prevent="beforeCloseDlg">{{ buttonProps.cancel.name }}</el-button>
           <el-button v-if="buttonProps.close.show" :type="buttonProps.close.type" @click="beforeCloseDlg">{{ buttonProps.close.name }}</el-button>
           <el-button v-if="buttonProps.confirm.show" :disabled="needValidate && validate" :type="buttonProps.confirm.type" :loading="buttonLoading.confirm" @click.prevent="onConfirm">{{ buttonProps.confirm.name }}</el-button>
           <el-button v-if="buttonProps.last.show" :type="buttonProps.last.type" :loading="buttonLoading.last" @click.prevent="onModalLast">{{ buttonProps.last.name }}</el-button>
@@ -183,6 +183,39 @@ const cloneOldData = () => {
   oldData.value = _.cloneDeep(form.value)
 }
 
+// 安全的深度比较函数，能够处理循环引用
+const deepEqual = (obj1, obj2) => {
+  try {
+    return _.isEqual(obj1, obj2)
+  } catch (error) {
+    // 如果 isEqual 也失败，尝试使用 JSON.stringify（但会忽略循环引用）
+    try {
+      // 创建一个自定义的 replacer 函数来跳过循环引用
+      const seen = new WeakSet()
+      const replacer = (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            return '[Circular]'
+          }
+          seen.add(value)
+        }
+        // 跳过以 _ 开头的内部属性（如 _allRecords）
+        if (key && key.startsWith('_')) {
+          return undefined
+        }
+        return value
+      }
+      const str1 = JSON.stringify(obj1, replacer)
+      const str2 = JSON.stringify(obj2, replacer)
+      return str1 === str2
+    } catch (e) {
+      // 如果还是失败，返回 false（认为数据已修改，让用户确认）
+      console.warn('数据比较失败，将提示用户确认:', e)
+      return false
+    }
+  }
+}
+
 const showDialog = (val, newForm = {}, optionParam = null) => {
   // 直接赋值，保持对原始对象的引用（这样 DlgBasic 的 form.value.id 能正确反映 SimpleDialog 的 form.id）
   // 注意：这里不深拷贝，因为 DlgBasic 只需要读取 id 来判断标题和按钮，不需要修改表单数据
@@ -244,7 +277,7 @@ const onConfirm = async () => {
 }
 
 const _onModalRepeatAdd = async () => {
-  if (JSON.stringify(oldData.value) !== JSON.stringify(form.value)) {
+  if (!deepEqual(oldData.value, form.value)) {
     currentSave.value = true
     if (props.dlgbasicConfirm && typeof props.dlgbasicConfirm === 'function') {
       type.value = 'continue'
@@ -305,7 +338,7 @@ const beforeCloseDlg = (done) => {
   // 如果 done 是函数，说明是从 el-dialog 的 before-close 调用的
   // 如果 done 是 undefined，说明是从按钮点击调用的
   if (needVerifyUpdate.value) {
-    if (JSON.stringify(oldData.value) !== JSON.stringify(form.value)) {
+    if (!deepEqual(oldData.value, form.value)) {
       ElMessageBox.confirm('数据已经修改，确认不保存退出吗？', '注意', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning', distinguishCancelAndClose: true, center: true })
         .then(() => {
           if (typeof done === 'function') {

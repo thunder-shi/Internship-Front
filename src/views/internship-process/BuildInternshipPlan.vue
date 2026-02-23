@@ -1,6 +1,6 @@
 <template>
   <div class="build-internship-plan-container">
-    <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" :baselist-submit="handleSubmit" ref="baseList" @append-click="appendClick" @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick">
+    <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" ref="baseList" @append-click="appendClick" @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick">
     </BaseList>
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
     <DlgInternshipDetail ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin" @update-record="handleUpdateRecord" />
@@ -220,34 +220,6 @@ const saveInternshipData = async (form, successMessage) => {
 };
 
 /**
- * 更新 MainVerifyProcess 表的审核状态
- * 只有"提交"操作才会调用此函数
- * @param {Object} form - 表单数据
- * @param {Number} isAudit - 审核状态（0: 提交待审核）
- * @returns {Promise<Boolean>} - 返回 true 表示成功，false 表示失败
- */
-const updateVerifyProcess = async (form, isAudit) => {
-  try {
-    // 更新流程状态到 MainVerifyProcess
-    // 注意：需要使用 form.processId 来更新 MainVerifyProcess 表
-    const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
-      id: form.processId, // 使用 processId（MainVerifyProcess 表的主键）
-      isAudit: isAudit
-    });
-    if (resInfo && resInfo.message === 'successful') {
-      return true;
-    } else {
-      ElMessage.warning(resInfo?.message || '更新审核状态失败');
-      return false;
-    }
-  } catch (error) {
-    // axios 拦截器已经处理了错误提示，这里不需要重复显示
-    console.error('更新审核状态失败:', error);
-    return false;
-  }
-};
-
-/**
  * 新增项目确认函数
  * 创建项目后需要进入编辑页面配置流程列表
  * 与 BuildInternship.vue 中的实现完全一样
@@ -321,29 +293,6 @@ const handleDeleteClick = async (rows) => {
   }
 };
 
-/**
- * 提交：提交审核
- * isAudit = 0（提交待审核）
- * 先保存 MainInternship 表，然后更新 MainVerifyProcess 表的审核状态
- * @returns {Promise<Boolean>} - 返回 true 表示成功，false 表示失败
- */
-const handleSubmit = async (form) => {
-  try {
-    await ElMessageBox.confirm('提交后将进入审核流程，信息将不可修改，确定提交吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
-  } catch { return false }
-
-  // 先保存 MainInternship 表
-  const saveSuccess = await saveInternshipData(form, `提交成功，${CONSTANT.AUDIT_STATUS.SUBMITNAME}`);
-  if (!saveSuccess) {
-    return false;
-  }
-  // 然后更新 MainVerifyProcess 表的审核状态
-  const updateSuccess = await updateVerifyProcess(form, CONSTANT.AUDIT_STATUS.SUBMIT);
-  if (updateSuccess) {
-    return true; // 返回 true，DlgBasic 会自动关闭对话框
-  }
-  return false;
-};
 
 // 处理更新记录后的回调
 const handleUpdateRecord = () => {

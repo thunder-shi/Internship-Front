@@ -269,3 +269,59 @@ export function normalizeFormForDisplay(formData, options = {}) {
 
   return normalized
 }
+
+/**
+ * 安全地序列化对象为 JSON 字符串，能够处理循环引用
+ * 跳过以 _ 开头的内部属性（如 _allRecords）和循环引用
+ * @param {any} obj - 要序列化的对象
+ * @returns {string} JSON 字符串
+ */
+export function safeStringify(obj) {
+  try {
+    // 创建一个自定义的 replacer 函数来跳过循环引用和内部属性
+    const seen = new WeakSet()
+    const replacer = (key, value) => {
+      // 跳过以 _ 开头的内部属性（如 _allRecords）
+      if (key && key.startsWith('_')) {
+        return undefined
+      }
+      
+      if (typeof value === 'object' && value !== null) {
+        // 检测循环引用
+        if (seen.has(value)) {
+          return '[Circular]'
+        }
+        seen.add(value)
+      }
+      return value
+    }
+    
+    return JSON.stringify(obj, replacer)
+  } catch (error) {
+    console.error('序列化对象失败:', error)
+    // 如果还是失败，尝试使用 lodash 的 cloneDeep 后再序列化（会丢失循环引用）
+    try {
+      const cleaned = _.cloneDeep(obj)
+      // 移除以 _ 开头的属性
+      const removeInternalProps = (obj) => {
+        if (Array.isArray(obj)) {
+          return obj.map(removeInternalProps)
+        } else if (obj && typeof obj === 'object') {
+          const cleaned = {}
+          for (const key in obj) {
+            if (!key.startsWith('_')) {
+              cleaned[key] = removeInternalProps(obj[key])
+            }
+          }
+          return cleaned
+        }
+        return obj
+      }
+      return JSON.stringify(removeInternalProps(cleaned))
+    } catch (e) {
+      console.error('备用序列化方法也失败:', e)
+      // 最后的备用方案：返回空对象
+      return '{}'
+    }
+  }
+}

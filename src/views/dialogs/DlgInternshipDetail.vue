@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" :dlgbasic-spec-submit="handleSubmit" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #mainForm>
       <div class="dlg-content-wrapper">
         <!-- 上半部分：基本信息表单 -->
@@ -19,15 +19,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, reactive, computed, watch, onBeforeUnmount, nextTick } from 'vue';
 import { useStore } from 'vuex';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import DlgBasic from '@/components/DlgBasic.vue';
 import FormItemsforDialog from '@/components/FormItemsforDialog.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import DlgProcessSelect from '@/views/dialogs/DlgProcessSelect.vue';
-import dlgAPI from '@/utils/forDialog';
 import listAPI from '@/api/list';
+import CONSTANT from '@/utils/constant';
 
 const props = defineProps({
   userDepartmentId: { type: [Number, String], default: null },
@@ -55,7 +55,8 @@ const defaultProps = reactive({
   dlgTitle: '编辑实习项目',
   footButtons: {
     cancel: { show: true, name: '取 消', type: '' },
-    confirm: { show: true, name: '保 存', type: 'primary' }
+    confirm: { show: true, name: '保 存', type: 'primary' },
+    submit: { show: true, name: '提 交', type: 'success' }
   },
   someFlags: {
     noFooter: false,
@@ -139,10 +140,23 @@ async function showDialog(val, formData = {}) {
       delete form[key];
     });
     Object.assign(form, formData);
+    // 保存 processId（用于提交时更新 MainVerifyProcess 表）
+    if (formData.processId != null) {
+      form.processId = formData.processId;
+    }
   }
 
+  // 判断是否允许修改：只有 SAVE(-1) 或 BACK(3) 状态才能修改
+  const canEdit = formData.isAudit === CONSTANT.AUDIT_STATUS.SAVE || formData.isAudit === CONSTANT.AUDIT_STATUS.BACK;
+  
+  // 根据审核状态控制按钮显示
+  defaultProps.footButtons.confirm.show = canEdit;
+  defaultProps.footButtons.submit.show = canEdit;
+  tableListProps.defaultDTHProps.showTopButtons = canEdit;
+  tableListProps.someFlags.operateShow = canEdit;
+
   // 设置 DataTableList 的过滤条件和移动范围
-  if (formData && formData.id != null && formData.id !== 0) {
+  if (formData && formData.internshipId != null && formData.internshipId !== 0) {
     tableListProps.initSearchWords.searchKey = { internshipId: formData.internshipId };
     tableListProps.moveSearchWords.searchKey = { internshipId: formData.internshipId };
     // 在打开对话框前先加载专业数据，避免组件初始化后再设置值导致重复加载
@@ -160,11 +174,14 @@ async function showDialog(val, formData = {}) {
   // 标记初始化完成
   isInitializing.value = false;
 
+  // 等待 DOM 更新后执行后续操作
+  await nextTick();
+  
   setTimeout(() => {
     formPanelRef.value?.clearValidate();
-    if (formData && formData.id != null && formData.id !== 0) {
+    if (formData && formData.internshipId != null && formData.internshipId !== 0) {
       verifyValid(false);
-      // 减少延迟时间，从 200ms 改为 100ms，提升刷新速度
+      // 延迟加载数据列表，确保组件已完全初始化
       setTimeout(() => { dataTableList.value?.initDataList(true); }, 100);
     } else {
       dlgBasicRef.value.validate = true;
@@ -206,49 +223,162 @@ function verifyValid(showMessage = true) {
 }
 
 /**
+ * 验证表单数据
+ * @returns {Boolean} - 返回 true 表示验证通过，false 表示验证失败
+ */
+function validateFormData() {
+  // 检查专业选择
+  if (!form.majorIds || (Array.isArray(form.majorIds) && form.majorIds.length === 0)) {
+    ElMessage.warning('请选择专业');
+    return false;
+  }
+
+  // 检查"实习计划制定"流程
+  const planProcess = processList.value.find((p) => p.processTypeName === '实习计划制定');
+  if (!planProcess) {
+    ElMessage.warning('流程列表中必须包含"实习计划制定"流程');
+    return false;
+  }
+
+  if (!planProcess.startTime || !planProcess.endTime) {
+    ElMessage.warning('"实习计划制定"流程必须设置起止时间');
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * 保存实习项目数据和专业关联关系
+ * @param {String} successMessage - 成功提示消息
+ * @returns {Promise<Boolean>} - 返回 true 表示成功，false 表示失败
+ */
+async function saveInternshipAndMajors(successMessage) {
+  // 先保存 MainInternship 表
+  const saveSuccess = await saveInternshipData(form, successMessage);
+  if (!saveSuccess) {
+    return false;
+  }
+
+  // 保存专业关联关系
+  if (form.internshipId != null && form.internshipId !== 0) {
+    await saveMajorIds(form.internshipId, form.majorIds || []);
+  }
+
+  return true;
+}
+
+/**
  * 保存：保存项目配置
  * 检查"实习计划制定"流程必须存在且设置了起止时间
  * 检查不通过时返回 false 阻止弹窗关闭
  */
 async function confirm(option, type) {
-  // 检查专业选择
-  if (!form.majorIds || (Array.isArray(form.majorIds) && form.majorIds.length === 0)) {
-    ElMessage.warning('请选择专业');
+  // 验证表单数据
+  if (!validateFormData()) {
     return false; // 阻止弹窗关闭
   }
 
-  // 检查"实习计划制定"流程
-  const planProcess = processList.value.find(
-    (p) => p.processTypeName === '实习计划制定'
-  );
-
-  if (!planProcess) {
-    ElMessage.warning('流程列表中必须包含"实习计划制定"流程');
-    return false; // 阻止弹窗关闭
+  // 保存数据
+  const saveSuccess = await saveInternshipAndMajors('保存成功');
+  if (!saveSuccess) {
+    return false; // 保存失败，阻止关闭对话框
   }
 
-  if (!planProcess.startTime || !planProcess.endTime) {
-    ElMessage.warning('"实习计划制定"流程必须设置起止时间');
-    return false; // 阻止弹窗关闭
+  emit('update-record', form);
+  if (type === 'stop') {
+    dlgBasicRef.value?.showDialog(false, form);
   }
+  return true; // 返回 true 表示保存成功，允许关闭对话框
+}
 
-  const userId = store.getters.userInfo?.id;
-  const resInfo = await dlgAPI.commonSubmitDlg(formPanelRef.value, form, keyWord.value, 'edit', false, false, userId);
-  // commonSubmitDlg 已经统一处理了成功提示，这里不需要重复显示
-  if (resInfo && resInfo.message === 'successful') {
-    // 保存基本信息成功后，保存专业关联关系
-    if (resInfo.data && resInfo.data.id) {
-      // 更新 form.id（新增时后端会返回 id）
-      form.id = resInfo.data.id;
-      await saveMajorIds(form.id, form.majorIds || []);
-    } else if (form.id != null && form.id !== 0) {
-      // 编辑模式，直接保存专业关联关系
-      await saveMajorIds(form.id, form.majorIds || []);
-    }    
-    emit('update-record', form);
-    if (type === 'stop') {
-      dlgBasicRef.value?.showDialog(false, form);
+/**
+ * 保存数据到 MainInternship 表
+ * @param {Object} formData - 表单数据
+ * @param {String} successMessage - 成功提示消息
+ * @returns {Promise<Boolean>} - 返回 true 表示成功，false 表示失败
+ */
+async function saveInternshipData(formData, successMessage) {
+  try {
+    // 创建保存数据对象，只包含需要的字段
+    const saveData = {
+      id: formData.internshipId,
+      code: formData.internshipCode,
+      name: formData.internshipName,
+      remarks: formData.internshipRemarks
+    };
+    
+    const mainInternshipRes = await listAPI.editOneNode('MainInternship', saveData);
+    if (mainInternshipRes && mainInternshipRes.message === 'successful') {
+      ElMessage.success(successMessage);
+      return true; // 返回 true 表示成功
+    } else {
+      ElMessage.warning(mainInternshipRes?.message || '保存失败');
+      return false;
     }
+  } catch (error) {
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
+    console.error('保存失败:', error);
+    return false;
+  }
+}
+
+/**
+ * 更新 MainVerifyProcess 表的审核状态
+ * 只有"提交"操作才会调用此函数
+ * @param {Number} id - MainVerifyProcess 表的主键
+ * @param {Number} isAudit - 审核状态（0: 提交待审核）
+ * @returns {Promise<Boolean>} - 返回 true 表示成功，false 表示失败
+ */
+async function updateVerifyProcess(id, isAudit) {
+  try {
+    // 更新流程状态到 MainVerifyProcess
+    const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
+      id: id, 
+      isAudit: isAudit
+    });
+    if (resInfo && resInfo.message === 'successful') {
+      return true;
+    } else {
+      ElMessage.warning(resInfo?.message || '更新审核状态失败');
+      return false;
+    }
+  } catch (error) {
+    // axios 拦截器已经处理了错误提示，这里不需要重复显示
+    console.error('更新审核状态失败:', error);
+    return false;
+  }
+}
+
+/**
+ * 提交：提交审核
+ * isAudit = 0（提交待审核）
+ * 先保存 MainInternship 表，然后更新 MainVerifyProcess 表的审核状态
+ * @returns {Promise<Boolean>} - 返回 true 表示成功，false 表示失败
+ */
+async function handleSubmit() {
+  // 验证表单数据
+  if (!validateFormData()) {
+    return false;
+  }
+  // 保存数据
+  const saveSuccess = await saveInternshipAndMajors(`提交成功，${CONSTANT.AUDIT_STATUS.SUBMITNAME}`);
+  if (!saveSuccess) {
+    return false;
+  }
+  // 然后更新 MainVerifyProcess 表的审核状态
+  if (form.id != null && form.id !== 0) {
+    const updateSuccess = await updateVerifyProcess(form.id, CONSTANT.AUDIT_STATUS.SUBMIT);
+    if (updateSuccess) {
+      emit('update-record', form);
+      // 提交成功后关闭对话框
+      dlgBasicRef.value?.showDialog(false, form);
+      return true; // 返回 true 表示成功
+    }
+    return false;
+  } else {
+    ElMessage.warning('缺少流程ID，无法提交审核');
+    return false;
   }
 }
 
@@ -282,7 +412,7 @@ function handleAfterInitData(data) {
 }
 
 function handleTableAppend() {
-  if (form.id != null && form.id !== 0) {
+  if (form.internshipId != null && form.internshipId !== 0) {
     dlgProcessSelect.value?.showDialog(true, {});
   } else {
     ElMessage.warning('请先保存基本信息后再添加流程');

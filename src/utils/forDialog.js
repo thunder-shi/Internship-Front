@@ -34,15 +34,9 @@ async function commonSubmitDlg(formPanel, formData, keyWords, option, isTree, is
   if (await formPanel.validate()) {
     // const params = filterLastId(formData)
     const params = formData
-    if (!isAudit) {
-      if (isTree) {
-        resInfo = await treeAPI.editOneNode(keyWords, params)
-      } else {
-        resInfo = await listAPI.editOneNode(keyWords, params)
-      }
+    if (isTree) {
+      resInfo = await treeAPI.editOneNode(keyWords, params)
     } else {
-      params.auditUserId = userId
-      params.auditTime = new Date()
       resInfo = await listAPI.editOneNode(keyWords, params)
     }
     if (resInfo.message === 'successful') {
