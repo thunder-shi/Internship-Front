@@ -270,40 +270,6 @@ async function saveProcessData(form) {
   }
 }
 
-// 处理激活流程操作
-async function handleActivateProcess(saveData, keyWord) {
-  // 激活时间范围内的流程（只有当前流程是"实习计划制定"且是实习项目模式时才执行）
-  if (fullRowData.value?.processTypeCode === constant.PROCESS_TYPE.INTERNSHIP_PLAN_MAKE && keyWord === 'RelProcessInternship') {
-    const activateParams = {
-      processId: fullRowData.value?.id,
-      relationId: saveData.internshipId,
-      tableName: 'MainInternship',
-      createUserId: store.getters.userInfo?.id
-    };
-    
-    // 先查询 MainVerifyProcess 表，检查是否存在相同记录
-    try {
-      const queryRes = await listAPI.getSomeRecords({
-        keyWords: 'MainVerifyProcess',
-        searchKey: {
-          processId: activateParams.processId,
-          relationId: activateParams.relationId,
-          tableName: activateParams.tableName
-        }
-      });
-      // 获取查询结果
-      const existingRecords = queryRes?.data?.records || queryRes?.data?.content || [];
-      // 如果不存在记录，才执行激活流程
-      if (existingRecords.length == 0) {
-        await internshipProcessAPI.activateProcess(activateParams);
-      }
-    } catch (error) {
-      console.error('查询 MainVerifyProcess 失败:', error);
-      // 查询失败时可以选择是否继续执行，这里选择不执行激活流程
-    }
-  }
-}
-
 async function confirm(option, type, form) {
   // 第一步：保存流程数据
   const saveResult = await saveProcessData(form);

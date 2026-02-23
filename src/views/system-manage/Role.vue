@@ -81,13 +81,35 @@ watch(() => currentColumn.value?.id, (val) => {
   }
 })
 
+// 递归排序树形数据（按 theOrder 排序）
+function sortTreeByOrder(data) {
+  if (!Array.isArray(data)) return data
+  
+  // 对当前层级排序
+  const sorted = [...data].sort((a, b) => {
+    const orderA = a.theOrder || 0
+    const orderB = b.theOrder || 0
+    return orderA - orderB
+  })
+  
+  // 递归排序子节点
+  sorted.forEach(item => {
+    if (item.children && item.children.length > 0) {
+      item.children = sortTreeByOrder(item.children)
+    }
+  })
+  
+  return sorted
+}
+
 // 初始化数据树
 async function initDataTree() {
   if (currentColumn.value?.id) {
     try {
       loading.value = true
       const resp = await roleAPI.getRolePermissions(currentColumn.value.id)
-      treeData.value = resp.data
+      // 对获取的数据按 theOrder 排序
+      treeData.value = sortTreeByOrder(resp.data)
       initAllNodes()
       loading.value = false
     } catch (error) {

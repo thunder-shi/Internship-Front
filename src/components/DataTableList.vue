@@ -725,12 +725,13 @@ const _initDataList = async () => {
         andor: usedSearchWords.andor,
       });
     } catch (error) {
-      console.log(error);
+      console.error('_initDataList: API 调用失败:', error);
       loading.value = false;
       return;
     }
 
     if (!resp || !resp.data) {
+      console.warn('_initDataList: API 响应为空或没有 data');
       loading.value = false;
       return;
     }
