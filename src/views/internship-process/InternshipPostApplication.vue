@@ -18,7 +18,6 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import _ from 'lodash';
 import { useStore } from 'vuex';
 import InternshipPostPage from '@/views/master-page/InternshipPostPage.vue';
 import CONSTANT from '@/utils/constant';
@@ -80,37 +79,7 @@ function handleAppendClick(currentInternship) {
 }
 
 // 处理修改按钮点击
-function handleEditClick(row, currentInternship) {
-  // 从当前行数据中提取实习项目信息，如果行数据中有则使用，否则使用已有的currentInternship
-  let internshipInfo = currentInternship;
-  
-  // 如果当前行包含实习项目信息，优先使用行数据中的信息
-  if (row && (row.internshipId || row.internshipName)) {
-    internshipInfo = {
-      ...currentInternship,
-      internshipId: row.internshipId || currentInternship?.internshipId,
-      internshipName: row.internshipName || currentInternship?.internshipName,
-      name: row.internshipName || currentInternship?.name,
-      id: row.internshipId || currentInternship?.id,
-      majorIds: row.majorIds || currentInternship?.majorIds,
-      majorNames: row.majorNames || currentInternship?.majorNames,
-      startTime: row.startTime || currentInternship?.startTime,
-      endTime: row.endTime || currentInternship?.endTime,
-      companyName: row.companyName || currentInternship?.companyName,
-      companyId: row.companyId || currentInternship?.companyId
-    };
-  }
-  
-  if (!internshipInfo || !internshipInfo.internshipId) {
-    ElMessage.warning('请先选择实习项目');
-    return;
-  }
-  
-  // 更新currentInternship为从行数据中提取的信息
-  if (internshipPostPageRef.value?.currentInternship) {
-    internshipPostPageRef.value.currentInternship.value = _.cloneDeep(internshipInfo);
-  }
-  
+function handleEditClick(row) {
   // 将当前行数据传入对话框
   const dlgPostDetail = internshipPostPageRef.value?.dlgPostDetail;
   dlgPostDetail?.showDialog(true, {}, row);

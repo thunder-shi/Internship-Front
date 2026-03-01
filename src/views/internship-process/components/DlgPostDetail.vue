@@ -101,6 +101,13 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-row>
+          <el-col :span="24">
+            <el-form-item label="已经报名人数：">
+              <span>{{ form.nowPersonNum ?? '--' }}</span>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <!-- 审核选项和理由（审核模式下显示） -->
         <div v-if="isAuditMode" class="audit-section-top">
           <el-form-item label="审核结果" prop="auditResult">
@@ -145,13 +152,16 @@ const props = defineProps({
 });
 
 // 计算属性：项目名称
+// 优先从 currentRowData 中获取（如果是从行数据传入的），否则从 props.currentInternship 中获取
 const internshipName = computed(() => {
-  return props.currentInternship?.internshipName || props.currentInternship?.name || '';
+  return currentRowData.value?.internshipName || currentRowData.value?.name || 
+         props.currentInternship?.internshipName || props.currentInternship?.name || '';
 });
 
 // 计算属性：专业信息
+// 优先从 currentRowData 中获取（如果是从行数据传入的），否则从 props.currentInternship 中获取
 const majorNames = computed(() => {
-  return props.currentInternship?.majorNames || '';
+  return currentRowData.value?.majorNames || props.currentInternship?.majorNames || '';
 });
 
 const emit = defineEmits(['close-dialog', 'success']);
@@ -656,7 +666,10 @@ async function savePostData() {
     }
     
     // 如果有实习项目ID，添加到表单数据中
-    const internshipId = props.currentInternship?.internshipId;
+    // 编辑/审核模式下优先从 currentRowData 获取，否则从 props.currentInternship 获取
+    const internshipId = (isEditMode.value || isAuditMode.value) 
+      ? (currentRowData.value?.internshipId || props.currentInternship?.internshipId)
+      : props.currentInternship?.internshipId;
     if (!internshipId) {
       ElMessage.warning('请先选择实习项目');
       return { success: false };
@@ -923,6 +936,8 @@ async function showDialog(val, formData = {}, rowData = null, auditMode = false)
           form.allPersonNum = postData.allPersonNum;
           form.postTypeId = postData.postTypeId;
           form.departmentId = postData.departmentId;
+          // 从 rowData 中获取已经报名人数
+          form.nowPersonNum = rowData.nowPersonNum;
           
           // 加载岗位类型信息（用于显示岗位类型名称）
           if (postData.postTypeId) {
@@ -1056,8 +1071,8 @@ defineExpose({
 
 <style scoped>
 .post-type-info {
-  margin-top: 20px;
-  padding: 16px;
+  margin-top: 16px;
+  padding: 12px;
   background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf0 100%);
   border: 1px solid #dcdfe6;
   border-radius: 4px;
@@ -1102,7 +1117,7 @@ defineExpose({
 }
 
 .specific-post-section {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 /* 防止label换行 */
@@ -1115,5 +1130,21 @@ defineExpose({
   padding: 20px;
   background-color: #fff;
   border-radius: 4px;
+}
+
+/* 减少一些间距，让内容更紧凑 */
+.specific-post-section {
+  margin-top: 16px;
+}
+
+.post-type-info {
+  margin-top: 16px;
+  padding: 12px;
+}
+
+/* 非审核模式下，增加对话框内容区域的最大高度，避免出现滚动条 */
+/* 当对话框高度设置为 80vh 时，增加 body 的最大高度 */
+:deep(.el-dialog[style*="height"]) .el-dialog__body {
+  max-height: calc(80vh - 120px) !important; /* 减去 header 和 footer 的高度 */
 }
 </style>

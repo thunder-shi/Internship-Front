@@ -78,10 +78,10 @@ function buildSearchKey(baseSearchKey) {
 }
 
 // 处理审核按钮点击事件
-function handleAuditClick(row, currentInternship) {
+function handleAuditClick(row) {
   // row 可能是数组（多选）或单个对象（单选）
   const selectedRow = Array.isArray(row) ? row[0] : row;
-  if (selectedRow && currentInternship) {
+  if (selectedRow) {
     // 打开 DlgPostDetail 对话框，传入审核模式标志
     const dlgPostDetail = internshipPostPageRef.value?.dlgPostDetail;
     dlgPostDetail?.showDialog(true, {}, selectedRow, true);
