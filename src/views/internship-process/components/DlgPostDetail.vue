@@ -784,11 +784,7 @@ async function updateVerifyProcess(isAudit) {
 // 处理提交按钮点击
 async function handleSubmit() {
   try {
-    await ElMessageBox.confirm('提交后将进入审核流程，信息将不可修改，确定提交吗？', '提示', { 
-      confirmButtonText: '确定', 
-      cancelButtonText: '取消', 
-      type: 'warning' 
-    });
+    await ElMessageBox.confirm('提交后将进入审核流程，信息将不可修改，确定提交吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
   } catch {
     return false; // 用户取消提交
   }

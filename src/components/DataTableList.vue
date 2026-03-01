@@ -18,7 +18,7 @@
             </template>
           </template>
         </template>
-        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList" row-key="id" highlight-current-rows @current-change="handleColumnChange" @selection-change="handleSelectionChange" @sort-change="handleSortChange">
+        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList" row-key="id" highlight-current-rows :row-class-name="rowClassNameFn" @current-change="handleColumnChange" @selection-change="handleSelectionChange" @sort-change="handleSortChange">
           <el-table-column v-if="checkFlag" fixed :reserve-selection="true" type="selection" width="55" />
           <el-table-column v-else fixed width="55">
             <template #default="scope">
@@ -263,6 +263,13 @@ const props = defineProps({
   getVerifyRoleName: {
     type: Function,
     default: null
+  },
+  // 行类名函数：用于自定义表格行的类名
+  // 格式: (row, rowIndex) => string
+  // 例如: (row) => row.isSelected ? 'selected-row' : ''
+  rowClassName: {
+    type: Function,
+    default: null
   }
 });
 
@@ -362,9 +369,16 @@ const enableAuditStatusCustom = computed(() => {
 });
 
 const getVerifyRoleName = computed(() => {
-  return props.defaultProps?.getVerifyRoleName !== undefined 
-    ? props.defaultProps.getVerifyRoleName 
+  return props.defaultProps?.getVerifyRoleName !== undefined
+    ? props.defaultProps.getVerifyRoleName
     : props.getVerifyRoleName;
+});
+
+// 行类名函数（从 defaultProps 或 props 中获取）
+const rowClassNameFn = computed(() => {
+  return props.defaultProps?.rowClassName !== undefined
+    ? props.defaultProps.rowClassName
+    : props.rowClassName;
 });
 
 // 判断是否有卡片标题（用于控制是否显示 header）

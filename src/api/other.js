@@ -45,9 +45,33 @@ const deleteNewInternship = async (ids) => {
   })
 }
 
+/**
+ * 学生选择岗位
+ * @param {Number} studentId - 学生ID
+ * @param {Number} oldPostId - 旧岗位ID
+ * @param {Number} newPostId - 新岗位ID
+ */
+const stuSelPost = async (studentId, oldPostId, newPostId) => {
+  // 对参数进行加密
+  const encryptedStudentId = await getEncryptKeyWord(String(studentId))
+  const encryptedOldPostId = await getEncryptKeyWord(String(oldPostId))
+  const encryptedNewPostId = await getEncryptKeyWord(String(newPostId))
+  
+  return request({
+    url: '/internshipPost/StuSelPost',
+    method: 'post',
+    data: {
+      StudentId: encryptedStudentId,
+      oldPostId: encryptedOldPostId,
+      newPostId: encryptedNewPostId
+    }
+  })
+}
+
 export default {
   getKey,
   getWholeKey,
   addNewInternship,
   deleteNewInternship,
+  stuSelPost,
 }

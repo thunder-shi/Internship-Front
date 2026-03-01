@@ -9,6 +9,7 @@
     :build-search-key="buildSearchKey"
     :is-company-user="false"
     @view-click="handleViewClick"
+    @edit-click="handleEditClick"
     @project-selected="handleProjectSelected"
   >
     <!-- 岗位详情对话框（查看） -->
@@ -17,19 +18,21 @@
         ref="dlgPostDetail" 
         :current-internship="currentInternship" 
         @close-dialog="handlePostDetailClose" 
-        @success="handlePostDetailSuccess" 
       />
     </template>
   </InternshipPostHeaderPage>
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue';
+import { reactive, ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import moment from 'moment';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgPostDetail from '@/views/internship-process/components/DlgPostDetail.vue';
 import CONSTANT from '@/utils/constant';
+import listAPI from '@/api/list';
+import otherAPI from '@/api/other';
 
 defineOptions({
   name: 'StuApplyPost',
@@ -46,6 +49,9 @@ const userInfo = computed(() => store.getters.userInfo || {});
 const titleObj = reactive({
   mainTitle: '学生岗位申请'
 });
+
+// 存储当前已选岗位信息
+const currentSelectedPost = ref(null);
 
 // 获取当前实习项目（从 headerPageRef）
 const currentInternship = computed(() => {
@@ -88,10 +94,11 @@ const projectSelectRegKey = computed(() => {
   return regKey;
 });
 
-// 按钮配置函数（包含"查看"和"实习项目选择"按钮）
+// 按钮配置函数（包含"查看"、"选定/取消"和"实习项目选择"按钮）
 function getButtonProps(currentInternship, isMore1Disabled) {
   return {
     visible: { show: true, type: 'primary', name: '查看' },
+    update: { show: true, type: 'primary', name: '选定/取消' },
     more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled }
   };
 }
@@ -104,10 +111,71 @@ function buildSearchKey(baseSearchKey) {
   };
 }
 
+// 查询已选岗位信息
+async function querySelectedPost(internshipId, studentId) {
+  if (!internshipId || !studentId) {
+    return null;
+  }
+  
+  try {
+    const response = await listAPI.getSomeRecords({
+      keyWords: 'ViewVerifyProcessRelStuInternship',
+      searchKey: {
+        internshipId: internshipId,
+        studentId: studentId
+      }
+    });
+    
+    if (response && response.data) {
+      const dataList = response.data.content || response.data || [];
+      if (dataList.length > 0) {
+        return dataList[0];
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('查询已选岗位失败:', error);
+    return null;
+  }
+}
+
+
+// 生成完整的标题（包含已选岗位信息）
+async function generateFullTitle(baseTitle, internshipId, studentId) {
+  if (!baseTitle) {
+    return baseTitle;
+  }
+  
+  // 查询并存储已选岗位信息
+  const selectedPost = await querySelectedPost(internshipId, studentId);
+  currentSelectedPost.value = selectedPost;
+  
+  let selectedPostText = '无';
+  if (selectedPost) {
+    const companyName = selectedPost.companyName || '';
+    const postName = selectedPost.internshipPostName || '';
+    if (companyName || postName) {
+      selectedPostText = `${companyName}：${postName}`;
+    }
+  }
+  
+  return `${baseTitle}。已选岗位：${selectedPostText}`;
+}
+
 // 处理项目选择后的回调
-function handleProjectSelected(internship, title) {
+async function handleProjectSelected(internship, title) {
   if (title) {
-    titleObj.mainTitle = title;
+    // 如果实习项目尚未选择，直接使用原始标题，不添加"已选岗位"信息
+    if (!internship || (!internship.internshipId && !internship.id)) {
+      titleObj.mainTitle = title;
+      return;
+    }
+    // 获取当前实习项目ID和用户ID
+    const internshipId = internship.internshipId || internship.id;
+    const studentId = userInfo.value?.id;
+    // 生成包含已选岗位信息的完整标题
+    const fullTitle = await generateFullTitle(title, internshipId, studentId);
+    titleObj.mainTitle = fullTitle;
   }
 }
 
@@ -117,29 +185,154 @@ function handleViewClick(rowOrArray) {
   dlgPostDetail.value?.showDialog(true, {}, row);
 }
 
+// 选定/取消按钮点击
+async function handleEditClick(row) {
+  // row 可能是数组（多选）或单个对象（单选）
+  const selectedRow = Array.isArray(row) ? row[0] : row;
+  // 使用存储的已选岗位信息  
+  const selectedPost = currentSelectedPost.value;
+  const currentUserId = userInfo.value?.id;
+  const studentId = userInfo.value?.id;
+  const currentPostId = Number(selectedRow.postId) || 0;
+  const selectedPostId = selectedPost ? (Number(selectedPost.internshipPostId) || 0) : 0;
+  let operationSuccess = false; // 操作是否成功
+  
+  // 判断0：首先判断肯定不能修改的情况
+  // 如果selectedPost有值，且isAudit=1（审核通过）或者createUserId和当前用户id不相等，不能修改
+  if (selectedPost) {
+    const isAudit = selectedPost.isAudit;
+    if (isAudit === CONSTANT.AUDIT_STATUS.PASS || selectedPost.createUserId !== currentUserId) {
+      ElMessage.warning('岗位选择已经进入审核流程，不能修改！');
+      return;
+    }
+  }  
+  // 判断1：如果已选岗位的postId和当前选中行的postId相等，执行取消选择
+  if (selectedPost && selectedPostId && currentPostId && selectedPostId === currentPostId) {
+    // 已经选择了这个岗位，执行取消选择
+    try {
+      await ElMessageBox.confirm('确认取消该岗位的选择吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
+      const studentId = userInfo.value?.id;
+      const response = await otherAPI.stuSelPost(studentId, selectedPost.internshipPostId, 0);
+      if (response && response.message === 'successful') {
+        operationSuccess = true;
+        // 清除已选岗位信息
+        currentSelectedPost.value = null;
+      }
+    } catch (error) {
+      // 用户取消，不做任何操作
+      return;
+    }
+  }
+  else {
+    // 判断2：如果当前选中行的nowPersonNum=allPersonNum，岗位已选满
+    const nowPersonNum = selectedRow.nowPersonNum || 0;
+    const allPersonNum = selectedRow.allPersonNum || 0;
+    if (nowPersonNum >= allPersonNum) {
+      ElMessage.warning('当前岗位已经选满，无法选择！');
+      return;
+    }    
+    // 判断3：如果已选岗位存在，提示是否更换（走到这里时，isAudit只能是0或2，且createUserId一定等于currentUserId）
+    if (selectedPost) {
+      try {
+        await ElMessageBox.confirm('你已经选择了岗位，确定更换新的岗位吗？','提示',{confirmButtonText: '确定',cancelButtonText: '取消', type: 'warning'});
+        // 用户确认更换，执行更换岗位操作
+        const oldPostId = selectedPostId;
+        const newPostId = currentPostId;
+        const response = await otherAPI.stuSelPost(studentId, oldPostId, newPostId);
+        if (response && response.message === 'successful') {
+          operationSuccess = true;
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('操作失败:', error);
+          ElMessage.error('操作失败');
+        }
+        // 用户取消，不做任何操作
+        return;
+      }
+    } else {
+      // 没有已选岗位，直接执行选定操作
+      try {
+        const oldPostId = 0;
+        const newPostId = currentPostId;
+        const response = await otherAPI.stuSelPost(studentId, oldPostId, newPostId);
+        if (response && response.message === 'successful') {
+          operationSuccess = true;
+        }
+      } catch (error) {
+        console.error('操作失败:', error);
+        ElMessage.error('操作失败');
+      }
+    }
+}  
+  // 统一刷新数据列表和标题
+  if (operationSuccess) {
+    ElMessage.success('操作成功');
+    // 等待数据列表刷新完成
+    await headerPageRef.value?.baseListRef?.initDataList(true);
+    // 数据刷新完成后，再查询已选岗位信息并更新标题
+    const internship = currentInternship.value;
+    if (internship) {
+      const baseTitle = generateTitleWithDate(internship);
+      await handleProjectSelected(internship, baseTitle);
+    }
+  } else {
+    ElMessage.success('操作失败');
+  }
+}
+
 // 处理岗位详情对话框关闭
 function handlePostDetailClose() {
   // 可以在这里处理关闭后的逻辑
 }
 
-// 处理岗位详情保存成功
-function handlePostDetailSuccess() {
-  // 刷新数据列表
-  headerPageRef.value?.baseListRef?.initDataList(true);
+// 生成带日期的标题（辅助函数）
+function generateTitleWithDate(internship) {
+  if (!internship) return '';
+  const name = internship.internshipName || internship.name;
+  if (!name) return '';
+  const start = internship.startTime ? moment(internship.startTime).format('YYYY-MM-DD') : '';
+  const end = internship.endTime ? moment(internship.endTime).format('YYYY-MM-DD') : '';
+  if (start && end) {
+    return `当前实习项目：${name}（${start}到${end}）`;
+  }
+  return `当前实习项目：${name}`;
 }
+
+// 监听当前实习项目变化，更新标题
+watch(currentInternship, async (newInternship) => {
+  if (newInternship) {
+    const baseTitle = generateTitleWithDate(newInternship);
+    await handleProjectSelected(newInternship, baseTitle);
+  }
+}, { immediate: true });
 
 // 构建 defaultDTLProps（包含按钮和列配置）
 const buttonPropsComputed = computed(() => {
   return getButtonProps(currentInternship.value, isMore1Disabled.value);
 });
 
+// 判断行是否是已选岗位
+const getRowClassName = ({ row }) => {
+  const selectedPost = currentSelectedPost.value;
+  if (selectedPost && selectedPost.internshipPostId && row.postId) {
+    // 将 postId 转换为字符串进行比较，因为可能一个是数字一个是字符串
+    if (String(selectedPost.internshipPostId) === String(row.postId)) {
+      return 'selected-post-row';
+    }
+  }
+  return '';
+};
+
 const defaultDTLProps = computed(() => {
   return {
     title: titleObj,
     someFlags: {
       autoInit: false,
+      checkFlag: false, // 设置为单选模式
     },
     enableAuditStatusCustom: true,
+    rowClassName: getRowClassName,
     defaultDTHProps: {
       buttonProps: buttonPropsComputed.value,
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipPost' },
@@ -163,3 +356,16 @@ defineExpose({
   updateSearchWordsAndRefresh: () => headerPageRef.value?.updateSearchWordsAndRefresh()
 });
 </script>
+
+<style scoped>
+:deep(.selected-post-row) {
+  background-color: #e6f7ff !important;
+  font-weight: bold !important;
+}
+:deep(.selected-post-row:hover) {
+  background-color: #bae7ff !important;
+}
+:deep(.selected-post-row td) {
+  font-weight: bold !important;
+}
+</style>

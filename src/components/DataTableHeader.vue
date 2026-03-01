@@ -291,10 +291,7 @@ async function handleUpload(para) {
 // 删除
 function remove(row) {
   if (row.length > 0) {
-    ElMessageBox.confirm('此操作将删除选中行, 是否继续?', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-    })
+    ElMessageBox.confirm('此操作将删除选中行, 是否继续?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消' })
       .then(async (_) => {
         emit('delete-click', row);
       })

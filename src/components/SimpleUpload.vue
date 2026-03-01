@@ -120,10 +120,7 @@ async function handleBeforeRemove(file, files) {
   }
   if (isManualDelete.value) {
     try {
-      await ElMessageBox.confirm('删除以后不可恢复，确定删除该文件吗？', '警告', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消'
-      })
+      await ElMessageBox.confirm('删除以后不可恢复，确定删除该文件吗？', '警告', { confirmButtonText: '确定', cancelButtonText: '取消' })
       return true
     } catch {
       return false
