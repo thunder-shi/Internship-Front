@@ -115,7 +115,7 @@ async function handleDeleteClick(rows) {
       if (row.id) {
         verifyProcessIds.push(row.id);
       }
-      const postId = row.postId || row.relationId;
+      const postId = row.internshipPostId || row.relationId;
       if (postId) {
         internshipPostIds.push(postId);
       }

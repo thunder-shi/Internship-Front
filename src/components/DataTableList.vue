@@ -22,7 +22,7 @@
           <el-table-column v-if="checkFlag" fixed :reserve-selection="true" type="selection" width="55" />
           <el-table-column v-else fixed width="55">
             <template #default="scope">
-              <el-radio v-model="tableRadio" :label="scope.row"><i /></el-radio>
+              <el-radio v-model="tableRadio" :label="scope.row.id"><i /></el-radio>
             </template>
           </el-table-column>
           <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true" :prop="item.tableColumnName" :label="item.showName" :width="item.width" :sortable="item.sortable ? 'custom' : false">
@@ -1022,7 +1022,7 @@ const handleSortChange = (column) => {
 // 监听点击某一行事件
 const handleColumnChange = (val) => {
   if (!checkFlag.value) {
-    tableRadio.value = val;
+    tableRadio.value = val ? val.id : null;
     selectedColumns.value = [val];
   }
   emit('update-column', val);

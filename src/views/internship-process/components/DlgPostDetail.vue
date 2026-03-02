@@ -687,7 +687,7 @@ async function savePostData() {
     // 如果是编辑模式，添加ID（MainInternshipPost表的主键）
     if (isEditMode.value) {
       // postId 应该从当前行数据或 currentPostId 中获取
-      const postId = currentPostId.value || currentRowData.value?.postId;
+      const postId = currentPostId.value || currentRowData.value?.internshipPostId;
       if (postId) {
         saveData.id = postId;
       }
@@ -897,7 +897,7 @@ async function showDialog(val, formData = {}, rowData = null, auditMode = false)
   // 设置审核模式
   isAuditMode.value = auditMode;
   // 判断是否为编辑模式（审核模式下也是编辑模式）
-  isEditMode.value = !!(rowData && (rowData.id || rowData.relationId || rowData.postId)) || auditMode;
+  isEditMode.value = !!(rowData && (rowData.id || rowData.relationId || rowData.internshipPostId)) || auditMode;
   // 保存当前行数据（用于获取companyName等字段）
   currentRowData.value = rowData;
   // 保存当前行的审核状态
@@ -910,8 +910,8 @@ async function showDialog(val, formData = {}, rowData = null, auditMode = false)
   
   // 如果是编辑模式或审核模式，从当前行数据加载岗位信息
   if ((isEditMode.value || isAuditMode.value) && rowData) {
-    // 获取岗位ID（优先使用postId，其次relationId）
-    const postId = rowData.postId;
+    // 获取岗位ID（优先使用internshipPostId，其次relationId）
+    const postId = rowData.internshipPostId || rowData.relationId;
     currentPostId.value = postId;
     
     if (postId) {

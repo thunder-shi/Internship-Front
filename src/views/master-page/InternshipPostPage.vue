@@ -96,8 +96,8 @@ const props = defineProps({
     type: Array,
     default: () => [
       { id: 1, showName: '企业名称', tableColumnName: 'companyName', sortable: true },
-      { id: 2, showName: '岗位编码', tableColumnName: 'postCode', sortable: true },
-      { id: 3, showName: '岗位名称', tableColumnName: 'postName', sortable: true },
+      { id: 2, showName: '岗位编码', tableColumnName: 'internshipPostCode', sortable: true },
+      { id: 3, showName: '岗位名称', tableColumnName: 'internshipPostName', sortable: true },
       { id: 4, showName: '岗位人数', tableColumnName: 'allPersonNum', sortable: true },
       { id: 5, showName: '创建人', tableColumnName: 'createUserName' },
       { id: 6, showName: '状态', tableColumnName: 'customize-status' }
