@@ -1,8 +1,5 @@
 <template>
   <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-confirm="handleConfirm" :dlgbasic-spec-submit="handleSubmit" @close-dialog="handleCloseDialog">
-    <template #otherBtn>
-      <el-button v-if="isAuditMode" type="primary" :loading="auditButtonLoading" @click.prevent="handleAudit">审 核</el-button>
-    </template>
     <template #mainForm>
       <el-form ref="formPanelRef" :model="form" :rules="formRules" label-width="120px">
         <el-row>
@@ -21,7 +18,7 @@
           <el-col :span="12">
             <el-form-item label="企业名称：">
               <!-- 如果是企业导师或企业管理员，或者编辑模式，或者审核模式，显示label -->
-              <span v-if="isCompanyUser || isEditMode || isAuditMode">{{ displayDepartmentName || '--' }}</span>
+              <span v-if="isCompanyUser || isEditMode">{{ displayDepartmentName || '--' }}</span>
               <!-- 其他情况（新增模式且非企业用户），显示树型选择框 -->
               <SimpleTreeSelect v-else ref="departmentSelectRef" v-model="form.departmentId" key-words="BaseDepartment" :search-keys="{ typeId: 1 }" placeholder="请选择单位部门" @update-value="handleDepartmentChange" />
             </el-form-item>
@@ -29,7 +26,7 @@
           <el-col :span="12">
             <el-form-item label="岗位类型：">
               <!-- 编辑模式或审核模式下显示label -->
-              <span v-if="isEditMode || isAuditMode">{{ displayPostTypeName || '--' }}</span>
+              <span v-if="isEditMode">{{ displayPostTypeName || '--' }}</span>
               <!-- 新增模式下显示选择框 -->
               <SimpleSelect v-else ref="postTypeSelectRef" v-model="form.postTypeId" key-words="ViewBasePostType" :search-key="postTypeSearchKey" :reg-key="postTypeRegKey" :auto-init="hasValidSchoolId" :disabled="!hasValidSchoolId" :client-filter-fn="postTypeClientFilterFn" placeholder="请选择岗位类型" @init-finish="handlePostTypeInitFinish" />
             </el-form-item>
@@ -83,21 +80,21 @@
         <el-row class="specific-post-section">
           <el-col :span="24">
             <el-form-item label="具体岗位编码：">
-              <el-input v-model="form.code" placeholder="请输入具体岗位编码" :disabled="!canEdit || isAuditMode" />
+              <el-input v-model="form.code" placeholder="请输入具体岗位编码" :disabled="!canEdit" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row>
           <el-col :span="24">
             <el-form-item label="具体岗位名称：">
-              <el-input v-model="form.name" placeholder="请输入具体岗位名称" :disabled="!canEdit || isAuditMode" />
+              <el-input v-model="form.name" placeholder="请输入具体岗位名称" :disabled="!canEdit" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row>
           <el-col :span="24">
             <el-form-item label="预计需要人数：" prop="allPersonNum">
-              <el-input v-model="form.allPersonNum" type="number" placeholder="请输入预计需要人数" :disabled="!canEdit || isAuditMode" />
+              <el-input v-model="form.allPersonNum" type="number" placeholder="请输入预计需要人数" :disabled="!canEdit" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -108,19 +105,6 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <!-- 审核选项和理由（审核模式下显示） -->
-        <div v-if="isAuditMode" class="audit-section-top">
-          <el-form-item label="审核结果" prop="auditResult">
-            <el-radio-group v-model="form.auditResult">
-              <el-radio :label="CONSTANT.AUDIT_STATUS.PASS">{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-radio>
-              <el-radio :label="CONSTANT.AUDIT_STATUS.NOTPASS">{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-radio>
-              <el-radio :label="CONSTANT.AUDIT_STATUS.BACK">{{ CONSTANT.AUDIT_STATUS.BACKNAME }}</el-radio>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="审核理由" prop="auditReason">
-            <el-input v-model="form.auditReason" type="textarea" :rows="4" placeholder="请输入审核理由" :maxlength="500" show-word-limit />
-          </el-form-item>
-        </div>
       </el-form>
     </template>
   </DlgBasic>
@@ -173,30 +157,19 @@ const form = reactive({});
 
 // 是否为编辑模式
 const isEditMode = ref(false);
-// 是否为审核模式
-const isAuditMode = ref(false);
 // 当前编辑的岗位ID（MainInternshipPost表的主键）
 const currentPostId = ref(null);
 // 当前行数据（用于获取companyName等字段）
 const currentRowData = ref(null);
 // 当前行的审核状态
 const currentAuditStatus = ref(null);
-// 审核按钮加载状态
-const auditButtonLoading = ref(false);
 
 // 表单验证规则
-const formRules = computed(() => {
-  const rules = {};
-  
-  // 审核模式下，只验证审核相关字段
-  if (isAuditMode.value) {
-    rules.auditResult = [{ required: true, message: '请选择审核结果', trigger: 'change' }];
-    rules.auditReason = [{ required: true, message: '请输入审核理由', trigger: 'blur' }];
-  } else {
-    // 非审核模式下，验证岗位相关字段
-    rules.allPersonNum = [
-      { required: true, message: '请输入预计需要人数', trigger: 'blur' },
-      { validator: (rule, value, callback) => {
+const formRules = computed(() => ({
+  allPersonNum: [
+    { required: true, message: '请输入预计需要人数', trigger: 'blur' },
+    { 
+      validator: (rule, value, callback) => {
         if (value === undefined || value === null || value === '') {
           callback(new Error('请输入预计需要人数'));
           return;
@@ -209,12 +182,11 @@ const formRules = computed(() => {
         } else {
           callback();
         }
-      }, trigger: 'blur' }
-    ];
-  }
-  
-  return rules;
-});
+      }, 
+      trigger: 'blur' 
+    }
+  ],
+}));
 
 // 获取当前用户信息
 const userInfo = computed(() => store.getters.userInfo || {});
@@ -607,8 +579,14 @@ watch(() => {
   }
 });
 
-// 判断是否可以编辑：只有待提交(SAVE=-1)或审核退回(BACK=3)状态可以编辑
+// 是否为只读模式
+const isReadOnlyMode = ref(false);
+
+// 判断是否可以编辑：只有待提交(SAVE=-1)或审核退回(BACK=3)状态可以编辑，且不是只读模式
 const canEdit = computed(() => {
+  if (isReadOnlyMode.value) {
+    return false; // 只读模式下不能编辑
+  }
   return currentAuditStatus.value === null || 
          currentAuditStatus.value === undefined || 
          currentAuditStatus.value === CONSTANT.AUDIT_STATUS.SAVE || 
@@ -618,7 +596,7 @@ const canEdit = computed(() => {
 // 对话框配置
 const defaultProps = reactive({
   dlgTitle: computed(() => {
-    if (isAuditMode.value) {
+    if (false) {
       // 审核模式
       return '审核实习岗位';
     } else if (isEditMode.value) {
@@ -632,15 +610,6 @@ const defaultProps = reactive({
   width: '50%',
   formRules: formRules,
   footButtons: computed(() => {
-    // 审核模式下，隐藏保存和提交按钮
-    if (isAuditMode.value) {
-      return {
-        confirm: { show: false, name: '保 存', type: 'primary' },
-        cancel: { show: true, name: '取 消', type: '' },
-        submit: { show: false, name: '提 交', type: 'warning' },
-        repeatAdd: { show: false }, // 隐藏继续添加按钮
-      };
-    }
     return {
       confirm: { show: canEdit.value, name: '保 存', type: 'primary' },
       cancel: { show: true, name: '取 消', type: '' },
@@ -648,9 +617,6 @@ const defaultProps = reactive({
       repeatAdd: { show: false }, // 隐藏继续添加按钮
     };
   }),
-  someFlags: {
-    needValidate: computed(() => isAuditMode.value), // 审核模式下启用表单校验
-  },
 });
 
 // 保存数据到 MainInternshipPost 表（公共方法）
@@ -666,8 +632,8 @@ async function savePostData() {
     }
     
     // 如果有实习项目ID，添加到表单数据中
-    // 编辑/审核模式下优先从 currentRowData 获取，否则从 props.currentInternship 获取
-    const internshipId = (isEditMode.value || isAuditMode.value) 
+    // 编辑模式下优先从 currentRowData 获取，否则从 props.currentInternship 获取
+    const internshipId = isEditMode.value
       ? (currentRowData.value?.internshipId || props.currentInternship?.internshipId)
       : props.currentInternship?.internshipId;
     if (!internshipId) {
@@ -806,98 +772,13 @@ async function handleSubmit() {
   return false;
 }
 
-// 审核结果对应的文本映射
-const auditResultTextMap = {
-  [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
-  [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
-  [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
-};
-
-// 监听审核结果变化，自动填充审核理由
-watch(
-  () => form.auditResult,
-  (newVal) => {
-    if (isAuditMode.value && newVal !== null && newVal !== undefined) {
-      // 当审核结果变化时，自动填充对应的文本到审核理由
-      form.auditReason = auditResultTextMap[newVal] || '';
-    }
-  }
-);
-
-// 处理审核按钮点击
-async function handleAudit(_option, type) {
-  // 验证表单
-  if (!formPanelRef.value) {
-    return;
-  }
-
-  try {
-    await formPanelRef.value.validate();
-  } catch (error) {
-    ElMessage.warning('请填写完整的审核信息');
-    return;
-  }
-
-  // 获取当前用户ID
-  const userInfo = store.getters.userInfo;
-  const verifyUserId = userInfo?.id;
-
-  if (!verifyUserId) {
-    ElMessage.error('无法获取当前用户信息，请重新登录');
-    return;
-  }
-
-  if (!form.id) {
-    ElMessage.error('缺少主键ID，无法保存');
-    return;
-  }
-
-  auditButtonLoading.value = true;
-
-  try {
-    // 构建保存数据对象
-    // 注意：verifyUserId 必须是整数类型，否则后端 join BaseUser 时会失败
-    const saveData = {
-      ...form, // 包含 form 中的所有信息（包括 id）
-      isAudit: form.auditResult,
-      reason: form.auditReason,
-      verifyUserId: parseInt(verifyUserId, 10), // 保存实际审核人ID（整数类型）
-    };
-
-    // 调用 editOneNode 接口保存到 MainVerifyProcess 表
-    // 后端会自动处理多级审核逻辑（创建下一级审核记录、更新 currentVerifyTypeId）
-    const resInfo = await internshipProcessAPI.auditProcess(saveData);
-
-    if (resInfo && resInfo.message === 'successful') {
-      const resultText = {
-        [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
-        [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
-        [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
-      }[form.auditResult] || '未知';
-
-      ElMessage.success(`审核完成：${resultText}`);
-
-      // 触发更新记录事件，刷新列表
-      emit('success', form);
-      // 审核完成后自动关闭窗口
-      dlgBasicRef.value?.showDialog(false, form);
-    } else {
-      ElMessage.warning(resInfo?.message || '保存失败');
-    }
-  } catch (error) {
-    // axios 拦截器已经处理了错误提示，这里不需要重复显示
-    console.error('保存审核数据失败:', error);
-  } finally {
-    auditButtonLoading.value = false;
-  }
-}
 
 // 显示对话框
-async function showDialog(val, formData = {}, rowData = null, auditMode = false) {
-  // 设置审核模式
-  isAuditMode.value = auditMode;
-  // 判断是否为编辑模式（审核模式下也是编辑模式）
-  isEditMode.value = !!(rowData && (rowData.id || rowData.relationId || rowData.internshipPostId)) || auditMode;
+async function showDialog(val, formData = {}, rowData = null, readOnly = false) {
+  // 设置只读模式
+  isReadOnlyMode.value = readOnly;
+  // 判断是否为编辑模式
+  isEditMode.value = !!(rowData && (rowData.id || rowData.relationId || rowData.internshipPostId));
   // 保存当前行数据（用于获取companyName等字段）
   currentRowData.value = rowData;
   // 保存当前行的审核状态
@@ -909,7 +790,7 @@ async function showDialog(val, formData = {}, rowData = null, auditMode = false)
   });
   
   // 如果是编辑模式或审核模式，从当前行数据加载岗位信息
-  if ((isEditMode.value || isAuditMode.value) && rowData) {
+  if (isEditMode.value && rowData) {
     // 获取岗位ID（优先使用internshipPostId，其次relationId）
     const postId = rowData.internshipPostId || rowData.relationId;
     currentPostId.value = postId;
@@ -1023,16 +904,6 @@ async function showDialog(val, formData = {}, rowData = null, auditMode = false)
     formPanelRef.value.clearValidate();
   }
   
-  // 如果是审核模式，初始化审核相关字段，并将 currentRowData 的信息合并到 form 中
-  if (isAuditMode.value && currentRowData.value) {
-    // 将 currentRowData 的信息合并到 form 中（包括 id 等审核流程相关信息）
-    Object.assign(form, currentRowData.value);
-    form.auditResult = null;
-    form.auditReason = '';
-    // 延迟更新验证状态（确保DOM已渲染）
-    await nextTick();
-    updateValidateState();
-  }
   
   // 调用 DlgBasic 的 showDialog 方法
   dlgBasicRef.value?.showDialog(val, form);

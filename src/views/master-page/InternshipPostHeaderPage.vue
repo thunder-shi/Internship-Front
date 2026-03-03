@@ -158,9 +158,8 @@ function generateTitleWithDate(internship) {
 async function updateSearchWordsAndRefresh() {
   // 获取实习项目的 internshipId
   const internshipId = currentInternship.value?.internshipId;
-  
+
   if (!internshipId) {
-    console.warn('updateSearchWordsAndRefresh: 没有找到实习项目 ID', currentInternship.value);
     return;
   }
 
