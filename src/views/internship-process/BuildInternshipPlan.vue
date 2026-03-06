@@ -1,11 +1,14 @@
 <template>
   <div class="build-internship-plan-container">
-    <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" ref="baseList" @append-click="appendClick" @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick">
+    <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" ref="baseList" @append-click="appendClick"
+      @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick">
     </BaseList>
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
-    <DlgInternshipDetail ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin" @update-record="handleUpdateRecord" />
+    <DlgInternshipDetail ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin"
+      @update-record="handleUpdateRecord" />
     <!-- 审核进度查看对话框 -->
-    <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" key-words="ViewVerifyProcessInternship" />
+    <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
+      :process-info="currentRow" key-words="ViewVerifyProcessInternship" />
   </div>
 </template>
 
@@ -232,7 +235,7 @@ const handleConfirm = async (option, type, form) => {
   // 编辑模式：使用暂存逻辑
   if (option === 'edit') {
     return await saveInternshipData(form, '暂存成功');
-  }  
+  }
   // 新增模式：与 BuildInternship.vue 中的实现完全一样
   try {
     await ElMessageBox.confirm('新增后，实习模板将不能修改，确定新增吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
@@ -331,7 +334,7 @@ const defaultProps = computed(() => ({
   defaultSDProps: {
     keyWord: 'MainInternship',
     formItems: [
-      { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'}, searchKeys: templateSearchKey.value },
+      { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' }, searchKeys: templateSearchKey.value },
       { name: '项目编号', field: 'code', type: 'input' },
       { name: '实习名称', field: 'name', type: 'input' },
       { name: '报告周期', field: 'cron', type: 'cron' },
@@ -353,4 +356,3 @@ const defaultProps = computed(() => ({
   }
 }));
 </script>
-
