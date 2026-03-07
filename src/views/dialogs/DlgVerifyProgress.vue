@@ -17,7 +17,10 @@
           <el-card shadow="never" class="timeline-card">
             <template #header>
               <div class="card-header">
-                <span class="step-title">{{ getStepRoleName(getRecordLevel(index)) }}</span>
+                <span class="step-title">
+                  <template v-if="isAfterReturn(index)">待重新提交</template>
+                  <template v-else>{{ getStepRoleName(getRecordLevel(index)) }}</template>
+                </span>
                 <el-tag :type="getStatusTagType(record.isAudit)" size="small">
                   {{ getStatusText(record.isAudit) }}
                 </el-tag>
@@ -25,10 +28,15 @@
             </template>
 
             <div class="card-content">
-              <!-- 待审核状态：不显示待审核人信息 -->
-              <div v-if="record.isAudit === 0 || record.isAudit === -1" class="info-row">
+              <!-- 退回后待重新提交（通过历史记录中是否有 isAudit=3 判断） -->
+              <div v-if="isAfterReturn(index)" class="info-row">
                 <span class="label">状态:</span>
-                <span class="value pending-text">等待审核中...</span>
+                <span class="value pending-text">等待重新提交...</span>
+              </div>
+              <!-- 待审核 / 初始保存未提交 -->
+              <div v-else-if="record.isAudit === 0 || record.isAudit === -1" class="info-row">
+                <span class="label">状态:</span>
+                <span class="value pending-text">{{ record.isAudit === 0 ? '等待审核中...' : '保存未提交' }}</span>
               </div>
 
               <!-- 已审核状态：显示审核人和审核信息 -->
@@ -105,6 +113,12 @@ const dialogVisible = computed({
 const loading = ref(false);
 const verifyRecords = ref([]);
 
+// 流程配置（从 ViewRelProcessInternship 加载，包含审核角色 ID）
+const processConfig = ref(null);
+
+// 角色名称缓存（roleId → roleName），从 SysRole 表加载
+const roleNameMap = ref(new Map());
+
 // 对话框标题，包含角色信息
 const dialogTitle = computed(() => {
   const auditStatus = props.processInfo?.isAudit;
@@ -123,25 +137,18 @@ function getCurrentRoleName() {
     return props.processInfo._currentRoleName;
   }
 
-  // 从审核记录计算
+  // 从审核记录计算：基于当前轮次已通过的级别数确定当前级别
   if (verifyRecords.value.length === 0) {
     return '';
   }
 
-  const firstRecord = verifyRecords.value[0];
-  const passed = verifyRecords.value.filter(r => r.isAudit === 1).length;
-  const levels = [
-    firstRecord.verifyFirstRoleName,
-    firstRecord.verifySecondRoleName,
-    firstRecord.verifyThirdRoleName,
-    firstRecord.verifyFourthRoleName,
-    firstRecord.verifyFifthRoleName
-  ].filter(name => name);
-
-  if (levels[passed]) {
-    return levels[passed];
+  // 使用当前轮次的 passedCount（而非全局累计）
+  const name = getStepRoleName(passedCount.value + 1);
+  // 如果结果是 "第X级审核" 的回退格式，返回空字符串让上层处理
+  if (name.startsWith('第') && name.endsWith('级审核')) {
+    return '';
   }
-  return '';
+  return name;
 }
 
 // 实习项目创建者名称（从第一条记录获取）
@@ -152,7 +159,7 @@ const internshipCreatorName = computed(() => {
   return '-';
 });
 
-// 统计已通过的审核数
+// 统计已通过的审核数（全局累计，因为退回后重新提交是回到退回级别，低级别审核仍有效）
 const passedCount = computed(() => {
   return verifyRecords.value.filter(r => r.isAudit === 1).length;
 });
@@ -182,8 +189,13 @@ const currentStatusText = computed(() => {
       const roleName = props.processInfo?._currentRoleName || getCurrentRoleName();
       return roleName ? `${roleName}审核中` : CONSTANT.AUDIT_STATUS.SUBMITNAME;
     }
+    // isAudit=-1 时，检查历史记录中是否有退回记录来区分"保存未提交"和"退回后待重新提交"
+    if (auditStatus === -1) {
+      const allRecords = props.processInfo?._allRecords || verifyRecords.value;
+      const hasReturn = allRecords.some(r => r.isAudit === 3);
+      return hasReturn ? '审核退回，待重新提交' : CONSTANT.AUDIT_STATUS.SAVENAME;
+    }
     const statusMap = {
-      '-1': CONSTANT.AUDIT_STATUS.SAVENAME,
       '1': CONSTANT.AUDIT_STATUS.PASSNAME,
       '2': CONSTANT.AUDIT_STATUS.NOTPASSNAME,
       '3': CONSTANT.AUDIT_STATUS.BACKNAME
@@ -221,8 +233,13 @@ const currentStatusType = computed(() => {
   // 优先使用 props 传入的 isAudit（来自 datalist 的 ViewMainInternship）
   const auditStatus = props.processInfo?.isAudit;
   if (auditStatus !== undefined && auditStatus !== null) {
+    // isAudit=-1 时，退回后待重新提交使用 warning 色，初始保存未提交使用 info 色
+    if (auditStatus === -1) {
+      const allRecords = props.processInfo?._allRecords || verifyRecords.value;
+      const hasReturn = allRecords.some(r => r.isAudit === 3);
+      return hasReturn ? 'warning' : 'info';
+    }
     const typeMap = {
-      '-1': 'info',
       '0': 'warning',
       '1': 'success',
       '2': 'danger',
@@ -253,40 +270,83 @@ const currentStatusType = computed(() => {
   return 'info';
 });
 
-// 获取记录的实际审核等级（用已通过的记录数推算，而非数组下标）
-// 退回重提时新记录和原记录属于同一等级
+// 获取记录的实际审核等级（全局累计已通过数+1）
+// 退回后重新提交直接回到退回级别，低级别审核仍有效，所以用全局计数
+// 例：A(1通过) B(3退回) C(0待审) → C的level = 1(A已通过)+1 = 2，与B同级
 function getRecordLevel(index) {
   const passCount = verifyRecords.value.slice(0, index).filter(r => r.isAudit === 1).length;
   return passCount + 1;
 }
 
-// 获取步骤对应的角色名称
-function getStepRoleName(stepNumber) {
-  // 优先从审核记录中获取角色名称
-  const firstRecord = verifyRecords.value[0];
-  const recordRoleMap = firstRecord ? {
-    1: firstRecord.verifyFirstRoleName,
-    2: firstRecord.verifySecondRoleName,
-    3: firstRecord.verifyThirdRoleName,
-    4: firstRecord.verifyFourthRoleName,
-    5: firstRecord.verifyFifthRoleName
-  } : {};
+// 判断 isAudit=-1 的记录是否是退回后的待重新提交（而非初始保存未提交）
+// 通过检查历史记录中是否存在 isAudit=3（退回）来区分
+function isAfterReturn(index) {
+  const record = verifyRecords.value[index];
+  if (record?.isAudit !== -1) return false;
+  return verifyRecords.value.some(r => r.isAudit === 3);
+}
 
-  // 其次从 props 获取
-  const propsRoleMap = {
-    1: props.processInfo?.verifyFirstRole,
-    2: props.processInfo?.verifySecondRole,
-    3: props.processInfo?.verifyThirdRole,
-    4: props.processInfo?.verifyFourthRole,
-    5: props.processInfo?.verifyFifthRole
+// 加载角色名称（SysRole 表）
+async function loadRoleNames() {
+  if (roleNameMap.value.size > 0) return;
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'SysRole',
+      pageInfo: { page: 1, size: 100 },
+    });
+    if (res?.data?.content) {
+      res.data.content.forEach(role => {
+        roleNameMap.value.set(role.id, role.name);
+      });
+    }
+  } catch (error) {
+    console.error('加载角色名称失败:', error);
+  }
+}
+
+// 加载流程配置（包含审核角色 ID）
+async function loadProcessConfig(processId) {
+  if (!processId) return;
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelProcessInternship',
+      pageInfo: { page: 1, size: 1 },
+      searchKey: { id: processId },
+    });
+    if (res?.data?.content?.length > 0) {
+      processConfig.value = res.data.content[0];
+    }
+  } catch (error) {
+    console.error('加载流程配置失败:', error);
+  }
+}
+
+// 获取步骤对应的角色名称（从流程配置中查找）
+function getStepRoleName(stepNumber) {
+  const roleNameFields = {
+    1: 'verifyFirstRoleName', 2: 'verifySecondRoleName', 3: 'verifyThirdRoleName',
+    4: 'verifyFourthRoleName', 5: 'verifyFifthRoleName'
+  };
+  const roleIdFields = {
+    1: 'verifyFirstRoleId', 2: 'verifySecondRoleId', 3: 'verifyThirdRoleId',
+    4: 'verifyFourthRoleId', 5: 'verifyFifthRoleId'
   };
 
-  const roleName = recordRoleMap[stepNumber] || propsRoleMap[stepNumber];
-  // 过滤掉无效的角色名称（空、'--' 等默认占位值）
-  if (!roleName || roleName === '--' || roleName.trim() === '') {
-    return `第${stepNumber}级审核`;
+  // 优先从流程配置中获取角色名称
+  if (processConfig.value) {
+    const roleName = processConfig.value[roleNameFields[stepNumber]];
+    if (roleName && roleName !== '--' && roleName.trim() !== '') {
+      return roleName;
+    }
+
+    // 回退：通过 SysRole 解析角色 ID
+    const roleId = processConfig.value[roleIdFields[stepNumber]];
+    if (roleId && roleNameMap.value.has(roleId)) {
+      return roleNameMap.value.get(roleId);
+    }
   }
-  return roleName;
+
+  return `第${stepNumber}级审核`;
 }
 
 // 获取时间线节点类型
@@ -326,11 +386,48 @@ function getStatusText(isAudit) {
 // 使用统一的时间格式化函数
 const formatTime = formatDateTime;
 
+// 从基表 MainVerifyProcess 补充查询退回记录（isAudit=3）和待重新提交记录（isAudit=-1）
+// 数据库视图可能不包含这些状态的记录，需要从基表补充以完整展示退回流程
+async function supplementReturnRecords(records) {
+  if (records.length === 0) return records;
+  // 如果已经有退回记录，无需补充
+  if (records.some(r => r.isAudit === 3)) return records;
+
+  const relationId = records[0]?.relationId || props.processInfo?.relationId;
+  if (!relationId) return records;
+
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'MainVerifyProcess',
+      pageInfo: { page: 1, size: 100 },
+      searchKey: { relationId: relationId },
+      sort: { properties: 'id', direction: 'ASC' }
+    });
+    if (res?.data?.content?.length > 0) {
+      const existingIds = new Set(records.map(r => r.id));
+      const newRecords = res.data.content.filter(r => !existingIds.has(r.id));
+      if (newRecords.length > 0) {
+        records.push(...newRecords);
+        records.sort((a, b) => (a.id || 0) - (b.id || 0));
+      }
+    }
+  } catch (error) {
+    console.error('从基表补充退回记录失败:', error);
+  }
+  return records;
+}
+
 // 加载审核进度数据
 async function loadVerifyProgress() {
+  // 预加载角色名称和流程配置（用于将角色 ID 解析为名称）
+  const processId = props.processInfo?.processId;
+  await Promise.all([loadRoleNames(), loadProcessConfig(processId)]);
+
   // 如果 props 中已经传入了所有记录，直接使用
   if (props.processInfo?._allRecords && props.processInfo._allRecords.length > 0) {
     let records = [...props.processInfo._allRecords].sort((a, b) => (a.id || 0) - (b.id || 0));
+    // 从基表补充视图中缺失的退回记录
+    await supplementReturnRecords(records);
     await fillVerifyUserNames(records);
     // 规范化显示字段：将字符串类型的空值替换为 '-'
     // verifyUserName 如果为空，替换为 '系统自动'
@@ -370,6 +467,9 @@ async function loadVerifyProgress() {
       // 按 id 升序排列
       let records = res.data.content.sort((a, b) => a.id - b.id);
 
+      // 从基表补充视图中缺失的退回记录
+      await supplementReturnRecords(records);
+
       console.log('=== DlgVerifyProgress 调试 ===');
       console.log('原始审核记录:', records);
       if (records.length > 0) {
@@ -385,7 +485,9 @@ async function loadVerifyProgress() {
       const passedNum = records.filter(r => r.isAudit === 1).length;
 
       // 如果已通过数 >= 审核级数，过滤掉多余的待审核记录（历史错误数据）
-      if (passedNum >= verifyTypeId) {
+      // 但如果存在退回记录（isAudit=3），保留完整历史以展示退回过程
+      const hasReturnRecords = records.some(r => r.isAudit === 3);
+      if (!hasReturnRecords && passedNum >= verifyTypeId) {
         records = records.filter(r => r.isAudit === 1).slice(0, verifyTypeId);
       }
 
