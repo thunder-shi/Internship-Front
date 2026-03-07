@@ -6,8 +6,8 @@
         <div class="audit-section-top">
           <el-form-item label="审核结果" prop="auditResult">
             <el-radio-group v-model="form.auditResult">
-              <el-radio :label="CONSTANT.AUDIT_STATUS.PASS">{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-radio>
-              <el-radio :label="CONSTANT.AUDIT_STATUS.NOTPASS">{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-radio>
+              <el-radio v-if="!isRecallMode" :label="CONSTANT.AUDIT_STATUS.PASS">{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-radio>
+              <el-radio v-if="!isRecallMode" :label="CONSTANT.AUDIT_STATUS.NOTPASS">{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-radio>
               <el-radio :label="CONSTANT.AUDIT_STATUS.BACK">{{ CONSTANT.AUDIT_STATUS.BACKNAME }}</el-radio>
             </el-radio-group>
           </el-form-item>
@@ -71,6 +71,9 @@ const formPanelRef = ref(null);
 const dataTableList = ref(null);
 const auditTableList = ref(null);
 const activeTab = ref('basic');
+
+// 退回模式：当打开已通过的记录时，仅允许"退回"操作
+const isRecallMode = ref(false);
 
 const defaultProps = reactive({
   form: {},
@@ -278,12 +281,23 @@ async function showDialog(val, formData = {}) {
     });
     // 先深拷贝 formData，保留所有字段
     const clonedData = _.cloneDeep(formData);
-    
+
     // 规范化显示字段：将字符串类型的空值替换为 '-'
     const normalizedData = normalizeFormForDisplay(clonedData);
-    
+
     // 直接将规范化后的数据赋值给 form，保留所有字段
     Object.assign(form, normalizedData);
+  }
+
+  // 检测退回模式：已通过的记录只允许退回操作
+  isRecallMode.value = formData?.isAudit === CONSTANT.AUDIT_STATUS.PASS;
+  if (isRecallMode.value) {
+    defaultProps.dlgTitle = '退回已通过的实习计划';
+    // 预设退回选项和理由
+    form.auditResult = CONSTANT.AUDIT_STATUS.BACK;
+    form.auditReason = CONSTANT.AUDIT_STATUS.BACKNAME;
+  } else {
+    defaultProps.dlgTitle = '实习项目审核';
   }
 
   // 设置 DataTableList 的过滤条件（通过 internshipId 过滤流程信息）

@@ -20,7 +20,7 @@
  * - 提交：提交审核（isAudit = 0）
  * - 提交后显示查看进度按钮
  */
-import { ref, reactive, computed, onBeforeUnmount } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import moment from 'moment';
@@ -74,28 +74,84 @@ const showProgressDialog = ref(false);
 // 存储所有记录，用于查看进度时显示完整审核历史
 const allRecordsMap = ref(new Map());
 
+// 流程配置缓存（processId → 流程配置），从 ViewRelProcessInternship 加载
+// 流程配置包含每个审核级别对应的角色 ID（verifyFirstRoleId 等）
+const processConfigMap = ref(new Map());
+
+// 角色名称缓存（roleId → roleName），从 SysRole 表加载（用于将角色ID解析为名称）
+const roleNameMap = ref(new Map());
+
+// 预加载流程配置（包含审核角色 ID）
+async function loadProcessConfigs() {
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelProcessInternship',
+      pageInfo: { page: 1, size: 500 },
+    });
+    if (res?.data?.content) {
+      res.data.content.forEach(config => {
+        processConfigMap.value.set(config.id, config);
+      });
+    }
+  } catch (error) {
+    console.error('加载流程配置失败:', error);
+  }
+}
+
+// 预加载角色名称（将角色 ID 解析为角色名称）
+async function loadRoleNames() {
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'SysRole',
+      pageInfo: { page: 1, size: 100 },
+    });
+    if (res?.data?.content) {
+      res.data.content.forEach(role => {
+        roleNameMap.value.set(role.id, role.name);
+      });
+    }
+  } catch (error) {
+    console.error('加载角色名称失败:', error);
+  }
+}
+
+// 通过 processId 和审核级别索引（0-based）获取角色名称
+// 先从流程配置中查找角色名称，再回退到 SysRole 解析角色 ID
+function getRoleNameByLevel(processId, levelIndex) {
+  const config = processConfigMap.value.get(processId);
+  if (!config) return '';
+
+  const roleNameFields = [
+    'verifyFirstRoleName', 'verifySecondRoleName', 'verifyThirdRoleName',
+    'verifyFourthRoleName', 'verifyFifthRoleName'
+  ];
+  const roleIdFields = [
+    'verifyFirstRoleId', 'verifySecondRoleId', 'verifyThirdRoleId',
+    'verifyFourthRoleId', 'verifyFifthRoleId'
+  ];
+
+  if (levelIndex < 0 || levelIndex >= roleNameFields.length) return '';
+
+  // 优先使用 VIEW 中的角色名称
+  const roleName = config[roleNameFields[levelIndex]];
+  if (roleName && roleName !== '--' && roleName.trim() !== '') {
+    return roleName;
+  }
+
+  // 回退：通过 SysRole 解析角色 ID
+  const roleId = config[roleIdFields[levelIndex]];
+  if (roleId && roleNameMap.value.has(roleId)) {
+    return roleNameMap.value.get(roleId);
+  }
+
+  return '';
+}
+
 // 根据当前审核级别获取角色名称
-// 通过比较 verifyUserId 和各级别的 roleId 来确定当前是第几级审核
 const getVerifyRoleName = (row) => {
-  // 如果有聚合后的当前级别角色名，直接使用
   if (row._currentRoleName) {
     return row._currentRoleName;
   }
-
-  // 按级别顺序的角色ID和角色名称
-  const levels = [
-    { roleId: row.verifyFirstRoleId, roleName: row.verifyFirstRoleName },
-    { roleId: row.verifySecondRoleId, roleName: row.verifySecondRoleName },
-    { roleId: row.verifyThirdRoleId, roleName: row.verifyThirdRoleName },
-    { roleId: row.verifyFourthRoleId, roleName: row.verifyFourthRoleName },
-    { roleId: row.verifyFifthRoleId, roleName: row.verifyFifthRoleName }
-  ].filter(level => level.roleId && level.roleId !== 17); // 过滤掉空值及旧版占位值 17
-
-  // 返回第一个有值的角色名（当前记录对应的审核级别）
-  if (levels.length > 0 && levels[0].roleName) {
-    return levels[0].roleName;
-  }
-
   return '';
 };
 
@@ -125,20 +181,14 @@ const clientFilterFn = (dataList) => {
     records.sort((a, b) => (b.id || 0) - (a.id || 0));
     const latestRecord = records[0];
 
-    // 确定当前审核级别的角色名
+    // 确定当前审核级别的角色名（从流程配置中获取）
     // 通过计算已通过的级别数来确定当前是第几级
-    const passedCount = records.filter(r => r.isAudit === CONSTANT.AUDIT_STATUS.PASS).length;
-    const levels = [
-      latestRecord.verifyFirstRoleName,
-      latestRecord.verifySecondRoleName,
-      latestRecord.verifyThirdRoleName,
-      latestRecord.verifyFourthRoleName,
-      latestRecord.verifyFifthRoleName
-    ].filter(name => name);
-
-    // 当前级别的角色名（基于已通过的级别数）
-    if (latestRecord.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT && levels[passedCount]) {
-      latestRecord._currentRoleName = levels[passedCount];
+    if (latestRecord.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT) {
+      const passedCount = records.filter(r => r.isAudit === CONSTANT.AUDIT_STATUS.PASS).length;
+      const roleName = getRoleNameByLevel(latestRecord.processId, passedCount);
+      if (roleName) {
+        latestRecord._currentRoleName = roleName;
+      }
     }
 
     // 保存该 relationId 的所有记录引用
@@ -298,6 +348,12 @@ const handleDeleteClick = async (rows) => {
 const handleUpdateRecord = () => {
   baseList.value?.initDataList();
 };
+
+// 预加载流程配置和角色名称，加载完成后刷新列表以应用角色名解析
+onMounted(async () => {
+  await Promise.all([loadProcessConfigs(), loadRoleNames()]);
+  baseList.value?.initDataList();
+});
 
 // 组件销毁前关闭所有对话框，防止遮罩层残留
 onBeforeUnmount(() => {
