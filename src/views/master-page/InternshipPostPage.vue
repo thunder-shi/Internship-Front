@@ -1,36 +1,17 @@
 <template>
-  <InternshipPostHeaderPage
-    ref="headerPageRef"
-    :page-title="pageTitle"
-    :no-project-message="noProjectMessage"
-    :pending-select-message="pendingSelectMessage"
-    :project-select-search-key="projectSelectSearchKey"
-    :project-select-reg-key="projectSelectRegKey"
-    :default-d-t-l-props="defaultDTLProps"
-    :build-search-key="buildSearchKey"
-    :is-company-user="isCompanyUser"
-    @append-click="handleAppendClick"
-    @edit-click="handleEditClick"
-    @delete-click="handleDeleteClick"
-    @audit-click="handleAuditClick"
-    @view-click="handleViewClick"
-    @project-selected="handleProjectSelected"
-  >
+  <InternshipPostHeaderPage ref="headerPageRef" :page-title="pageTitle" :no-project-message="noProjectMessage"
+    :pending-select-message="pendingSelectMessage" :project-select-search-key="projectSelectSearchKey"
+    :project-select-reg-key="projectSelectRegKey" :default-d-t-l-props="defaultDTLProps"
+    :build-search-key="buildSearchKey" :is-company-user="isCompanyUser" @append-click="handleAppendClick"
+    @edit-click="handleEditClick" @delete-click="handleDeleteClick" @audit-click="handleAuditClick"
+    @view-click="handleViewClick" @project-selected="handleProjectSelected" @submit-click="handleSubmitClick">
     <!-- 岗位详情对话框（新增/编辑/审核） -->
     <template #dialogs>
-      <DlgPostDetail 
-        ref="dlgPostDetail" 
-        :current-internship="currentInternship" 
-        @close-dialog="handlePostDetailClose" 
-        @success="handlePostDetailSuccess" 
-      />
+      <DlgPostDetail ref="dlgPostDetail" :current-internship="currentInternship" @close-dialog="handlePostDetailClose"
+        @success="handlePostDetailSuccess" />
       <!-- 审核进度查看对话框 -->
-      <DlgVerifyProgress 
-        v-model="showProgressDialog" 
-        :main-internship-id="currentRow.internshipId" 
-        :process-info="currentRow" 
-        key-words="ViewVerifyProcessInternshipPost" 
-      />
+      <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
+        :process-info="currentRow" key-words="ViewVerifyProcessInternshipPost" />
       <!-- 审核对话框（仅审核页面使用） -->
       <slot name="audit-dialog"></slot>
     </template>
@@ -91,6 +72,11 @@ const props = defineProps({
     type: String,
     default: () => CONSTANT.PROCESS_TYPE.EXTERNAL_ENTERPRISE_POST_DECLARATION
   },
+  // 关键字配置
+  keyWord: {
+    type: Object,
+    default: () => ({ edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipPost' })
+  },
   // 表格列配置
   tableColumns: {
     type: Array,
@@ -111,7 +97,8 @@ const emit = defineEmits([
   'delete-click',
   'audit-click',
   'post-detail-close',
-  'post-detail-success'
+  'post-detail-success',
+  'submit-click',
 ]);
 
 const headerPageRef = ref(null);
@@ -171,6 +158,11 @@ function handleEditClick(row) {
   emit('edit-click', row);
 }
 
+// 处理提交按钮点击（转发给父组件）
+function handleSubmitClick(row) {
+  emit('submit-click', row);
+}
+
 // 处理删除按钮点击（转发给父组件）
 function handleDeleteClick(rows) {
   emit('delete-click', rows);
@@ -219,7 +211,7 @@ const defaultDTLProps = computed(() => {
     defaultDTHProps: {
       buttonProps: buttonPropsComputed.value,
       buttonCondition: props.buttonCondition,
-      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipPost' },
+      keyWord: props.keyWord,
       allTableColumns: props.tableColumns,
     },
     defaultDBIProps: {},

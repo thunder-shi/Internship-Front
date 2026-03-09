@@ -1,6 +1,11 @@
 <template>
   <div>
-    <DataTableList ref="dataTableList" :default-props="defaultProps.defaultDTLProps" :button-condition="buttonCondition" :client-filter-fn="clientFilterFn" :enable-audit-status-custom="enableAuditStatusCustom" :get-verify-role-name="getVerifyRoleName" @append-click="appendClick" @edit-click="editClick" @view-click="viewClick" @update-column="updateColumn" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @after-init-data="afterInitData" @audit-click="auditClick">
+    <DataTableList ref="dataTableList" :default-props="defaultProps.defaultDTLProps" :button-condition="buttonCondition"
+      :client-filter-fn="clientFilterFn" :enable-audit-status-custom="enableAuditStatusCustom"
+      :get-verify-role-name="getVerifyRoleName" @append-click="appendClick" @edit-click="editClick"
+      @view-click="viewClick" @update-column="updateColumn" @delete-click="deleteClick" @export-click="exportClick"
+      @more1-click="more1Click" @more2-click="more2Click" @after-init-data="afterInitData" @audit-click="auditClick"
+      @submit-click="submitClick">
       <!--数据操作按钮类 -->
       <!-- <template #searchPanel>
       <slot name="searchPanel" />
@@ -12,7 +17,10 @@
     </DataTableList>
     <slot name="dlg">
       <!-- 简单窗口 -->
-      <SimpleDialog ref="simpleDialog" :default-props="defaultProps.defaultSDProps" :simpledialog-confirm="confirm" :simpledialog-submit="submit" @update-record="handleUpdateRecord" @submit-more="submitMore" @simple-select-change="SimpleSelectChange" @tree-select-change="treeSelectChange" @confirm-click="confirmClick" />
+      <SimpleDialog ref="simpleDialog" :default-props="defaultProps.defaultSDProps" :simpledialog-confirm="confirm"
+        :simpledialog-submit="submit" @update-record="handleUpdateRecord" @submit-more="submitMore"
+        @simple-select-change="SimpleSelectChange" @tree-select-change="treeSelectChange"
+        @confirm-click="confirmClick" />
     </slot>
   </div>
 </template>
@@ -121,26 +129,26 @@ const searchName = ref('');
 
 // 从 defaultProps 中读取属性，如果没有则使用单独的 props（向后兼容）
 const buttonCondition = computed(() => {
-  return props.defaultProps?.defaultDTLProps?.buttonCondition !== undefined 
-    ? props.defaultProps.defaultDTLProps.buttonCondition 
+  return props.defaultProps?.defaultDTLProps?.buttonCondition !== undefined
+    ? props.defaultProps.defaultDTLProps.buttonCondition
     : props.buttonCondition;
 });
 
 const clientFilterFn = computed(() => {
-  return props.defaultProps?.defaultDTLProps?.clientFilterFn !== undefined 
-    ? props.defaultProps.defaultDTLProps.clientFilterFn 
+  return props.defaultProps?.defaultDTLProps?.clientFilterFn !== undefined
+    ? props.defaultProps.defaultDTLProps.clientFilterFn
     : props.clientFilterFn;
 });
 
 const enableAuditStatusCustom = computed(() => {
-  return props.defaultProps?.defaultDTLProps?.enableAuditStatusCustom !== undefined 
-    ? props.defaultProps.defaultDTLProps.enableAuditStatusCustom 
+  return props.defaultProps?.defaultDTLProps?.enableAuditStatusCustom !== undefined
+    ? props.defaultProps.defaultDTLProps.enableAuditStatusCustom
     : props.enableAuditStatusCustom;
 });
 
 const getVerifyRoleName = computed(() => {
-  return props.defaultProps?.defaultDTLProps?.getVerifyRoleName !== undefined 
-    ? props.defaultProps.defaultDTLProps.getVerifyRoleName 
+  return props.defaultProps?.defaultDTLProps?.getVerifyRoleName !== undefined
+    ? props.defaultProps.defaultDTLProps.getVerifyRoleName
     : props.getVerifyRoleName;
 });
 
@@ -171,7 +179,7 @@ const hasListener = (eventName) => {
   // 将事件名转换为驼峰形式，例如: append-click -> onAppendClick
   const camelCaseName = 'on' + eventName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
     .replace(/^[a-z]/, letter => letter.toUpperCase());
-  
+
   // 检查 vnode.props 中是否存在对应的事件监听器
   return instance?.vnode?.props?.[camelCaseName] !== undefined;
 };
@@ -214,6 +222,11 @@ const viewClick = async (row) => {
     // 无监听器:执行默认逻辑（以只读方式打开编辑窗口）
     openDlg('view', row);
   }
+};
+
+// 提交按钮点击
+const submitClick = async (row) => {
+  emit('submit-click', row);
 };
 
 const treeSelectChange = async (val, field, form, node) => {
@@ -367,7 +380,7 @@ const confirmClick = async (formData) => {
 defineExpose({
   initDataList,
   openDlg,
-  _confirm: async(option, type, form) => {
+  _confirm: async (option, type, form) => {
     if (form) {
       emit('confirm-click', form);
     }

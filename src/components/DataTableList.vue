@@ -1,9 +1,13 @@
 <template>
-  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns" :default-props="defaultDTHPropsWithButtonCondition" @init-click="refreshInit" @show-search="showSearchPanel" @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick" @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
+  <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns"
+    :default-props="defaultDTHPropsWithButtonCondition" @init-click="refreshInit" @show-search="showSearchPanel"
+    @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick"
+    @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
     <template #searchPanel>
       <!-- v-model="searchName" -->
       <slot name="searchPanel">
-        <BtnSearch :search-name="searchName" :placeholder="searchPlaceholder" :no-advanced-search="noAdvancedSearch" :search-items="searchItems" @search-click="searchClick" @advanced-search-click="advancedSearchClick" />
+        <BtnSearch :search-name="searchName" :placeholder="searchPlaceholder" :no-advanced-search="noAdvancedSearch"
+          :search-items="searchItems" @search-click="searchClick" @advanced-search-click="advancedSearchClick" />
       </slot>
     </template>
     <template #body>
@@ -18,14 +22,18 @@
             </template>
           </template>
         </template>
-        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList" row-key="id" highlight-current-rows :row-class-name="rowClassNameFn" @current-change="handleColumnChange" @selection-change="handleSelectionChange" @sort-change="handleSortChange">
+        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList"
+          row-key="id" highlight-current-rows :row-class-name="rowClassNameFn" @current-change="handleColumnChange"
+          @selection-change="handleSelectionChange" @sort-change="handleSortChange">
           <el-table-column v-if="checkFlag" fixed :reserve-selection="true" type="selection" width="55" />
           <el-table-column v-else fixed width="55">
             <template #default="scope">
               <el-radio v-model="tableRadio" :label="scope.row.id"><i /></el-radio>
             </template>
           </el-table-column>
-          <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true" :prop="item.tableColumnName" :label="item.showName" :width="item.width" :sortable="item.sortable ? 'custom' : false">
+          <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true"
+            :prop="item.tableColumnName" :label="item.showName" :width="item.width"
+            :sortable="item.sortable ? 'custom' : false">
             <template #default="scope">
               <!-- 特殊列格式 -->
               <div v-if="item.tableColumnName.endsWith('Time')">
@@ -36,12 +44,22 @@
                 {{ formatCron(scope.row[item.tableColumnName]) }}
               </div>
               <!-- 审核状态显示（统一处理 isAudit、auditStatus 和 customize-status） -->
-              <template v-else-if="(item.tableColumnName === 'isAudit' || item.tableColumnName === 'auditStatus' || (item.tableColumnName === 'customize-status' && enableAuditStatusCustom))">
-                <el-tag v-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || scope.row.isAudit === null || scope.row.isAudit === undefined" type="info">{{ CONSTANT.AUDIT_STATUS.SAVENAME }}</el-tag>
-                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT" type="warning"><template v-if="item.tableColumnName === 'customize-status' && enableAuditStatusCustom && getVerifyRoleNameText(scope.row)">{{ getVerifyRoleNameText(scope.row) }}审核中</template><template v-else>{{ CONSTANT.AUDIT_STATUS.SUBMITNAME }}</template></el-tag>
-                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.PASS" type="success">{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-tag>
-                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS" type="danger">{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-tag>
-                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.BACK" type="info">{{ CONSTANT.AUDIT_STATUS.BACKNAME }}</el-tag>
+              <template
+                v-else-if="(item.tableColumnName === 'isAudit' || item.tableColumnName === 'auditStatus' || (item.tableColumnName === 'customize-status' && enableAuditStatusCustom))">
+                <el-tag
+                  v-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || scope.row.isAudit === null || scope.row.isAudit === undefined"
+                  type="info">{{ CONSTANT.AUDIT_STATUS.SAVENAME }}</el-tag>
+                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT" type="warning"><template
+                    v-if="item.tableColumnName === 'customize-status' && enableAuditStatusCustom && getVerifyRoleNameText(scope.row)">{{
+                      getVerifyRoleNameText(scope.row) }}审核中</template><template v-else>{{
+                      CONSTANT.AUDIT_STATUS.SUBMITNAME }}</template></el-tag>
+                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.PASS" type="success">{{
+                  CONSTANT.AUDIT_STATUS.PASSNAME }}</el-tag>
+                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS" type="danger">{{
+                  CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-tag>
+                <el-tag v-else-if="scope.row.isAudit === CONSTANT.AUDIT_STATUS.BACK" type="info">{{
+                  CONSTANT.AUDIT_STATUS.BACKNAME
+                }}</el-tag>
                 <!-- 如果父组件提供了 status 插槽，优先使用插槽 -->
                 <slot v-else name="status" :row="scope.row" />
               </template>
@@ -55,22 +73,44 @@
           <el-table-column v-if="operateShow" fixed="right" label="操作" :width="operateWidth">
             <template #default="scope">
               <!--查看and编辑and删除-->
-              <el-button v-if="button?.visible?.show && isButtonVisible('visible', scope.row)" :type="button.visible.type" size="small" :title="button.visible.name" @click="view([scope.row])">
+              <el-button v-if="button?.visible?.show && isButtonVisible('visible', scope.row)"
+                :type="button.visible.type" size="small" :title="button.visible.name" @click="view([scope.row])">
                 <svg-icon icon-class="axt-view" />
               </el-button>
-              <el-button v-if="button?.update?.show && isButtonVisible('update', scope.row)" :type="button.update.type" size="small" :title="button.update.name" @click="editClick(scope.row)"><el-icon><Edit /></el-icon></el-button>
-              <el-button v-if="button?.audit?.show && isButtonVisible('audit', scope.row)" :type="button.audit.type" size="small" :title="button.audit.name" @click="auditClick(scope.row)">
+              <el-button v-if="button?.update?.show && isButtonVisible('update', scope.row)" :type="button.update.type"
+                size="small" :title="button.update.name" @click="editClick(scope.row)"><el-icon>
+                  <Edit />
+                </el-icon></el-button>
+              <el-button v-if="button?.audit?.show && isButtonVisible('audit', scope.row)" :type="button.audit.type"
+                size="small" :title="button.audit.name" @click="auditClick(scope.row)">
                 <svg-icon icon-class="verCode" />
+              </el-button>
+              <el-button v-if="button?.submit?.show && isButtonVisible('submit', scope.row)" :type="button.submit.type"
+                size="small" :title="button.submit.name" @click="submitClick(scope.row)">
+                <el-icon>
+                  <Position />
+                </el-icon>
               </el-button>
               <!--列表数据右方的操作按钮-->
               <slot name="rightOperate" :row="scope.row" />
-              <el-button v-if="button?.delete?.show && isButtonVisible('delete', scope.row)" :type="button.delete.type" size="small" :title="button.delete.name" @click="remove([scope.row])"><el-icon><Delete /></el-icon></el-button>
-              <el-button v-if="button?.up?.show" :type="button.up.type" size="small" :loading="buttonLoading.up" :title="button.up.name" @click="move(scope.row, true)"><el-icon><Top /></el-icon></el-button>
-              <el-button v-if="button?.down?.show" :type="button.down.type" size="small" :loading="buttonLoading.down" :title="button.down.name" @click="move(scope.row, false)"><el-icon><Bottom /></el-icon></el-button>
+              <el-button v-if="button?.delete?.show && isButtonVisible('delete', scope.row)" :type="button.delete.type"
+                size="small" :title="button.delete.name" @click="remove([scope.row])"><el-icon>
+                  <Delete />
+                </el-icon></el-button>
+              <el-button v-if="button?.up?.show" :type="button.up.type" size="small" :loading="buttonLoading.up"
+                :title="button.up.name" @click="move(scope.row, true)"><el-icon>
+                  <Top />
+                </el-icon></el-button>
+              <el-button v-if="button?.down?.show" :type="button.down.type" size="small" :loading="buttonLoading.down"
+                :title="button.down.name" @click="move(scope.row, false)"><el-icon>
+                  <Bottom />
+                </el-icon></el-button>
             </template>
           </el-table-column>
         </el-table>
-        <v-page v-if="showPage" align="center" :total="totalSize" :current-page="pageInfo.page" :page-size="pageInfo.size" :page-sizes="pageInfo.sizes" :selected-columns="selectedColumns" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+        <v-page v-if="showPage" align="center" :total="totalSize" :current-page="pageInfo.page"
+          :page-size="pageInfo.size" :page-sizes="pageInfo.sizes" :selected-columns="selectedColumns"
+          @size-change="handleSizeChange" @current-change="handleCurrentChange" />
       </el-card>
     </template>
   </DataTableHeader>
@@ -289,6 +329,7 @@ const emit = defineEmits([
   'spec-move',
   'batch-import-click',
   'audit-click',
+  'submit-click',
 ]);
 
 const attrs = useAttrs();
@@ -351,20 +392,20 @@ const title = computed(() => {
 
 // 从 defaultProps 中读取属性，如果没有则使用单独的 props（向后兼容）
 const buttonCondition = computed(() => {
-  return props.defaultProps?.buttonCondition !== undefined 
-    ? props.defaultProps.buttonCondition 
+  return props.defaultProps?.buttonCondition !== undefined
+    ? props.defaultProps.buttonCondition
     : props.buttonCondition;
 });
 
 const clientFilterFn = computed(() => {
-  return props.defaultProps?.clientFilterFn !== undefined 
-    ? props.defaultProps.clientFilterFn 
+  return props.defaultProps?.clientFilterFn !== undefined
+    ? props.defaultProps.clientFilterFn
     : props.clientFilterFn;
 });
 
 const enableAuditStatusCustom = computed(() => {
-  return props.defaultProps?.enableAuditStatusCustom !== undefined 
-    ? props.defaultProps.enableAuditStatusCustom 
+  return props.defaultProps?.enableAuditStatusCustom !== undefined
+    ? props.defaultProps.enableAuditStatusCustom
     : props.enableAuditStatusCustom;
 });
 
@@ -563,6 +604,7 @@ const calculateOperateWidth = () => {
     button.value?.delete?.show,
     button.value?.up?.show,
     button.value?.down?.show,
+    button.value?.submit?.show,
   ];
   num = arr.reduce((acc, cur) => {
     acc = cur ? acc + 1 : acc;
@@ -836,6 +878,11 @@ const appendClick = async () => {
 // 按钮修改
 const editClick = async (row) => {
   emit('edit-click', row);
+};
+
+// 按钮提交
+const submitClick = async (row) => {
+  emit('submit-click', row);
 };
 
 // 按钮审核

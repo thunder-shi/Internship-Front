@@ -1,22 +1,11 @@
 <template>
   <div class="internship-post-header-page-container">
-    <BaseList 
-      :default-props="mergedDefaultProps" 
-      ref="baseListRef" 
-      @more1-click="handleMore1Click" 
-      @view-click="handleViewClick"
-      @append-click="handleAppendClick"
-      @edit-click="handleEditClick"
-      @delete-click="handleDeleteClick"
-      @audit-click="handleAuditClick"
-    />
+    <BaseList :default-props="mergedDefaultProps" ref="baseListRef" @more1-click="handleMore1Click"
+      @view-click="handleViewClick" @append-click="handleAppendClick" @edit-click="handleEditClick"
+      @delete-click="handleDeleteClick" @audit-click="handleAuditClick" @submit-click="handleSubmitClick" />
     <!-- 实习项目选择对话框 -->
-    <SimpleDialog 
-      ref="projectSelectDialog" 
-      :default-props="projectSelectDialogProps" 
-      :simpledialog-confirm="handleProjectSelectConfirm" 
-      @simple-select-change="handleInternshipSelectChange" 
-    />
+    <SimpleDialog ref="projectSelectDialog" :default-props="projectSelectDialogProps"
+      :simpledialog-confirm="handleProjectSelectConfirm" @simple-select-change="handleInternshipSelectChange" />
     <!-- 其他对话框插槽 -->
     <slot name="dialogs"></slot>
   </div>
@@ -81,7 +70,8 @@ const emit = defineEmits([
   'audit-click',
   'post-detail-close',
   'post-detail-success',
-  'project-selected'
+  'project-selected',
+  'submit-click',
 ]);
 
 const baseListRef = ref(null);
@@ -123,10 +113,10 @@ const projectSelectDialogProps = reactive({
   dlgTitle: '实习项目选择',
   handleSelectChange: handleSelectChange,
   formItems: [
-    { 
-      name: '实习项目', 
-      field: 'internshipId', 
-      type: 'select', 
+    {
+      name: '实习项目',
+      field: 'internshipId',
+      type: 'select',
       keyWords: 'ViewRelProcessInternship',
       changeLabel: 'internshipName'
     },
@@ -178,11 +168,11 @@ async function updateSearchWordsAndRefresh() {
 
   // 更新 nowSearchWords（直接重新赋值整个对象，确保响应式更新）
   nowSearchWords.searchKey = { ...searchKey };
-  
+
   // 等待响应式更新完成（多等待几个 tick，确保 computed 能检测到变化）
   await nextTick();
   await nextTick();
-  
+
   // 刷新数据列表
   if (baseListRef.value) {
     try {
@@ -233,7 +223,7 @@ async function handleProjectSelectConfirm(option, type, form) {
       }
     }
   }
-  
+
   // 只有在保存时才更新标题
   if (currentInternship.value) {
     const newTitle = generateTitleWithDate(currentInternship.value);
@@ -241,10 +231,10 @@ async function handleProjectSelectConfirm(option, type, form) {
     emit('project-selected', currentInternship.value, newTitle);
     await nextTick();
   }
-  
+
   // 更新查询条件并刷新列表（等待刷新完成）
   await updateSearchWordsAndRefresh();
-  
+
   // 返回 true 表示保存成功，允许关闭对话框
   return true;
 }
@@ -269,6 +259,11 @@ function handleAuditClick(row) {
   emit('audit-click', row);
 }
 
+// 处理提交按钮点击（转发给父组件）
+function handleSubmitClick(row) {
+  emit('submit-click', row);
+}
+
 // 查看进度按钮点击（转发给父组件）
 function handleViewClick(rowOrArray) {
   emit('view-click', rowOrArray);
@@ -282,10 +277,8 @@ async function handleMore1Click(rows) {
       searchKey: props.projectSelectSearchKey,
       reg: props.projectSelectRegKey
     });
-    
     if (response && response.data) {
       const internshipList = response.data.content || response.data || [];
-      
       const internshipItem = projectSelectDialogProps.formItems.find(item => item.field === 'internshipId');
       if (internshipItem) {
         internshipItem.type = 'select_noremote';
@@ -299,7 +292,6 @@ async function handleMore1Click(rows) {
   } catch (error) {
     console.error('获取实习项目列表失败:', error);
   }
-  
   projectSelectDialog.value?.showDialog(true, {});
 }
 
@@ -311,10 +303,10 @@ async function initInternshipList() {
       searchKey: props.projectSelectSearchKey,
       reg: props.projectSelectRegKey
     });
-    
+
     if (response && response.data) {
       const internshipList = response.data.content || response.data || [];
-      
+
       if (internshipList.length === 0) {
         emit('project-selected', null, props.noProjectMessage);
         isMore1Disabled.value = true;
@@ -351,7 +343,7 @@ onMounted(() => {
 const mergedDefaultProps = computed(() => {
   // props.defaultDTLProps 已经是解包后的值（因为它是 computed prop）
   const defaultDTLPropsValue = props.defaultDTLProps;
-  
+
   return {
     defaultDTLProps: {
       ...defaultDTLPropsValue,
