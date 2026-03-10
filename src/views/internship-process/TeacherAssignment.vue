@@ -15,8 +15,13 @@
   >
     <!-- 指导老师选择对话框 -->
     <template #dialogs>
-      <DlgTeacherSelect ref="dlgTeacherSelectRef" :model-value="dlgTeacherSelectVisible" :internship-id="dlgTeacherSelectInternshipId"
-        @update:model-value="dlgTeacherSelectVisible = $event" @success="onTeacherSelectSuccess" />
+      <DlgTeacherSelect
+        ref="dlgTeacherSelectRef"
+        :model-value="dlgTeacherSelectVisible"
+        :current-internship="dlgTeacherSelectInternship"
+        @update:model-value="dlgTeacherSelectVisible = $event"
+        @success="onTeacherSelectSuccess"
+      />
     </template>
   </InternshipPostHeaderPage>
 </template>
@@ -49,7 +54,7 @@ const userInfo = computed(() => store.getters.userInfo || {});
 
 // 创建响应式的 title 对象
 const titleObj = reactive({
-  mainTitle: '选择指导老师'
+  mainTitle: '选择指导老师',
 });
 
 // 获取当前实习项目（从 headerPageRef）
@@ -70,7 +75,7 @@ const projectSelectSearchKey = computed(() => {
   const searchKey = {
     processTypeCode: processTypeCode,
     startTime: currentTime,
-    endTime: currentTime
+    endTime: currentTime,
   };
   // 如果用户有专业ID，添加专业过滤条件
   if (userInfo.value?.majorId) {
@@ -83,7 +88,7 @@ const projectSelectSearchKey = computed(() => {
 const projectSelectRegKey = computed(() => {
   const regKey = {
     startTime: CONSTANT.SEARCH_OPERATOR.LE, // startTime <= 当前时间
-    endTime: CONSTANT.SEARCH_OPERATOR.GE    // endTime >= 当前时间
+    endTime: CONSTANT.SEARCH_OPERATOR.GE, // endTime >= 当前时间
   };
   // 如果用户有专业ID，添加专业过滤操作符
   if (userInfo.value?.majorId) {
@@ -94,23 +99,28 @@ const projectSelectRegKey = computed(() => {
 
 const dlgTeacherSelectRef = ref(null);
 const dlgTeacherSelectVisible = ref(false);
-const dlgTeacherSelectInternshipId = ref(null);
-
+const dlgTeacherSelectInternship = ref(null);
 function onTeacherSelectSuccess() {
   headerPageRef.value?.baseListRef?.initDataList(true);
 }
 
 // 处理项目选择后的回调
 function handleProjectSelected(internship, title) {
+  console.log(internship);
+
   if (title) {
     titleObj.mainTitle = title;
   }
+  dlgTeacherSelectInternship.value = internship;
 }
 
 // 按钮配置（computed）
 const buttonPropsComputed = computed(() => {
   return {
-    create: { show: true, disabled: !currentInternship.value || !currentInternship.value.internshipId },
+    create: {
+      show: true,
+      disabled: !currentInternship.value || !currentInternship.value.internshipId,
+    },
     submit: { show: true },
     delete: { show: true },
     more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
@@ -145,7 +155,11 @@ const defaultDTLProps = computed(() => {
       keyWord: { edit: 'RelIntershipUser', view: 'ViewRelIntershipUser' },
       allTableColumns: [
         { id: 1, showName: '指导老师', tableColumnName: 'userName', sortable: true },
-        { id: 2, showName: '审核要求', tableColumnName: 'verifyTypeName', sortable: true },
+        { id: 2, showName: '联系电话', tableColumnName: 'phone', sortable: true },
+        { id: 3, showName: '开始时间', tableColumnName: 'startTime', sortable: true },
+        { id: 4, showName: '结束时间', tableColumnName: 'endTime', sortable: true },
+        { id: 4, showName: '审核要求', tableColumnName: 'currentVerifyTypeName', sortable: true },
+        { id: 5, showName: '当前状态', tableColumnName: 'customize-status', sortable: true },
       ],
     },
     defaultDBIProps: {},
@@ -153,7 +167,11 @@ const defaultDTLProps = computed(() => {
 });
 
 function buildSearchKey(baseSearchKey) {
-  return { processTypeCode, internshipId: baseSearchKey.internshipId };
+  return {
+    processTypeCode,
+    internshipId: baseSearchKey.internshipId,
+    tableName: 'RelIntershipUser',
+  };
 }
 
 function handleAppendClick(currentInternship) {
@@ -161,7 +179,6 @@ function handleAppendClick(currentInternship) {
     ElMessage.warning('请先选择实习项目');
     return;
   }
-  dlgTeacherSelectInternshipId.value = currentInternship.internshipId;
   dlgTeacherSelectVisible.value = true;
   dlgTeacherSelectRef.value?.showDialog(true);
 }
@@ -189,9 +206,15 @@ async function handleDeleteClick(rows) {
 }
 
 function handleSubmitClick(row) {
-  console.log(row);
-  return
-  updateVerifyProcess(row.id, CONSTANT.AUDIT_STATUS.SUBMIT);
+  if (row.isAudit != -1) {
+    ElMessage.warning('该记录已提交，不能再次提交');
+    return;
+  }
+  let STATUS;
+  if (row.currentVerifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+    STATUS = CONSTANT.AUDIT_STATUS.PASS;
+  } else STATUS = CONSTANT.AUDIT_STATUS.SUBMIT;
+  updateVerifyProcess(row.verifyProcessId, STATUS);
 }
 
 async function updateVerifyProcess(id, isAudit) {
@@ -199,9 +222,11 @@ async function updateVerifyProcess(id, isAudit) {
     // 更新流程状态到 MainVerifyProcess
     const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
       id: id,
-      isAudit: isAudit
+      isAudit: isAudit,
     });
     if (resInfo && resInfo.message === 'successful') {
+      ElMessage.success('提交成功');
+      headerPageRef.value?.baseListRef?.initDataList(true);
       return true;
     } else {
       ElMessage.warning(resInfo?.message || '更新审核状态失败');
@@ -218,6 +243,6 @@ async function updateVerifyProcess(id, isAudit) {
 defineExpose({
   baseListRef: computed(() => headerPageRef.value?.baseListRef),
   currentInternship,
-  updateSearchWordsAndRefresh: () => headerPageRef.value?.updateSearchWordsAndRefresh()
+  updateSearchWordsAndRefresh: () => headerPageRef.value?.updateSearchWordsAndRefresh(),
 });
 </script>

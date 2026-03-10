@@ -1,16 +1,32 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="handleConfirm" @close-dialog="onClose" @open-dialog="onOpenDialog">
+  <DlgBasic
+    ref="dlgBasicRef"
+    v-model:default-props="defaultProps"
+    :dlgbasic-confirm="handleConfirm"
+    @close-dialog="onClose"
+    @open-dialog="onOpenDialog"
+  >
     <template #mainForm>
       <div class="dlg-content-wrapper">
         <div class="teacher-select-layout">
           <!-- 左侧：单位部门树（使用 v-if 确保对话框打开时才渲染） -->
           <section class="teacher-select-aside">
-            <DataTree v-if="visible" ref="dataTreeRef" :default-props="treeProps" @node-click="handleNodeClick" />
+            <DataTree
+              v-if="visible"
+              ref="dataTreeRef"
+              :default-props="treeProps"
+              @node-click="handleNodeClick"
+            />
           </section>
           <!-- 右侧：教师列表 -->
           <section class="teacher-select-main">
-            <DataTableList ref="dataTableListRef" :default-props="tableListProps" :row-class-name="getRowClassName"
-              @selection-change="handleSelectionChange" @after-init-data="handleAfterInitData" />
+            <DataTableList
+              ref="dataTableListRef"
+              :default-props="tableListProps"
+              :row-class-name="getRowClassName"
+              @selection-change="handleSelectionChange"
+              @after-init-data="handleAfterInitData"
+            />
           </section>
         </div>
       </div>
@@ -26,7 +42,8 @@ import listAPI from '@/api/list';
 import DataTree from '@/components/DataTree.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import DlgBasic from '@/components/DlgBasic.vue';
-
+import internshipProcessAPI from '@/api/internshipProcess';
+import constant from '@/utils/constant';
 defineOptions({
   name: 'DlgTeacherSelect',
 });
@@ -34,11 +51,11 @@ defineOptions({
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   /** 当前实习项目 ID，确认时会与勾选的 userId 一起写入 RelIntershipUser */
-  internshipId: { type: Number, default: null },
+  currentInternship: { type: Object, default: null },
 });
 
 const emit = defineEmits(['update:modelValue', 'success']);
-
+const store = useStore();
 const dlgBasicRef = ref(null);
 const visible = computed({
   get: () => props.modelValue,
@@ -52,7 +69,7 @@ const defaultProps = reactive({
   dlgTitle: '选择指导老师',
   footButtons: {
     cancel: { show: true, name: '取消', type: '' },
-    confirm: { show: true, name: '确定', type: 'primary' }
+    confirm: { show: true, name: '确定', type: 'primary' },
   },
   someFlags: {
     noFooter: false,
@@ -60,8 +77,8 @@ const defaultProps = reactive({
     needMaxBtn: true,
     needValidate: false,
     validate: true,
-    needVerifyUpdate: false
-  }
+    needVerifyUpdate: false,
+  },
 });
 
 const dataTableListRef = ref(null);
@@ -92,8 +109,8 @@ const treeProps = computed(() => {
     initSearchWords: {
       searchKey,
       regKey: {},
-      andor: {}
-    }
+      andor: {},
+    },
   };
 });
 
@@ -107,13 +124,13 @@ const tableListProps = reactive({
   initSearchWords: {
     searchKey: {},
     regKey: {},
-    andor: {}
+    andor: {},
   },
   someFlags: {
     operateShow: false, // 不显示操作按钮
     checkFlag: true, // 显示多选框
     showPage: true, // 显示分页
-    autoInit: false // 不自动初始化，手动控制
+    autoInit: false, // 不自动初始化，手动控制
   },
   defaultDTHProps: {
     keyWord: { view: 'BaseUser' },
@@ -121,14 +138,14 @@ const tableListProps = reactive({
     allTableColumns: [
       { id: 1, showName: '姓名', tableColumnName: 'name', sortable: true },
       { id: 2, showName: '手机号', tableColumnName: 'phone', sortable: true },
-      { id: 3, showName: '职务', tableColumnName: 'jobName', sortable: true }
-    ]
-  }
+      { id: 3, showName: '职务', tableColumnName: 'jobName', sortable: true },
+    ],
+  },
 });
 
 /** 查询当前实习项目已关联的指导老师 userId，这些行将禁用勾选 */
 async function loadExistingUserIds() {
-  const internshipId = props.internshipId;
+  const internshipId = props.currentInternship.internshipId;
   if (internshipId == null) {
     existingUserIds.value = new Set();
     return;
@@ -141,10 +158,12 @@ async function loadExistingUserIds() {
       sort: { properties: 'id', direction: 'DESC' },
     });
     const list = res?.data?.content ?? res?.data ?? [];
-    const ids = list.map((r) => {
-      const uid = r.userId ?? r.user_id;
-      return uid != null ? Number(uid) : null;
-    }).filter((id) => id != null);
+    const ids = list
+      .map((r) => {
+        const uid = r.userId ?? r.user_id;
+        return uid != null ? Number(uid) : null;
+      })
+      .filter((id) => id != null);
     existingUserIds.value = new Set(ids);
   } catch (e) {
     console.error('加载已选老师失败:', e);
@@ -185,8 +204,7 @@ function getRowClassName({ row }) {
 function handleSelectionChange(rows) {
   // DataTableList 传递的是选中的行数组
   // 需要过滤掉已禁用的行（已关联的老师）
-  const validRows = rows.filter(row => !isExistingUserId(row.id));
-  
+  const validRows = rows.filter((row) => !isExistingUserId(row.id));
   // 获取当前页的所有行ID
   const currentPageIds = new Set();
   if (dataTableListRef.value?.dataList) {
@@ -194,21 +212,21 @@ function handleSelectionChange(rows) {
       currentPageIds.add(r.id);
     });
   }
-  
+
   // 清除当前页的选择
   currentPageIds.forEach((id) => selectedMap.value.delete(id));
-  
+
   // 添加新选择的行
   validRows.forEach((row) => {
     selectedMap.value.set(row.id, row);
   });
-  
+
   // 如果选择了已禁用的行，需要清除它们
-  const disabledRows = rows.filter(row => isExistingUserId(row.id));
+  const disabledRows = rows.filter((row) => isExistingUserId(row.id));
   if (disabledRows.length > 0 && dataTableListRef.value?.table) {
     // 使用 nextTick 确保在 DOM 更新后清除选择
     setTimeout(() => {
-      disabledRows.forEach(row => {
+      disabledRows.forEach((row) => {
         dataTableListRef.value.table.toggleRowSelection(row, false);
       });
     }, 0);
@@ -219,7 +237,7 @@ function handleSelectionChange(rows) {
 function handleAfterInitData(dataList) {
   if (dataList && dataList.length > 0 && dataTableListRef.value?.table) {
     setTimeout(() => {
-      dataList.forEach(row => {
+      dataList.forEach((row) => {
         if (isExistingUserId(row.id)) {
           dataTableListRef.value.table.toggleRowSelection(row, false);
         }
@@ -258,7 +276,7 @@ async function handleConfirm(option, type) {
     ElMessage.warning('请至少勾选一位指导老师');
     return false; // 返回 false 阻止关闭对话框
   }
-  const internshipId = props.internshipId;
+  const internshipId = props.currentInternship.internshipId;
   if (internshipId == null) {
     ElMessage.warning('缺少实习项目信息');
     return false; // 返回 false 阻止关闭对话框
@@ -273,6 +291,12 @@ async function handleConfirm(option, type) {
       if (!res || res.message !== 'successful') {
         ElMessage.error(res?.message || '保存失败');
         return false; // 返回 false 阻止关闭对话框
+      } else {
+        const resp = await saveRelIntershipUserData(res);
+        if (!resp.success) {
+          ElMessage.error(resp?.message || '保存失败');
+          return false; // 返回 false 阻止关闭对话框
+        }
       }
     }
     ElMessage.success('保存成功');
@@ -283,11 +307,48 @@ async function handleConfirm(option, type) {
     }
     return true; // 返回 true 允许关闭对话框
   } catch (e) {
-    console.error('保存失败:', e);
+    console.error('保存失败', e);
     ElMessage.error('保存失败');
     return false; // 返回 false 阻止关闭对话框
   } finally {
     confirmLoading.value = false;
+  }
+}
+
+// 保存数据到 RelIntershipUser 表（公共方法）
+async function saveRelIntershipUserData(res) {
+  const activateParams = {
+    processId: props.currentInternship?.realId,
+    relationId: res.data?.id, // 新增数据的返回id
+    tableName: 'RelIntershipUser',
+    createUserId: store.getters.userInfo?.id, // 当前操作用户的id
+    isAudit: constant.AUDIT_STATUS.SAVE,
+    verifyUserId: store.getters.userInfo?.id,
+  };
+  // 先查询 MainVerifyProcess 表，检查是否存在相同记录
+  try {
+    const queryRes = await listAPI.getSomeRecords({
+      keyWords: 'MainVerifyProcess',
+      searchKey: {
+        processId: activateParams.processId,
+        relationId: activateParams.relationId,
+        tableName: activateParams.tableName,
+      },
+    });
+    // 获取查询结果
+    const existingRecords = queryRes?.data?.records || queryRes?.data?.content || [];
+    // 如果不存在记录，才执行激活流程
+    if (existingRecords.length == 0) {
+      const resInfo = await listAPI.editOneNode('MainVerifyProcess', activateParams);
+      if (!resInfo || resInfo.message !== 'successful') {
+        ElMessage.error(resInfo?.message || '保存失败');
+        return { success: false };
+      }
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('查询 MainVerifyProcess 失败:', error);
+    return { success: false };
   }
 }
 
@@ -307,7 +368,7 @@ watch(visible, async (val) => {
 });
 
 defineExpose({
-  showDialog
+  showDialog,
 });
 </script>
 

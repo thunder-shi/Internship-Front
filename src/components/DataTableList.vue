@@ -1078,6 +1078,7 @@ const handleColumnChange = (val) => {
 // 监听选中的事件
 const handleSelectionChange = (selection) => {
   selectedColumns.value = selection;
+  emit('selection-change', selection);
 };
 
 // 查看节点

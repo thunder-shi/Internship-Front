@@ -284,6 +284,7 @@ async function handleMore1Click(rows) {
         internshipItem.type = 'select_noremote';
         internshipItem.options = internshipList.map(item => ({
           ...item,
+          realId: item.id,
           id: item.internshipId || item.id,
           name: item.internshipName || item.name
         }));
