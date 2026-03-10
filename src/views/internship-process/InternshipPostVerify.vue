@@ -60,6 +60,8 @@ const clientFilterFn = (dataList) => {
 
   return dataList.filter(item => {
     if (!item || !item.verifyUserId) return false;
+    // 过滤掉系统自动通过的记录（无需审核的流程，审核人不应看到）
+    if (item.reason && item.reason.includes('系统自动通过')) return false;
     return isUserIdInVerifyUserId(item.verifyUserId, userId);
   });
 };

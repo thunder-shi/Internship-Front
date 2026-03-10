@@ -440,14 +440,16 @@ async function loadVerifyProgress() {
     records = filterInitialSaveRecords(records);
     await fillVerifyUserNames(records);
     // 规范化显示字段：将字符串类型的空值替换为 '-'
-    // verifyUserName 如果为空，替换为 '系统自动'
+    // verifyUserName 如果为空或系统自动通过，替换为 '系统'
     verifyRecords.value = records.map(record => {
       const normalized = normalizeFormForDisplay(record, {
         excludeFields: ['id', 'relationId', 'isAudit', 'verifyUserId', 'updateTime', 'createTime']
       });
-      // 特殊处理：verifyUserName 如果为空，显示 '系统自动'
-      if (!normalized.verifyUserName || normalized.verifyUserName === '-') {
-        normalized.verifyUserName = '系统自动';
+      // 特殊处理：系统自动通过的记录，审核人显示 '系统'
+      if (normalized.reason && normalized.reason.includes('系统自动通过')) {
+        normalized.verifyUserName = '系统';
+      } else if (!normalized.verifyUserName || normalized.verifyUserName === '-') {
+        normalized.verifyUserName = '系统';
       }
       return normalized;
     });
@@ -507,14 +509,16 @@ async function loadVerifyProgress() {
       await fillVerifyUserNames(records);
 
       // 规范化显示字段：将字符串类型的空值替换为 '-'
-      // verifyUserName 如果为空，替换为 '系统自动'
+      // verifyUserName 如果为空或系统自动通过，替换为 '系统'
       verifyRecords.value = records.map(record => {
         const normalized = normalizeFormForDisplay(record, {
           excludeFields: ['id', 'relationId', 'isAudit', 'verifyUserId', 'updateTime', 'createTime']
         });
-        // 特殊处理：verifyUserName 如果为空，显示 '系统自动'
-        if (!normalized.verifyUserName || normalized.verifyUserName === '-') {
-          normalized.verifyUserName = '系统自动';
+        // 特殊处理：系统自动通过的记录，审核人显示 '系统'
+        if (normalized.reason && normalized.reason.includes('系统自动通过')) {
+          normalized.verifyUserName = '系统';
+        } else if (!normalized.verifyUserName || normalized.verifyUserName === '-') {
+          normalized.verifyUserName = '系统';
         }
         return normalized;
       });
