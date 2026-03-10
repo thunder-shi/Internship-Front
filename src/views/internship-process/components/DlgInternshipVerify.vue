@@ -53,7 +53,7 @@
 
 <script setup>
 import { ref, reactive, watch, nextTick } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useStore } from 'vuex';
 import DlgBasic from '@/components/DlgBasic.vue';
 import DataTableList from '@/components/DataTableList.vue';
@@ -357,6 +357,19 @@ async function confirm(_option, type) {
   if (!form.id) {
     ElMessage.error('缺少主键ID，无法保存');
     return;
+  }
+
+  // 退回已通过的流程时，弹出二次确认
+  if (isRecallMode.value) {
+    try {
+      await ElMessageBox.confirm('当前流程已经审核完毕，确定退回吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      });
+    } catch {
+      return; // 用户取消
+    }
   }
 
   // 构建保存数据对象

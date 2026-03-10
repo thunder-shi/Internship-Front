@@ -417,6 +417,14 @@ async function supplementReturnRecords(records) {
   return records;
 }
 
+// 过滤掉初始保存未提交的记录（isAudit=-1），只保留退回后产生的 -1 记录
+// 未提交时不应在时间线中显示卡片
+function filterInitialSaveRecords(records) {
+  const hasReturn = records.some(r => r.isAudit === 3);
+  if (hasReturn) return records; // 有退回记录，保留所有（包括退回后的 -1）
+  return records.filter(r => r.isAudit !== -1);
+}
+
 // 加载审核进度数据
 async function loadVerifyProgress() {
   // 预加载角色名称和流程配置（用于将角色 ID 解析为名称）
@@ -428,6 +436,8 @@ async function loadVerifyProgress() {
     let records = [...props.processInfo._allRecords].sort((a, b) => (a.id || 0) - (b.id || 0));
     // 从基表补充视图中缺失的退回记录
     await supplementReturnRecords(records);
+    // 过滤掉初始保存未提交的记录（未提交时不显示卡片）
+    records = filterInitialSaveRecords(records);
     await fillVerifyUserNames(records);
     // 规范化显示字段：将字符串类型的空值替换为 '-'
     // verifyUserName 如果为空，替换为 '系统自动'
@@ -469,6 +479,8 @@ async function loadVerifyProgress() {
 
       // 从基表补充视图中缺失的退回记录
       await supplementReturnRecords(records);
+      // 过滤掉初始保存未提交的记录（未提交时不显示卡片）
+      records = filterInitialSaveRecords(records);
 
       console.log('=== DlgVerifyProgress 调试 ===');
       console.log('原始审核记录:', records);

@@ -303,6 +303,8 @@ const handleConfirm = async (option, type, form) => {
         type: 'success',
         duration: 5000
       });
+      // 新增项目后后端会创建新的流程配置，需要刷新缓存才能解析角色名
+      await loadProcessConfigs();
       baseList.value?.initDataList();
       return true;
     } else {
@@ -347,8 +349,9 @@ const handleDeleteClick = async (rows) => {
 };
 
 
-// 处理更新记录后的回调
-const handleUpdateRecord = () => {
+// 处理更新记录后的回调（编辑/提交后流程配置可能变化，需要刷新缓存）
+const handleUpdateRecord = async () => {
+  await loadProcessConfigs();
   baseList.value?.initDataList();
 };
 

@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-loading="loading" element-loading-text="保存中...">
     <el-form ref="mainForm" :model="form" :rules="formRule" label-position="right" label-width="120px" class="personal-form" label-suffix=":">
       <el-form-item label="账号" prop="account">
         <el-input v-model="form.account" />

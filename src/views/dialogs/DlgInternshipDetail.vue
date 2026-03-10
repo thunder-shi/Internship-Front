@@ -327,15 +327,17 @@ async function saveInternshipData(formData, successMessage) {
  * 更新 MainVerifyProcess 表的审核状态
  * 只有"提交"操作才会调用此函数
  * @param {Number} id - MainVerifyProcess 表的主键
- * @param {Number} isAudit - 审核状态（0: 提交待审核）
+ * @param {Number} isAudit - 审核状态（0: 提交待审核，1: 审核通过）
+ * @param {Object} extraFields - 额外字段（如 verifyUserName, reason）
  * @returns {Promise<Boolean>} - 返回 true 表示成功，false 表示失败
  */
-async function updateVerifyProcess(id, isAudit) {
+async function updateVerifyProcess(id, isAudit, extraFields = {}) {
   try {
     // 更新流程状态到 MainVerifyProcess
     const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
-      id: id, 
-      isAudit: isAudit
+      id: id,
+      isAudit: isAudit,
+      ...extraFields
     });
     if (resInfo && resInfo.message === 'successful') {
       return true;
@@ -352,7 +354,8 @@ async function updateVerifyProcess(id, isAudit) {
 
 /**
  * 提交：提交审核
- * isAudit = 0（提交待审核）
+ * 普通流程：isAudit = 0（提交待审核）
+ * 无需审核：isAudit = 1（直接通过），审核人填写"系统自动通过"
  * 先保存 MainInternship 表，然后更新 MainVerifyProcess 表的审核状态
  * @returns {Promise<Boolean>} - 返回 true 表示成功，false 表示失败
  */
@@ -361,14 +364,32 @@ async function handleSubmit() {
   if (!validateFormData()) {
     return false;
   }
-  // 保存数据
-  const saveSuccess = await saveInternshipAndMajors(`提交成功，${CONSTANT.AUDIT_STATUS.SUBMITNAME}`);
+
+  // 检查当前流程是否"无需审核"
+  const currentProcess = processList.value.find(p => p.id === form.processId);
+  const isNoVerify = currentProcess?.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY;
+
+  // 保存数据（根据是否无需审核显示不同提示）
+  const submitMessage = isNoVerify
+    ? '提交成功，无需审核，已自动通过'
+    : `提交成功，${CONSTANT.AUDIT_STATUS.SUBMITNAME}`;
+  const saveSuccess = await saveInternshipAndMajors(submitMessage);
   if (!saveSuccess) {
     return false;
   }
   // 然后更新 MainVerifyProcess 表的审核状态
   if (form.id != null && form.id !== 0) {
-    const updateSuccess = await updateVerifyProcess(form.id, CONSTANT.AUDIT_STATUS.SUBMIT);
+    let updateSuccess;
+    if (isNoVerify) {
+      // 无需审核：直接标记为通过，审核人信息填"系统"
+      updateSuccess = await updateVerifyProcess(form.id, CONSTANT.AUDIT_STATUS.PASS, {
+        verifyUserName: '系统',
+        reason: '无需审核，系统自动通过'
+      });
+    } else {
+      // 正常流程：提交待审核
+      updateSuccess = await updateVerifyProcess(form.id, CONSTANT.AUDIT_STATUS.SUBMIT);
+    }
     if (updateSuccess) {
       emit('update-record', form);
       // 提交成功后关闭对话框
