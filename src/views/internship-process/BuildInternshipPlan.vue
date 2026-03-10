@@ -220,9 +220,42 @@ const clientFilterFn = (dataList) => {
 //   }
 // }));
 
-// 处理编辑按钮点击事件，使用自定义的编辑窗口
-// 与 BuildInternship.vue 中的实现完全一样
-const editClick = (row) => {
+// 判断记录是否为系统自动通过
+const isAutoApproved = (row) => {
+  return row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
+    row.reason && row.reason.includes('系统自动通过');
+};
+
+// 处理编辑按钮点击事件
+// 对于系统自动通过的记录，先确认撤回，再打开编辑窗口
+const editClick = async (row) => {
+  if (isAutoApproved(row)) {
+    try {
+      await ElMessageBox.confirm(
+        '此记录为系统自动通过，撤回后可修改并重新提交，是否撤回？',
+        '撤回确认',
+        { confirmButtonText: '确定撤回', cancelButtonText: '取消', type: 'warning' }
+      );
+      // 撤回：重置审核状态为待提交
+      const res = await listAPI.editOneNode('MainVerifyProcess', {
+        id: row.id,
+        isAudit: CONSTANT.AUDIT_STATUS.SAVE,
+        reason: null,
+        verifyUserName: null,
+        verifyUserId: null
+      });
+      if (res?.message !== 'successful') {
+        ElMessage.error(res?.message || '撤回失败');
+        return;
+      }
+      ElMessage.success('撤回成功，请修改后重新提交');
+      // 更新本地行数据的审核状态
+      row.isAudit = CONSTANT.AUDIT_STATUS.SAVE;
+      row.reason = null;
+    } catch {
+      return; // 用户取消
+    }
+  }
   dlgMainInternship.value?.showDialog(true, row);
 };
 
@@ -376,8 +409,17 @@ const defaultProps = computed(() => ({
     enableAuditStatusCustom: true,
     // 获取审核角色名称函数
     getVerifyRoleName: getVerifyRoleName,
+    // 按钮条件：控制各按钮在不同审核状态下的显示
+    buttonCondition: {
+      // 编辑按钮：待提交(-1)、审核退回(3)、系统自动通过的记录可编辑
+      update: (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE
+        || row.isAudit === CONSTANT.AUDIT_STATUS.BACK
+        || isAutoApproved(row),
+      // 删除按钮：仅待提交状态可删除
+      delete: (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE,
+    },
     defaultDTHProps: {
-      buttonProps: { create: { show: true }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true }, delete: { show: true } },
+      buttonProps: { create: { show: true }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true, name: '编辑' }, delete: { show: true } },
       // keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyInternshipPlanProcess' },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternship' },
       allTableColumns: [
