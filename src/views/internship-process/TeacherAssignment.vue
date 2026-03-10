@@ -1,22 +1,32 @@
 <template>
-  <div>
-    <InternshipPostPage ref="internshipPostPageRef" :page-title="'选择指导老师'" :no-project-message="'当前没有可选择指导老师的实习项目'"
-      :table-columns="tableColumns" :process-type-code="processTypeCode" :button-props-fn="getButtonProps"
-      :button-condition="buttonCondition" :build-search-key="buildSearchKey" :is-company-user="isCompanyUser"
-      :key-word="keyWord" @append-click="handleAppendClick" @delete-click="handleDeleteClick"
-      @submit-click="handleSubmitClick" />
-    <slot name="dlg">
-      <DlgTeacherSelect v-model="dlgTeacherSelectVisible" :internship-id="dlgTeacherSelectInternshipId"
-        @success="onTeacherSelectSuccess" />
-    </slot>
-  </div>
+  <InternshipPostHeaderPage
+    ref="headerPageRef"
+    :page-title="'选择指导老师'"
+    :no-project-message="'当前没有可选择指导老师的实习项目'"
+    :project-select-search-key="projectSelectSearchKey"
+    :project-select-reg-key="projectSelectRegKey"
+    :default-d-t-l-props="defaultDTLProps"
+    :build-search-key="buildSearchKey"
+    :is-company-user="isCompanyUser"
+    @append-click="handleAppendClick"
+    @delete-click="handleDeleteClick"
+    @submit-click="handleSubmitClick"
+    @project-selected="handleProjectSelected"
+  >
+    <!-- 指导老师选择对话框 -->
+    <template #dialogs>
+      <DlgTeacherSelect ref="dlgTeacherSelectRef" :model-value="dlgTeacherSelectVisible" :internship-id="dlgTeacherSelectInternshipId"
+        @update:model-value="dlgTeacherSelectVisible = $event" @success="onTeacherSelectSuccess" />
+    </template>
+  </InternshipPostHeaderPage>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { reactive, ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
-import InternshipPostPage from '@/views/master-page/InternshipPostPage.vue';
+import moment from 'moment';
+import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgTeacherSelect from './components/DlgTeacherSelect.vue';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
@@ -25,8 +35,8 @@ defineOptions({
   name: 'TeacherAssignment',
 });
 
-const internshipPostPageRef = ref(null);
 const store = useStore();
+const headerPageRef = ref(null);
 const roles = computed(() => store.getters.roles || []);
 const isCompanyUser = computed(() =>
   roles.value.some(
@@ -34,30 +44,78 @@ const isCompanyUser = computed(() =>
   )
 );
 
-const processTypeCode = CONSTANT.PROCESS_TYPE.INTERNAL_TEACHER_SELECT_PROJECT;
+// 获取用户信息
+const userInfo = computed(() => store.getters.userInfo || {});
 
-const tableColumns = [
-  { id: 1, showName: '指导老师', tableColumnName: 'userName', sortable: true },
-  { id: 1, showName: '审核要求', tableColumnName: 'verifyTypeName', sortable: true },
-];
+// 创建响应式的 title 对象
+const titleObj = reactive({
+  mainTitle: '选择指导老师'
+});
 
-const keyWord = { edit: 'RelIntershipUser', view: 'ViewRelIntershipUser' };
+// 获取当前实习项目（从 headerPageRef）
+const currentInternship = computed(() => {
+  return headerPageRef.value?.currentInternship?.value || null;
+});
 
+// 获取 isMore1Disabled（从 headerPageRef）
+const isMore1Disabled = computed(() => {
+  return headerPageRef.value?.isMore1Disabled?.value || false;
+});
+
+const processTypeCode = CONSTANT.PROCESS_TYPE.TEACHER_SELECT_INTERNALSHIP;
+
+// 实习项目选择对话框的查询关键字（用于 getSomeRecords，包含时间条件）
+const projectSelectSearchKey = computed(() => {
+  const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
+  const searchKey = {
+    processTypeCode: processTypeCode,
+    startTime: currentTime,
+    endTime: currentTime
+  };
+  // 如果用户有专业ID，添加专业过滤条件
+  if (userInfo.value?.majorId) {
+    searchKey.majorIds = userInfo.value.majorId;
+  }
+  return searchKey;
+});
+
+// 实习项目选择对话框的查询操作符（用于 getSomeRecords）
+const projectSelectRegKey = computed(() => {
+  const regKey = {
+    startTime: CONSTANT.SEARCH_OPERATOR.LE, // startTime <= 当前时间
+    endTime: CONSTANT.SEARCH_OPERATOR.GE    // endTime >= 当前时间
+  };
+  // 如果用户有专业ID，添加专业过滤操作符
+  if (userInfo.value?.majorId) {
+    regKey.majorIds = CONSTANT.SEARCH_OPERATOR.IN;
+  }
+  return regKey;
+});
+
+const dlgTeacherSelectRef = ref(null);
 const dlgTeacherSelectVisible = ref(false);
 const dlgTeacherSelectInternshipId = ref(null);
 
 function onTeacherSelectSuccess() {
-  internshipPostPageRef.value?.baseListRef?.initDataList(true);
+  headerPageRef.value?.baseListRef?.initDataList(true);
 }
-// 按钮配置函数
-function getButtonProps(currentInternship, isMore1Disabled) {
+
+// 处理项目选择后的回调
+function handleProjectSelected(internship, title) {
+  if (title) {
+    titleObj.mainTitle = title;
+  }
+}
+
+// 按钮配置（computed）
+const buttonPropsComputed = computed(() => {
   return {
-    create: { show: true, disabled: !currentInternship || !currentInternship.internshipId },
+    create: { show: true, disabled: !currentInternship.value || !currentInternship.value.internshipId },
     submit: { show: true },
     delete: { show: true },
-    more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled },
+    more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
   };
-}
+});
 
 // 按钮条件配置
 const buttonCondition = {
@@ -73,6 +131,27 @@ const buttonCondition = {
   },
 };
 
+// 构建 defaultDTLProps（包含按钮和列配置）
+const defaultDTLProps = computed(() => {
+  return {
+    title: titleObj,
+    someFlags: {
+      autoInit: false,
+    },
+    enableAuditStatusCustom: true,
+    defaultDTHProps: {
+      buttonProps: buttonPropsComputed.value,
+      buttonCondition: buttonCondition,
+      keyWord: { edit: 'RelIntershipUser', view: 'ViewRelIntershipUser' },
+      allTableColumns: [
+        { id: 1, showName: '指导老师', tableColumnName: 'userName', sortable: true },
+        { id: 2, showName: '审核要求', tableColumnName: 'verifyTypeName', sortable: true },
+      ],
+    },
+    defaultDBIProps: {},
+  };
+});
+
 function buildSearchKey(baseSearchKey) {
   return { processTypeCode, internshipId: baseSearchKey.internshipId };
 }
@@ -84,6 +163,7 @@ function handleAppendClick(currentInternship) {
   }
   dlgTeacherSelectInternshipId.value = currentInternship.internshipId;
   dlgTeacherSelectVisible.value = true;
+  dlgTeacherSelectRef.value?.showDialog(true);
 }
 
 async function handleDeleteClick(rows) {
@@ -98,7 +178,7 @@ async function handleDeleteClick(rows) {
     const res = await listAPI.delOneOrManyNodes('RelIntershipUser', ids);
     if (res?.message === 'successful') {
       ElMessage.success('删除成功');
-      internshipPostPageRef.value?.baseListRef?.initDataList(true);
+      headerPageRef.value?.baseListRef?.initDataList(true);
     } else {
       ElMessage.error(res?.message || '删除失败');
     }
@@ -110,7 +190,6 @@ async function handleDeleteClick(rows) {
 
 function handleSubmitClick(row) {
   console.log(row);
-
   return
   updateVerifyProcess(row.id, CONSTANT.AUDIT_STATUS.SUBMIT);
 }
@@ -133,5 +212,12 @@ async function updateVerifyProcess(id, isAudit) {
     console.error('更新审核状态失败:', error);
     return false;
   }
-} 
+}
+
+// 暴露给父组件的方法和属性
+defineExpose({
+  baseListRef: computed(() => headerPageRef.value?.baseListRef),
+  currentInternship,
+  updateSearchWordsAndRefresh: () => headerPageRef.value?.updateSearchWordsAndRefresh()
+});
 </script>

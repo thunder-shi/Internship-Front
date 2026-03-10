@@ -1,4 +1,5 @@
 import userAPI from '@/api/user'
+import listAPI from '@/api/list'
 import { setToken, removeToken } from '@/utils/auth'
 import router, { resetRouter } from '@/router'
 
@@ -41,23 +42,43 @@ const actions = {
     })
   },
   // 获取用户信息
-  getUserInfo({ commit, dispatch }) {
-    return new Promise((resolve, reject) => {
-      userAPI.getUserInfo().then(res => {
-        if (!res.data) {
-          reject('验证失败，请重新登录')
+  async getUserInfo({ commit, dispatch }) {
+    try {
+      const res = await userAPI.getUserInfo()
+      if (!res.data) {
+        throw new Error('验证失败，请重新登录')
+      }
+      // 主题色为空的更改
+      if (res.data.userInfo.themeColor == 'default' || res.data.userInfo.themeColor == '')
+         res.data.userInfo.themeColor = '#009140'
+      
+      // 如果用户信息中没有 schoolId，但有 departmentId，则查询部门信息获取 schoolId
+      if (!res.data.userInfo.schoolId && res.data.userInfo.departmentId) {
+        try {
+          const deptRes = await listAPI.getSomeRecords({
+            keyWords: 'BaseDepartment',
+            searchKey: { id: res.data.userInfo.departmentId },
+            pageInfo: { page: 1, size: 1 }
+          })
+          if (deptRes && deptRes.data && deptRes.data.content && deptRes.data.content.length > 0) {
+            const department = deptRes.data.content[0]
+            // 如果部门信息中有 schoolId，则添加到用户信息中
+            if (department.schoolId) {
+              res.data.userInfo.schoolId = department.schoolId
+            }
+          }
+        } catch (error) {
+          console.warn('获取部门信息失败，无法获取 schoolId:', error)
         }
-        // 主题色为空的更改
-        if (res.data.userInfo.themeColor == 'default' || res.data.userInfo.themeColor == '')
-           res.data.userInfo.themeColor = '#009140'
-        commit('SET_USERINFO', res.data.userInfo)
-        commit('SET_ROLES', res.data.roles)
-        // commit('SET_CONTESTTYPES', res.data.contestTypes)
-        resolve(res.data)
-      }).catch(error => {
-        reject(error)
-      })
-    })
+      }
+      
+      commit('SET_USERINFO', res.data.userInfo)
+      commit('SET_ROLES', res.data.roles)
+      // commit('SET_CONTESTTYPES', res.data.contestTypes)
+      return Promise.resolve(res.data)
+    } catch (error) {
+      return Promise.reject(error)
+    }
   },
 
   // 用户登出
