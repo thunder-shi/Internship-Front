@@ -271,7 +271,6 @@ const handleUpdateRecord = () => {
 const handleAuditClick = (row) => {
   // row 可能是数组（多选）或单个对象（单选）
   // 取第一个选中的项目进行审核
-  console.log(row)
   const selectedRow = Array.isArray(row) ? row[0] : row;
   if (selectedRow) {
     dlgInternshipVerify.value?.showDialog(true, selectedRow);
@@ -302,10 +301,10 @@ const defaultProps = reactive({
       keyWord: { edit: 'RelIntershipUser', view: 'ViewRelIntershipUser' },
       allTableColumns: [
         { id: 2, showName: '指导项目名称', theOrder: 2, tableColumnName: 'internshipName' },
-        { id: 3, showName: '指导老师', theOrder: 3, width: 100, tableColumnName: 'userName' },
-        { id: 4, showName: '流程开始时间', theOrder: 4, width: 160, tableColumnName: 'startTime' },
-        { id: 5, showName: '流程结束时间', theOrder: 5, width: 160, tableColumnName: 'endTime' },
-        { id: 6, showName: '当前状态', theOrder: 6, width: 120, tableColumnName: 'customize-status' },
+        { id: 3, showName: '指导老师', theOrder: 3, tableColumnName: 'userName' },
+        { id: 4, showName: '流程开始时间', theOrder: 4,  tableColumnName: 'startTime' },
+        { id: 5, showName: '流程结束时间', theOrder: 5,  tableColumnName: 'endTime' },
+        { id: 6, showName: '当前状态', theOrder: 6, tableColumnName: 'customize-status' },
         { id: 7, showName: '审核理由', theOrder: 7, tableColumnName: 'reason' }
       ],
     },

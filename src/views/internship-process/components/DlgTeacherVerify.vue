@@ -307,12 +307,11 @@ async function confirm(_option, type) {
   // 构建保存数据对象
   // 注意：verifyUserId 必须是整数类型，否则后端 join BaseUser 时会失败
   const saveData = {
-    ...form, // 包含 form 中的所有信息（包括 id）
+    id:form.id, 
     isAudit: form.auditResult,
     reason: form.auditReason,
     verifyUserId: parseInt(verifyUserId, 10), // 保存实际审核人ID（整数类型）
   };
-
   try {
     // 调用 editOneNode 接口保存到 MainVerifyProcess 表
     // 后端会自动处理多级审核逻辑（创建下一级审核记录、更新 currentVerifyTypeId）

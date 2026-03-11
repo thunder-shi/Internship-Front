@@ -53,6 +53,8 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   /** 当前实习项目 ID，确认时会与勾选的 userId 一起写入 RelIntershipUser */
   currentInternship: { type: Object, default: null },
+  /** 是否显示表格上方的搜索/筛选栏（搜索框、刷新、列展示等按钮），默认 true */
+  showSearchBar: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:modelValue', 'success']);
@@ -332,13 +334,17 @@ async function handleConfirm(option, type) {
 
 // 保存数据到 RelIntershipUser 表（公共方法）
 async function saveRelIntershipUserData(res) {
+  const verifyUserIds = await internshipProcessAPI.getVerifyUserIds({
+    verifyRoleId: props.currentInternship.verifyFirstRoleId,
+    createUserId: store.getters.userInfo?.id,
+  });
   const activateParams = {
     processId: props.currentInternship?.realId,
     relationId: res.data?.id, // 新增数据的返回id
     tableName: 'RelIntershipUser',
     createUserId: store.getters.userInfo?.id, // 当前操作用户的id
     isAudit: constant.AUDIT_STATUS.SAVE,
-    verifyUserId: store.getters.userInfo?.id,
+    verifyUserId: verifyUserIds.data,
   };
   // 先查询 MainVerifyProcess 表，检查是否存在相同记录
   try {
@@ -381,6 +387,14 @@ watch(visible, async (val) => {
     // 初始化逻辑移到 onOpenDialog 中，确保对话框完全打开后再初始化
   }
 });
+
+watch(
+  () => props.showSearchBar,
+  (val) => {
+    tableListProps.defaultDTHProps.showTopButtons = val;
+  },
+  { immediate: true }
+);
 
 defineExpose({
   showDialog,

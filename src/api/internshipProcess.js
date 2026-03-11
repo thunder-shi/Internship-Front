@@ -1,6 +1,6 @@
-import request from '@/utils/request'
-import { getEncryptKeyWord } from '@/utils/rsaEncrypt'
-import CONSTANT from '@/utils/constant'
+import request from '@/utils/request';
+import { getEncryptKeyWord } from '@/utils/rsaEncrypt';
+import CONSTANT from '@/utils/constant';
 
 // 推进审核流程
 async function auditProcess(node) {
@@ -8,9 +8,9 @@ async function auditProcess(node) {
     url: '/internshipProcess/auditProcess',
     method: 'post',
     data: {
-      node: JSON.stringify(node)
-    }
-  })
+      node: JSON.stringify(node),
+    },
+  });
 }
 
 async function activateProcess(params) {
@@ -18,9 +18,19 @@ async function activateProcess(params) {
     url: 'internshipProcess/activateProcess',
     method: 'post',
     data: {
-      node: JSON.stringify(params)
-    }
-  })
+      node: JSON.stringify(params),
+    },
+  });
+}
+
+async function getVerifyUserIds(params) {
+  return request({
+    url: 'internshipProcess/getVerifyUserIds',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+  });
 }
 
 // 获取满足当前要求的实习项目
@@ -35,7 +45,8 @@ async function activateProcess(params) {
 // }
 
 export default {
-    auditProcess,
-    activateProcess
-    // getNowInternship
-}
+  auditProcess,
+  activateProcess,
+  getVerifyUserIds,
+  // getNowInternship
+};

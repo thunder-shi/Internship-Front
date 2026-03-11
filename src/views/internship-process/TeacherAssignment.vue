@@ -106,8 +106,6 @@ function onTeacherSelectSuccess() {
 
 // 处理项目选择后的回调
 function handleProjectSelected(internship, title) {
-  console.log(internship);
-
   if (title) {
     titleObj.mainTitle = title;
   }
@@ -141,6 +139,35 @@ const buttonCondition = {
   },
 };
 
+// 客户端过滤函数：按 id 聚合，只显示最新状态的记录
+// 用于前端分页场景，避免同一条分配记录出现多行历史审核记录
+const clientFilterFn = (dataList) => {
+  if (!Array.isArray(dataList) || dataList.length === 0) {
+    return dataList;
+  }
+
+  const groupedMap = new Map();
+  dataList.forEach((item) => {
+    const relationId = item.relationId;
+    if (relationId == null) {
+      return;
+    }
+    if (!groupedMap.has(relationId)) {
+      groupedMap.set(relationId, []);
+    }
+    groupedMap.get(relationId).push(item);
+  });
+
+  const result = [];
+  groupedMap.forEach((records) => {
+    // 按 id 降序，取最新一条
+    records.sort((a, b) => (b.id || 0) - (a.id || 0));
+    result.push(records[0]);
+  });
+
+  return result;
+};
+
 // 构建 defaultDTLProps（包含按钮和列配置）
 const defaultDTLProps = computed(() => {
   return {
@@ -148,6 +175,8 @@ const defaultDTLProps = computed(() => {
     someFlags: {
       autoInit: false,
     },
+    // 使用前端过滤函数，在前端分页前先合并同一 relationId 的多条记录
+    clientFilterFn,
     enableAuditStatusCustom: true,
     defaultDTHProps: {
       buttonProps: buttonPropsComputed.value,
@@ -158,7 +187,7 @@ const defaultDTLProps = computed(() => {
         { id: 2, showName: '联系电话', tableColumnName: 'phone', sortable: true },
         { id: 3, showName: '开始时间', tableColumnName: 'startTime', sortable: true },
         { id: 4, showName: '结束时间', tableColumnName: 'endTime', sortable: true },
-        { id: 4, showName: '审核要求', tableColumnName: 'currentVerifyTypeName', sortable: true },
+        // { id: 4, showName: '审核要求', tableColumnName: 'currentVerifyTypeName', sortable: true },
         { id: 5, showName: '当前状态', tableColumnName: 'customize-status', sortable: true },
       ],
     },
@@ -167,12 +196,10 @@ const defaultDTLProps = computed(() => {
 });
 
 function buildSearchKey(baseSearchKey) {
-  console.log(baseSearchKey);
-  
   return {
-    // processTypeCode,
+    processTypeCode,
     internshipId: baseSearchKey.internshipId,
-    // tableName: 'RelIntershipUser',
+    tableName: 'RelIntershipUser',
   };
 }
 
@@ -217,7 +244,7 @@ function handleSubmitClick(row) {
     STATUS = CONSTANT.AUDIT_STATUS.PASS;
     reason = '系统自动通过';
   } else STATUS = CONSTANT.AUDIT_STATUS.SUBMIT;
-  updateVerifyProcess(row.verifyProcessId, STATUS);
+  updateVerifyProcess(row.id, STATUS);
 }
 
 async function updateVerifyProcess(id, isAudit) {
