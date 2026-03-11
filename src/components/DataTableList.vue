@@ -835,9 +835,14 @@ const _initDataList = async () => {
     }
 
     dataList.value = sortedContent;
-    // 使用后端返回的总记录数，而不是当前页的数据量
-    // 优先使用 resp.data.page.totalElements，如果没有则使用 resp.data.totalElements，最后才使用当前页数据量
-    totalSize.value = resp.data?.page?.totalElements ?? resp.data?.totalElements ?? (sortedContent.length > 0 ? sortedContent.length : 0);
+    // 如果使用了客户端过滤函数，总条数按过滤后的实际显示数量计算
+    if (clientFilterFn.value && typeof clientFilterFn.value === 'function') {
+      totalSize.value = sortedContent.length;
+    } else {
+      // 使用后端返回的总记录数，而不是当前页的数据量
+      // 优先使用 resp.data.page.totalElements，如果没有则使用 resp.data.totalElements，最后才使用当前页数据量
+      totalSize.value = resp.data?.page?.totalElements ?? resp.data?.totalElements ?? (sortedContent.length > 0 ? sortedContent.length : 0);
+    }
     emit('after-init-data', dataList.value);
     emit('total-size', totalSize.value);
 
