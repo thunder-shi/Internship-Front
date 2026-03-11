@@ -45,12 +45,12 @@ const actions = {
   async getUserInfo({ commit, dispatch }) {
     try {
       const res = await userAPI.getUserInfo()
-      if (!res.data) {
+        if (!res.data) {
         throw new Error('验证失败，请重新登录')
-      }
-      // 主题色为空的更改
-      if (res.data.userInfo.themeColor == 'default' || res.data.userInfo.themeColor == '')
-         res.data.userInfo.themeColor = '#009140'
+        }
+        // 主题色为空的更改
+        if (res.data.userInfo.themeColor == 'default' || res.data.userInfo.themeColor == '')
+           res.data.userInfo.themeColor = '#009140'
       
       // 如果用户信息中没有 schoolId，但有 departmentId，则查询部门信息获取 schoolId
       if (!res.data.userInfo.schoolId && res.data.userInfo.departmentId) {
@@ -72,9 +72,9 @@ const actions = {
         }
       }
       
-      commit('SET_USERINFO', res.data.userInfo)
-      commit('SET_ROLES', res.data.roles)
-      // commit('SET_CONTESTTYPES', res.data.contestTypes)
+        commit('SET_USERINFO', res.data.userInfo)
+        commit('SET_ROLES', res.data.roles)
+        // commit('SET_CONTESTTYPES', res.data.contestTypes)
       return Promise.resolve(res.data)
     } catch (error) {
       return Promise.reject(error)

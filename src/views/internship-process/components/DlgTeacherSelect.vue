@@ -56,6 +56,10 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'success']);
 const store = useStore();
+
+// 获取用户信息
+const userInfo = computed(() => store.getters.userInfo || {});
+
 const dlgBasicRef = ref(null);
 const visible = computed({
   get: () => props.modelValue,
@@ -94,12 +98,10 @@ const existingUserIds = ref(new Set());
 // 树组件配置（参考 User.vue，不显示"全部"节点，不使用虚拟根节点）
 // 过滤条件：只显示 typeCode='UNIVERSITY' 且 schoolId 等于当前用户的 schoolId 的部门
 const treeProps = computed(() => {
-  const store = useStore();
-  const userInfo = store.getters.userInfo || {};
   const searchKey = { typeCode: 'UNIVERSITY' };
   // 获取当前用户的 schoolId
-  if (userInfo.schoolId) {
-    searchKey.schoolId = userInfo.schoolId;
+  if (userInfo.value.schoolId) {
+    searchKey.schoolId = userInfo.value.schoolId;
   }
   return {
     title: { mainTitle: '单位部门列表' },
