@@ -18,13 +18,11 @@ async function main() {
     const branch = getOutput('git rev-parse --abbrev-ref HEAD');
     console.log(`当前分支: ${branch}`);
 
-    console.log('\n=== 拉取最新代码 ===');
     run(`git pull origin ${branch}`);
 
     const status = getOutput('git status --porcelain');
     if (!status) {
       console.log('没有本地改动，无需提交。');
-      rl.close();
       return;
     }
 
@@ -42,6 +40,8 @@ async function main() {
   } catch (err) {
     console.error('\n❌ 执行失败');
     process.exit(1);
+  } finally {
+    rl.close();
   }
 }
 
