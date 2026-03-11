@@ -24,6 +24,7 @@
               ref="dataTableListRef"
               :default-props="tableListProps"
               :row-class-name="getRowClassName"
+              :row-selectable-fn="isRowSelectable"
               @selection-change="handleSelectionChange"
               @after-init-data="handleAfterInitData"
             />
@@ -201,6 +202,11 @@ function isExistingUserId(id) {
   return existingUserIds.value.has(Number(id)) || existingUserIds.value.has(id);
 }
 
+// 已关联（RelIntershipUser 已存在）的老师禁用勾选
+function isRowSelectable(row) {
+  return !isExistingUserId(row?.id);
+}
+
 /** 已禁用的行加样式 */
 function getRowClassName({ row }) {
   return isExistingUserId(row.id) ? 'row-disabled' : '';
@@ -262,13 +268,17 @@ function onClose() {
 function onOpenDialog() {
   // 对话框完全打开后，初始化数据
   nextTick(() => {
-    setTimeout(() => {
+    setTimeout(async () => {
       // 初始化树组件（v-if 确保组件已创建，onMounted 应该已经调用，但这里作为双重保险）
       if (dataTreeRef.value) {
         dataTreeRef.value.initDataTree();
       }
       // 初始化表格数据
       if (dataTableListRef.value) {
+        // 双保险：确保 existingUserIds 已加载，避免禁用状态偶现不生效
+        if (!existingUserIds.value || existingUserIds.value.size === 0) {
+          await loadExistingUserIds();
+        }
         dataTableListRef.value.initDataList(true);
       }
     }, 100);
