@@ -60,6 +60,11 @@ const props = defineProps({
   projectSelectRegKey: {
     type: Object,
     default: () => ({})
+  },
+  // 实习项目列表的视图关键字（用于 getSomeRecords，如 ViewRelProcessInternship / ViewTeacherSelectedInternship）
+  projectListKeyWords: {
+    type: String,
+    default: 'ViewRelProcessInternship'
   }
 });
 
@@ -107,7 +112,7 @@ function handleSelectChange(item, val, form) {
   }
 }
 
-// 实习项目选择对话框配置（使用子组件传入的查询关键字）
+// 实习项目选择对话框配置（使用子组件传入的查询关键字与 projectListKeyWords）
 const projectSelectDialogProps = reactive({
   keyWord: 'ProjectSelect',
   dlgTitle: '实习项目选择',
@@ -117,7 +122,7 @@ const projectSelectDialogProps = reactive({
       name: '实习项目',
       field: 'internshipId',
       type: 'select',
-      keyWords: 'ViewRelProcessInternship',
+      keyWords: props.projectListKeyWords,
       changeLabel: 'internshipName'
     },
   ],
@@ -273,7 +278,7 @@ function handleViewClick(rowOrArray) {
 async function handleMore1Click(rows) {
   try {
     const response = await listAPI.getSomeRecords({
-      keyWords: 'ViewRelProcessInternship',
+      keyWords: props.projectListKeyWords,
       searchKey: props.projectSelectSearchKey,
       reg: props.projectSelectRegKey
     });
@@ -300,7 +305,7 @@ async function handleMore1Click(rows) {
 async function initInternshipList() {
   try {
     const response = await listAPI.getSomeRecords({
-      keyWords: 'ViewRelProcessInternship',
+      keyWords: props.projectListKeyWords,
       searchKey: props.projectSelectSearchKey,
       reg: props.projectSelectRegKey
     });
