@@ -25,7 +25,14 @@
         <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList"
           row-key="id" highlight-current-rows :row-class-name="rowClassNameFn" @current-change="handleColumnChange"
           @selection-change="handleSelectionChange" @sort-change="handleSortChange">
-          <el-table-column v-if="checkFlag" fixed :reserve-selection="true" type="selection" width="55" />
+          <el-table-column
+            v-if="checkFlag"
+            fixed
+            :reserve-selection="true"
+            type="selection"
+            width="55"
+            :selectable="rowSelectableFn || undefined"
+          />
           <el-table-column v-else fixed width="55">
             <template #default="scope">
               <el-radio v-model="tableRadio" :label="scope.row.id"><i /></el-radio>
@@ -308,6 +315,12 @@ const props = defineProps({
   // 格式: (row, rowIndex) => string
   // 例如: (row) => row.isSelected ? 'selected-row' : ''
   rowClassName: {
+    type: Function,
+    default: null
+  },
+  // 行可选函数：用于禁用 selection 的勾选
+  // ElementPlus selectable(row, index) => boolean
+  rowSelectableFn: {
     type: Function,
     default: null
   }

@@ -167,10 +167,12 @@ const defaultDTLProps = computed(() => {
 });
 
 function buildSearchKey(baseSearchKey) {
+  console.log(baseSearchKey);
+  
   return {
-    processTypeCode,
+    // processTypeCode,
     internshipId: baseSearchKey.internshipId,
-    tableName: 'RelIntershipUser',
+    // tableName: 'RelIntershipUser',
   };
 }
 
@@ -210,9 +212,10 @@ function handleSubmitClick(row) {
     ElMessage.warning('该记录已提交，不能再次提交');
     return;
   }
-  let STATUS;
+  let STATUS, reason;
   if (row.currentVerifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
     STATUS = CONSTANT.AUDIT_STATUS.PASS;
+    reason = '系统自动通过';
   } else STATUS = CONSTANT.AUDIT_STATUS.SUBMIT;
   updateVerifyProcess(row.verifyProcessId, STATUS);
 }

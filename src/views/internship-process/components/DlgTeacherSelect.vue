@@ -122,7 +122,7 @@ const tableListProps = reactive({
   sortStr: { properties: 'id', direction: 'DESC' },
   pageInfo: { page: 1, size: 20 },
   initSearchWords: {
-    searchKey: {},
+    searchKey: { jobId: '3' },
     regKey: {},
     andor: {},
   },
@@ -134,11 +134,14 @@ const tableListProps = reactive({
   },
   defaultDTHProps: {
     keyWord: { view: 'BaseUser' },
-    buttonProps: {},
+    buttonProps: {
+      search: { show: true },
+    },
     allTableColumns: [
       { id: 1, showName: '姓名', tableColumnName: 'name', sortable: true },
-      { id: 2, showName: '手机号', tableColumnName: 'phone', sortable: true },
-      { id: 3, showName: '职务', tableColumnName: 'jobName', sortable: true },
+      { id: 2, showName: '单位部门', tableColumnName: 'departmentName', sortable: true },
+      { id: 3, showName: '工号', tableColumnName: 'workId', sortable: true },
+      { id: 4, showName: '手机号', tableColumnName: 'phone', sortable: true },
     ],
   },
 });
@@ -181,7 +184,7 @@ function handleNodeClick(node) {
 
 // 更新查询条件
 function updateSearchKey() {
-  const searchKey = { jobId: '3' };
+  const searchKey = tableListProps.initSearchWords.searchKey;
   // 如果选中了部门，添加部门过滤条件
   if (selectedDepartmentId.value != null) {
     searchKey.departmentId = selectedDepartmentId.value;
