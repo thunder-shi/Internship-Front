@@ -456,7 +456,10 @@ async function loadVerifyProgress() {
     return;
   }
 
-  if (!props.mainInternshipId) {
+  // 有 relationId（如老师申报题目）或 mainInternshipId（如实习计划）时才请求
+  const hasRelationId = props.processInfo?.relationId != null;
+  const hasMainId = props.mainInternshipId != null;
+  if (!hasRelationId && !hasMainId) {
     verifyRecords.value = [];
     return;
   }
@@ -464,8 +467,8 @@ async function loadVerifyProgress() {
   loading.value = true;
   try {
     // 使用传入的 keyWords 视图查询审核记录
-    // 优先使用 relationId 查询，因为同一个流程的多个审核级别共享同一个 relationId
-    const searchKey = props.processInfo?.relationId
+    // 优先使用 relationId 查询，因为同一个流程的多个审核级别共享同一个 relationId（与实习计划制定一致）
+    const searchKey = hasRelationId
       ? { relationId: props.processInfo.relationId }
       : { internshipId: props.mainInternshipId };
 
@@ -476,21 +479,20 @@ async function loadVerifyProgress() {
       sort: { properties: 'id', direction: 'ASC' }
     });
     if (res && res.data && res.data.content) {
-      // 按 id 升序排列
-      let records = res.data.content.sort((a, b) => a.id - b.id);
+      // 按 id 升序排列，并按 id 去重（一个阶段只显示一条，与实习计划制定一致）
+      let records = res.data.content.sort((a, b) => (a.id || 0) - (b.id || 0));
+      const seenIds = new Set();
+      records = records.filter((r) => {
+        const id = r.id;
+        if (seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      });
 
       // 从基表补充视图中缺失的退回记录
       await supplementReturnRecords(records);
       // 过滤掉初始保存未提交的记录（未提交时不显示卡片）
       records = filterInitialSaveRecords(records);
-
-      console.log('=== DlgVerifyProgress 调试 ===');
-      console.log('原始审核记录:', records);
-      if (records.length > 0) {
-        console.log('第一条记录的字段:', Object.keys(records[0]));
-        console.log('verifyUserName字段:', records.map(r => r.verifyUserName));
-        console.log('verifyUserId字段:', records.map(r => r.verifyUserId));
-      }
 
       // 获取审核级数
       const verifyTypeId = records.length > 0 ? (records[0].verifyTypeId || 1) : 1;
@@ -584,11 +586,11 @@ function handleClose() {
   verifyRecords.value = [];
 }
 
-// 监听弹窗显示状态，自动加载数据
+// 监听弹窗显示状态，自动加载数据（有 relationId 或 mainInternshipId 即加载，与实习计划/老师申报题目一致）
 watch(
   () => props.modelValue,
   (val) => {
-    if (val && props.mainInternshipId) {
+    if (val && (props.mainInternshipId != null || props.processInfo?.relationId != null)) {
       loadVerifyProgress();
     }
   }
