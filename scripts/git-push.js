@@ -11,6 +11,18 @@ function getOutput(cmd) {
   return execSync(cmd, { encoding: 'utf8' }).trim();
 }
 
+function escapeCommitMessage(message) {
+  return message.replace(/"/g, '\\"');
+}
+
+async function askRequired(rl, question) {
+  while (true) {
+    const answer = (await rl.question(question)).trim();
+    if (answer) return answer;
+    console.log('输入不能为空，请重新输入。');
+  }
+}
+
 async function main() {
   const rl = readline.createInterface({ input, output });
 
@@ -26,19 +38,22 @@ async function main() {
       return;
     }
 
-    const message = await rl.question('请输入 commit 内容: ');
-    if (!message.trim()) {
-      console.log('commit 内容不能为空');
-      process.exit(1);
-    }
+    const page = await askRequired(rl, '请输入修改模块: ');
+    const content = await askRequired(rl, '请输入修改内容: ');
+
+    const commitMessage = `[${page}]${content}`;
+    console.log(`\n本次 commit message: ${commitMessage}`);
 
     run('git add -A');
-    run(`git commit -m "${message.replace(/"/g, '\\"')}"`);
+    run(`git commit -m "${escapeCommitMessage(commitMessage)}"`);
     run(`git push origin ${branch}`);
 
     console.log('\n✅ push 完成');
   } catch (err) {
     console.error('\n❌ 执行失败');
+    if (err instanceof Error && err.message) {
+      console.error(err.message);
+    }
     process.exit(1);
   } finally {
     rl.close();
