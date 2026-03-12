@@ -11,10 +11,6 @@ function getOutput(cmd) {
   return execSync(cmd, { encoding: 'utf8' }).trim();
 }
 
-function escapeCommitMessage(message) {
-  return message.replace(/"/g, '\\"');
-}
-
 async function askRequired(rl, question) {
   while (true) {
     const answer = (await rl.question(question)).trim();
@@ -27,28 +23,51 @@ async function main() {
   const rl = readline.createInterface({ input, output });
 
   try {
-    const branch = getOutput('git rev-parse --abbrev-ref HEAD');
-    console.log(`当前分支: ${branch}`);
-
-    run(`git pull origin ${branch}`);
+    const targetBranch = await askRequired(rl, '请输入要合并到的分支名: ');
 
     const status = getOutput('git status --porcelain');
-    if (!status) {
-      console.log('没有本地改动，无需提交。');
+    if (status) {
+      console.log('\n❌ 当前工作区有未提交改动，请先提交或暂存后再执行。');
+      process.exit(1);
+    }
+
+    const currentBranch = getOutput('git rev-parse --abbrev-ref HEAD');
+    console.log(`当前分支: ${currentBranch}`);
+    console.log(`目标分支: ${targetBranch}`);
+
+    run('git checkout main');
+
+    // pull 前的 commit
+    const beforePull = getOutput('git rev-parse HEAD');
+
+    run('git pull origin main');
+
+    // pull 后的 commit
+    const afterPull = getOutput('git rev-parse HEAD');
+
+    if (beforePull === afterPull) {
+      console.log('\n⚠️ main 分支没有新的更新');
+
+      run(`git checkout ${targetBranch}`);
+      console.log(`\n已切换到目标分支: ${targetBranch}`);
       return;
     }
 
-    const page = await askRequired(rl, '请输入修改页面: ');
-    const content = await askRequired(rl, '请输入修改内容: ');
+    console.log('\n✅ main 有更新，开始合并');
 
-    const commitMessage = `[${page}]${content}`;
-    console.log(`\n本次 commit message: ${commitMessage}`);
+    run(`git checkout ${targetBranch}`);
+    run(`git pull origin ${targetBranch}`);
 
-    run('git add -A');
-    run(`git commit -m "${escapeCommitMessage(commitMessage)}"`);
-    run(`git push origin ${branch}`);
+    try {
+      run('git merge main');
+    } catch (err) {
+      console.log('\n❌ merge 时发生冲突，请手动解决冲突后再提交。');
+      process.exit(1);
+    }
 
-    console.log('\n✅ push 完成');
+    run(`git push origin ${targetBranch}`);
+
+    console.log('\n✅ main 最新代码已成功合并并推送到目标分支');
   } catch (err) {
     console.error('\n❌ 执行失败');
     if (err instanceof Error && err.message) {
