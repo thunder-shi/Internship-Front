@@ -1,14 +1,28 @@
 <template>
   <div class="internship-verify-container">
-    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @audit-click="handleAuditClick" />
-    <!-- 审核对话框 -->
-    <DlgTeacherVerify ref="dlgInternshipVerify" @update-record="handleUpdateRecord" />
+    <InternshipPostHeaderPage
+      ref="headerPageRef"
+      :page-title="'项目指导老师审核'"
+      :no-project-message="'当前没有需要审核的指导老师项目'"
+      :project-select-search-key="projectSelectSearchKey"
+      :project-select-reg-key="projectSelectRegKey"
+      :default-d-t-l-props="defaultDTLProps"
+      :build-search-key="buildSearchKey"
+      :is-company-user="isCompanyUser"
+      @audit-click="handleAuditClick"
+      @project-selected="handleProjectSelected"
+    >
+      <!-- 审核对话框 -->
+      <template #dialogs>
+        <DlgTeacherVerify ref="dlgInternshipVerify" @update-record="handleUpdateRecord" />
+      </template>
+    </InternshipPostHeaderPage>
   </div>
 </template>
 <script setup>
-import { reactive, ref, onMounted, onBeforeUnmount } from 'vue';
+import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
-import BaseList from '@/views/master-page/BaseList.vue';
+import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgTeacherVerify from '@/views/internship-process/components/DlgTeacherVerify.vue';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
@@ -20,9 +34,39 @@ defineOptions({
 });
 
 const store = useStore();
-const baseList = ref(null);
+const headerPageRef = ref(null);
 
 const dlgInternshipVerify = ref(null);
+
+// 用户与角色信息
+const roles = computed(() => store.getters.roles || []);
+const userInfo = computed(() => store.getters.userInfo || {});
+
+// 是否企业用户
+const isCompanyUser = computed(() =>
+  roles.value.some(
+    (r) =>
+      r === CONSTANT.ROLE_TABLE.COMPANY_ADMIN || r === CONSTANT.ROLE_TABLE.COMPANY_TUTOR
+  )
+);
+
+// 头部显示的标题（随项目选择变化）
+const titleObj = reactive({
+  mainTitle: '项目指导老师审核',
+});
+
+// 当前选中的实习项目（从 InternshipPostHeaderPage 暴露）
+const currentInternship = computed(
+  () => headerPageRef.value?.currentInternship?.value || null
+);
+
+// 实习项目选择按钮是否禁用（由 InternshipPostHeaderPage 控制）
+const isMore1Disabled = computed(
+  () => headerPageRef.value?.isMore1Disabled?.value || false
+);
+
+// 流程类型：选择指导老师
+const processTypeCode = CONSTANT.PROCESS_TYPE.TEACHER_SELECT_INTERNALSHIP;
 
 // 流程配置缓存（processId → 流程配置），从 ViewRelProcessInternship 加载
 // 流程配置包含每个审核级别对应的角色 ID（verifyFirstRoleId 等）
@@ -119,7 +163,7 @@ const isUserIdInVerifyUserId = (verifyUserId, userId) => {
   return ids.includes(userIdStr);
 };
 
-// 获取初始查询条件
+// 获取初始查询条件（公共时间 / 状态过滤）
 const getInitSearchWords = () => {
   const searchKey = {};
   const regKey = {};
@@ -177,8 +221,8 @@ const userHasLastLevelRole = (processId) => {
 // 同时支持最后一级审核角色的所有用户查看已通过的记录（用于退回操作）
 // 同时计算 _currentRoleName 用于状态列显示
 const clientFilterFn = (dataList) => {
-  const userInfo = store.getters.userInfo;
-  const userId = userInfo?.id;
+  const userInfoStore = store.getters.userInfo;
+  const userId = userInfoStore?.id;
 
   if (!userId || !dataList || !Array.isArray(dataList)) {
     return dataList;
@@ -249,22 +293,79 @@ const clientFilterFn = (dataList) => {
   return result;
 };
 
-// 自定义确认函数，添加 creator 字段（用于新增）
-const handleConfirm = async (option, type, form) => {
-  // 添加当前用户 ID 作为 creator
-  const userInfo = store.getters.userInfo;
-  if (userInfo && userInfo.id) {
-    form.creatorId = userInfo.id;
+// 实习项目选择对话框的查询关键字（用于项目选择列表）
+// 注意：审核页面不再按专业过滤，避免审核人因专业不匹配而看不到项目
+const projectSelectSearchKey = computed(() => {
+  const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
+  return {
+    processTypeCode: processTypeCode,
+    startTime: currentTime,
+    endTime: currentTime,
+  };
+});
+
+// 实习项目选择对话框的查询操作符
+const projectSelectRegKey = computed(() => ({
+  startTime: CONSTANT.SEARCH_OPERATOR.LE, // startTime <= 当前时间
+  endTime: CONSTANT.SEARCH_OPERATOR.GE, // endTime >= 当前时间
+}));
+
+// 处理项目选择后的回调：更新标题
+function handleProjectSelected(internship, title) {
+  if (title) {
+    titleObj.mainTitle = title;
   }
-  form.studentNum = 0;
-  // 调用 BaseList 暴露的原有保存逻辑
-  await baseList.value?._confirm(option, type, form);
-  baseList.value?.initDataList();
-};
+}
+
+// 为当前页面构建额外查询条件（由 InternshipPostHeaderPage 调用）
+function buildSearchKey(baseSearchKey) {
+  return {
+    processTypeCode,
+    internshipId: baseSearchKey.internshipId,
+    tableName: 'RelIntershipUser',
+  };
+}
+
+// DataTableList / BaseList 的默认配置（供 InternshipPostHeaderPage 使用）
+const buttonPropsComputed = computed(() => ({
+  // 顶部工具栏：实习项目选择按钮
+  more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
+  // 行操作：审核按钮
+  audit: { show: true, showPass: true, showNotPass: true, showBack: true },
+}));
+
+const defaultDTLProps = computed(() => ({
+  title: titleObj,
+  someFlags: {
+    // 由 InternshipPostHeaderPage 控制数据初始化与刷新
+    autoInit: false,
+  },
+  // 客户端过滤函数
+  clientFilterFn: clientFilterFn,
+  // 启用审核状态自定义显示（配合 customize-status 列，显示"待XX审核"）
+  enableAuditStatusCustom: true,
+  // 获取审核角色名称函数
+  getVerifyRoleName: getVerifyRoleName,
+  // 设置初始查询条件（公共时间 / 状态过滤）
+  initSearchWords: getInitSearchWords(),
+  defaultDTHProps: {
+    buttonProps: buttonPropsComputed.value,
+    keyWord: { edit: 'RelIntershipUser', view: 'ViewRelIntershipUser' },
+    allTableColumns: [
+      { id: 2, showName: '指导项目名称', theOrder: 2, tableColumnName: 'internshipName' },
+      { id: 3, showName: '指导老师', theOrder: 3, tableColumnName: 'userName' },
+      { id: 4, showName: '流程开始时间', theOrder: 4, tableColumnName: 'startTime' },
+      { id: 5, showName: '流程结束时间', theOrder: 5, tableColumnName: 'endTime' },
+      { id: 6, showName: '当前状态', theOrder: 6, tableColumnName: 'customize-status' },
+      { id: 7, showName: '审核理由', theOrder: 7, tableColumnName: 'reason' },
+    ],
+  },
+}));
 
 // 处理更新记录后的回调
 const handleUpdateRecord = () => {
-  baseList.value?.initDataList();
+  // 审核完成后，按当前项目过滤条件刷新列表
+  headerPageRef.value?.updateSearchWordsAndRefresh();
 };
 
 // 处理审核按钮点击事件
@@ -280,36 +381,10 @@ const handleAuditClick = (row) => {
 // 预加载流程配置和角色名称，加载完成后刷新列表以应用角色名解析
 onMounted(async () => {
   await Promise.all([loadProcessConfigs(), loadRoleNames()]);
-  baseList.value?.initDataList();
 });
 
 // 组件销毁前关闭所有对话框，防止遮罩层残留
 onBeforeUnmount(() => {
   dlgInternshipVerify.value?.closeAllDialogs?.();
-});
-
-const defaultProps = reactive({
-  defaultDTLProps: {
-    // 客户端过滤函数
-    clientFilterFn: clientFilterFn,
-    // 启用审核状态自定义显示（配合 customize-status 列，显示"待XX审核"）
-    enableAuditStatusCustom: true,
-    // 获取审核角色名称函数
-    getVerifyRoleName: getVerifyRoleName,
-    defaultDTHProps: {
-      buttonProps: { audit: { show: true, showPass: true, showNotPass: true, showBack: true } },
-      keyWord: { edit: 'RelIntershipUser', view: 'ViewRelIntershipUser' },
-      allTableColumns: [
-        { id: 2, showName: '指导项目名称', theOrder: 2, tableColumnName: 'internshipName' },
-        { id: 3, showName: '指导老师', theOrder: 3, tableColumnName: 'userName' },
-        { id: 4, showName: '流程开始时间', theOrder: 4,  tableColumnName: 'startTime' },
-        { id: 5, showName: '流程结束时间', theOrder: 5,  tableColumnName: 'endTime' },
-        { id: 6, showName: '当前状态', theOrder: 6, tableColumnName: 'customize-status' },
-        { id: 7, showName: '审核理由', theOrder: 7, tableColumnName: 'reason' }
-      ],
-    },
-    // 设置初始查询条件
-    initSearchWords: getInitSearchWords(),
-  }
 });
 </script>

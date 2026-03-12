@@ -212,25 +212,64 @@ function handleAppendClick(currentInternship) {
   dlgTeacherSelectRef.value?.showDialog(true);
 }
 
+// 处理删除按钮点击
 async function handleDeleteClick(rows) {
+  // 将 rows 转换为数组
   const rowsToDelete = Array.isArray(rows) ? rows : [rows];
-  if (!rowsToDelete?.length) {
+  
+  if (!rowsToDelete || rowsToDelete.length === 0) {
     ElMessage.warning('请选择要删除的记录');
     return;
   }
-  const ids = rowsToDelete.map((row) => row.id).filter((id) => id != null);
-  if (!ids.length) return;
+
+  // 1. 检查状态：只有"待提交"（-1）状态的项目才可以删除
+  const invalidRows = rowsToDelete.filter(row => {
+    const isAudit = row.isAudit;
+    return isAudit !== CONSTANT.AUDIT_STATUS.SAVE;
+  });
+
+  if (invalidRows.length > 0) {
+    ElMessage.warning(`只能删除"${CONSTANT.AUDIT_STATUS.SAVENAME}"状态的记录`);
+    return;
+  }
+
   try {
-    const res = await listAPI.delOneOrManyNodes('RelIntershipUser', ids);
-    if (res?.message === 'successful') {
-      ElMessage.success('删除成功');
-      headerPageRef.value?.baseListRef?.initDataList(true);
-    } else {
-      ElMessage.error(res?.message || '删除失败');
+    // 收集需要删除的 ID
+    const verifyProcessIds = [];
+    const internshipUserIds = [];
+
+    rowsToDelete.forEach(row => {
+      if (row.id) {
+        verifyProcessIds.push(row.id);
+      }
+      const relIntershipUserId = row.relIntershipUserId ;
+      if (relIntershipUserId) {
+        internshipUserIds.push(relIntershipUserId);
+      }
+    });
+
+    // 2. 先删除 MainVerifyProcess 表中的记录（流程表）
+    if (verifyProcessIds.length > 0) {
+      const deleteVerifyProcessRes = await listAPI.delOneOrManyNodes('MainVerifyProcess', verifyProcessIds);
+      if (!deleteVerifyProcessRes || deleteVerifyProcessRes.message !== 'successful') {
+        ElMessage.error(deleteVerifyProcessRes?.message || '删除流程记录失败');
+        return;
+      }
     }
-  } catch (e) {
-    console.error('删除失败:', e);
-    ElMessage.error('删除失败');
+
+    // 3. 再删除 RelInternshipUser 表中的记录（关联表）
+    if (internshipUserIds.length > 0) {
+      const deletePostRes = await listAPI.delOneOrManyNodes('RelIntershipUser', internshipUserIds);
+      if (!deletePostRes || deletePostRes.message !== 'successful') {
+        ElMessage.error(deletePostRes?.message || '删除记录失败');
+        return;
+      }
+    }
+    ElMessage.success('删除成功');
+    // 刷新数据列表（强制刷新）
+    headerPageRef.value?.baseListRef?.initDataList(true);
+  } catch (error) {
+    console.error('删除失败:', error);
   }
 }
 
