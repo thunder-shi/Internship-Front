@@ -1,4 +1,3 @@
-//直接运行该脚本，输入修改模块和修改内容，会自动生成commit message，并推送到远程仓库
 import { execSync } from 'child_process';
 import readline from 'readline/promises';
 import { stdin as input, stdout as output } from 'process';
@@ -39,7 +38,7 @@ async function main() {
       return;
     }
 
-    const page = await askRequired(rl, '请输入修改模块: ');
+    const page = await askRequired(rl, '请输入修改页面: ');
     const content = await askRequired(rl, '请输入修改内容: ');
 
     const commitMessage = `[${page}]${content}`;
