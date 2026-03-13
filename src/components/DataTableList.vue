@@ -1127,14 +1127,16 @@ const view = async (val) => {
 const handleSizeChange = async (val) => {
   pageInfo.size = val;
   isPageInit.value = true;
-  await initDataList();
+  // 强制手动刷新，确保在 autoInit=false 的场景（如选择弹窗）也会重新请求数据
+  await initDataList(true);
   isPageInit.value = false;
 };
 
 const handleCurrentChange = async (val) => {
   pageInfo.page = val;
   isPageInit.value = true;
-  await initDataList();
+  // 强制手动刷新，确保在 autoInit=false 的场景（如选择弹窗）也会重新请求数据
+  await initDataList(true);
   isPageInit.value = false;
 };
 
