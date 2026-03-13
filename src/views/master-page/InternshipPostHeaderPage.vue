@@ -1,8 +1,9 @@
 <template>
   <div class="internship-post-header-page-container">
     <BaseList :default-props="mergedDefaultProps" ref="baseListRef" @more1-click="handleMore1Click"
-      @view-click="handleViewClick" @append-click="handleAppendClick" @edit-click="handleEditClick"
-      @delete-click="handleDeleteClick" @audit-click="handleAuditClick" @submit-click="handleSubmitClick" />
+      @more2-click="handleMore2Click" @view-click="handleViewClick" @append-click="handleAppendClick"
+      @edit-click="handleEditClick" @delete-click="handleDeleteClick" @audit-click="handleAuditClick"
+      @submit-click="handleSubmitClick" />
     <!-- 实习项目选择对话框 -->
     <SimpleDialog ref="projectSelectDialog" :default-props="projectSelectDialogProps"
       :simpledialog-confirm="handleProjectSelectConfirm" @simple-select-change="handleInternshipSelectChange" />
@@ -73,6 +74,7 @@ const emit = defineEmits([
   'edit-click',
   'delete-click',
   'audit-click',
+  'more2-click',
   'post-detail-close',
   'post-detail-success',
   'project-selected',
@@ -267,6 +269,11 @@ function handleAuditClick(row) {
 // 处理提交按钮点击（转发给父组件）
 function handleSubmitClick(row) {
   emit('submit-click', row);
+}
+
+// 处理 more2 按钮点击（转发给父组件，用于批量操作）
+function handleMore2Click(rows) {
+  emit('more2-click', rows);
 }
 
 // 查看进度按钮点击（转发给父组件）
