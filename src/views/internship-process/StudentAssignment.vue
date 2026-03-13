@@ -294,7 +294,7 @@ function handleSubmitClick(row) {
     return;
   }
   let STATUS;
-  if (row.currentVerifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+  if (row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
     STATUS = CONSTANT.AUDIT_STATUS.PASS;
   } else STATUS = CONSTANT.AUDIT_STATUS.SUBMIT;
   updateVerifyProcess(row.id, STATUS);
@@ -317,7 +317,7 @@ async function handleBatchSubmitClick(rows) {
   let successCount = 0;
   for (const row of pendingRows) {
     let STATUS;
-    if (row.currentVerifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+    if (row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
       STATUS = CONSTANT.AUDIT_STATUS.PASS;
     } else {
       STATUS = CONSTANT.AUDIT_STATUS.SUBMIT;

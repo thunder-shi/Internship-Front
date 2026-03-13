@@ -2,19 +2,25 @@
   <header ref="tagsViewContainer" id="tags-view-container" class="tags-view-container">
     <scroll-pane ref="scrollPane" class="tags-view-wrapper">
       <hamburger id="hamburger-container" :is-active="sideBar.opened" class="hamburger-container" :title="sideBar.opened ? '收起侧栏' : '展开侧栏'" @toggleClick="toggleSideBar" />
-      <router-link v-for="tag in visitedViews" ref="tagRefs" :key="tag.path" :class="isActive(tag) ? 'active' : ''" :to="{ path: tag.path, query: tag.query, fullPath: tag.fullPath }" class="tags-view-item" @click.middle="closeSelectedTag(tag)" @contextmenu.prevent="openMenu(tag, $event)">
+      <router-link
+        v-for="tag in visitedViews"
+        ref="tagRefs"
+        :key="tag.path"
+        :class="isActive(tag) ? 'active' : ''"
+        :to="{ path: tag.path, query: tag.query, fullPath: tag.fullPath }"
+        class="tags-view-item"
+        @click.middle="closeSelectedTag(tag)"
+        @contextmenu.prevent="openMenu(tag, $event)"
+      >
         <span class="tag-title">{{ tag.title }}</span>
         <el-icon class="el-icon-close" @click.prevent.stop="closeSelectedTag(tag)"><Close /></el-icon>
       </router-link>
     </scroll-pane>
-    <!-- <ul v-show="visible" :style="{ left: left + 'px', top: top + 'px' }" class="contextmenu">
-      <li @click="refreshSelectedTag(selectedTag)">刷新</li>
-      <li v-if="!(selectedTag.meta && selectedTag.meta.affix)" @click="closeSelectedTag(selectedTag)">
-        关闭
-      </li>
-      <li @click="closeOthersTags(selectedTag)">关闭其他</li>
+    <ul v-show="visible" :style="{ left: left + 'px', top: top + 'px' }" class="contextmenu">
       <li @click="closeAllTags(selectedTag)">关闭全部</li>
-    </ul> -->
+      <li @click="closeOthersTags(selectedTag)">关闭其他</li>
+      <li @click="closeRightTags(selectedTag)">关闭右侧</li>
+    </ul>
   </header>
 </template>
 
@@ -200,6 +206,7 @@ const closeSelectedTag = (view) => {
 }
 
 const closeOthersTags = (view) => {
+  visible.value = false
   router.push(view)
   store
     .dispatch('tagsView/delOthersViews', view)
@@ -210,15 +217,37 @@ const closeOthersTags = (view) => {
 }
 
 const closeAllTags = (view) => {
+  visible.value = false
   store
     .dispatch('tagsView/delAllViews')
     .then(({ visitedViews }) => {
-      if (affixTags.value.some(tag => tag.path === view.path)) {
-        return
+      // 优先跳转到最后一个标签，否则回到首页
+      const latestView = visitedViews.slice(-1)[0]
+      if (latestView) {
+        router.push(latestView)
+      } else {
+        router.push('/')
       }
-      toLastView(visitedViews, view)
     })
     .catch(error => error)
+}
+
+// 关闭当前标签右侧的所有标签
+const closeRightTags = (view) => {
+  visible.value = false
+  const allVisited = store.state.tagsView?.visitedViews || []
+  const currentIndex = allVisited.findIndex(v => v.path === view.path)
+  if (currentIndex === -1) return
+  const keep = allVisited.slice(0, currentIndex + 1)
+  // 直接替换 visitedViews
+  store.state.tagsView.visitedViews = keep
+  // 同步 cachedViews：只保留仍存在的 name
+  const keepNames = new Set(keep.map(v => v.name))
+  store.state.tagsView.cachedViews = store.state.tagsView.cachedViews.filter(name => keepNames.has(name))
+  // 确保当前路由位于保留列表中
+  if (!keep.some(v => v.path === route.path)) {
+    router.push(keep[keep.length - 1])
+  }
 }
 
 const toLastView = (visitedViewsList, view) => {

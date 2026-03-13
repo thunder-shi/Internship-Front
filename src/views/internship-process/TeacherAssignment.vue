@@ -303,7 +303,7 @@ function handleSubmitClick(row) {
     return;
   }
   let STATUS, reason;
-  if (row.currentVerifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+  if (row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
     STATUS = CONSTANT.AUDIT_STATUS.PASS;
     reason = '系统自动通过';
   } else STATUS = CONSTANT.AUDIT_STATUS.SUBMIT;
@@ -328,7 +328,7 @@ async function handleBatchSubmitClick(rows) {
   for (const row of pendingRows) {
     let STATUS;
     let reason;
-    if (row.currentVerifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+    if (row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
       STATUS = CONSTANT.AUDIT_STATUS.PASS;
       reason = '系统自动通过';
     } else {
