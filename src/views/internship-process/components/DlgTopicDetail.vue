@@ -12,7 +12,28 @@
         <el-row>
           <el-col :span="24">
             <el-form-item label="题目名称：" prop="name">
-              <el-input v-model="form.name" placeholder="请输入题目名称" :disabled="!canEdit" maxlength="200" show-word-limit />
+              <el-input
+                v-model="form.name"
+                placeholder="请输入题目名称"
+                :disabled="!canEdit"
+                maxlength="200"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row>
+          <el-col :span="24">
+            <el-form-item label="题目详情：" prop="topicDetail">
+              <el-input
+                v-model="form.topicDetail"
+                type="textarea"
+                :rows="5"
+                placeholder="请填写题目的详细说明、内容要求等"
+                :disabled="!canEdit"
+                maxlength="1000"
+                show-word-limit
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -44,10 +65,11 @@ const emit = defineEmits(['close-dialog', 'success']);
 const store = useStore();
 const dlgBasicRef = ref(null);
 const formPanelRef = ref(null);
-const form = reactive({ name: '' });
+const form = reactive({ name: '', topicDetail: '' });
 
 const isEditMode = ref(false);
 const currentRowId = ref(null);
+const isReadOnly = ref(false);
 // 本地保存当前实习项目信息，避免父组件 props 传递时机问题
 const currentInternshipLocal = ref(null);
 // 记录当前行完整数据，便于在保存时兜底读取字段（如 internshipId）
@@ -60,38 +82,44 @@ const internshipName = computed(() => {
   return src?.internshipName || src?.name || '--';
 });
 
-const canEdit = computed(() => true);
+const canEdit = computed(() => !isReadOnly.value);
 
 const formRules = {
   name: [
     { required: true, message: '请输入题目名称', trigger: 'blur' },
     { max: 200, message: '题目名称不能超过200个字符', trigger: 'blur' },
   ],
+  topicDetail: [
+    { max: 1000, message: '题目详情不能超过1000个字符', trigger: 'blur' },
+  ],
 };
 
 const defaultProps = computed(() => ({
-  dlgTitle: isEditMode.value ? '编辑题目' : '申报题目',
+  dlgTitle: isReadOnly.value ? '题目详情' : (isEditMode.value ? '编辑题目' : '申报题目'),
   width: '500px',
   someFlags: {
     needValidate: false,
   },
   footButtons: {
-    cancel: { show: true, name: '取 消', type: '' },
-    confirm: { show: true, name: '保 存', type: 'primary' },
+    cancel: { show: true, name: isReadOnly.value ? '关 闭' : '取 消', type: '' },
+    confirm: { show: !isReadOnly.value, name: '保 存', type: 'primary' },
     repeatAdd: { show: false },
   },
 }));
 
 function resetForm() {
   form.name = '';
+  form.topicDetail = '';
   isEditMode.value = false;
   currentRowId.value = null;
+  isReadOnly.value = false;
   currentInternshipLocal.value = null;
   currentRowData.value = null;
 }
 
-function showDialog(isAppend, initialForm, row, internship) {
+function showDialog(isAppend, initialForm, row, internship, readOnly = false) {
   resetForm();
+  isReadOnly.value = !!readOnly;
   // 记录当前实习项目（优先使用入参，其次使用父组件 props）
   currentInternshipLocal.value = internship || props.currentInternship || null;
   currentRowData.value = row || null;
@@ -99,10 +127,14 @@ function showDialog(isAppend, initialForm, row, internship) {
     isEditMode.value = true;
     currentRowId.value = row.id;
     form.name = row.name ?? row.topicName ?? '';
+    // 后端使用 remarks 存储题目详情，这里做前端字段映射
+    form.topicDetail = row.topicDetail ?? row.detail ?? row.remarks ?? '';
   } else {
     isEditMode.value = false;
     if (initialForm && typeof initialForm === 'object') {
       form.name = initialForm.name ?? '';
+      // 同样从 remarks 等字段映射到本地 topicDetail
+      form.topicDetail = initialForm.topicDetail ?? initialForm.detail ?? initialForm.remarks ?? '';
     }
   }
   dlgBasicRef.value?.showDialog?.(true, { ...form }, isEditMode.value ? 'edit' : 'append');
@@ -137,6 +169,8 @@ async function handleConfirm() {
     teacherId,
     internshipId,
     name: (form.name || '').trim(),
+    // 后端表 RelTeacherStudent 使用 remarks 字段保存题目详情
+    remarks: (form.topicDetail || '').trim(),
   };
 
   if (isEditMode.value && currentRowId.value != null) {

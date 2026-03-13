@@ -2,7 +2,8 @@
   <div class="internship-post-header-page-container">
     <BaseList :default-props="mergedDefaultProps" ref="baseListRef" @more1-click="handleMore1Click"
       @view-click="handleViewClick" @append-click="handleAppendClick" @edit-click="handleEditClick"
-      @delete-click="handleDeleteClick" @audit-click="handleAuditClick" @submit-click="handleSubmitClick" />
+      @delete-click="handleDeleteClick" @audit-click="handleAuditClick" @audit-command="handleAuditCommand"
+      @submit-click="handleSubmitClick" />
     <!-- 实习项目选择对话框 -->
     <SimpleDialog ref="projectSelectDialog" :default-props="projectSelectDialogProps"
       :simpledialog-confirm="handleProjectSelectConfirm" @simple-select-change="handleInternshipSelectChange" />
@@ -65,7 +66,13 @@ const props = defineProps({
   projectListKeyWords: {
     type: String,
     default: 'ViewRelProcessInternship'
-  }
+  },
+  // 当前页面对应的流程类型编码（如校内实习-老师申报题目等）
+  // 用于在实习项目选择窗口中按流程类型筛选项目，只展示当前流程相关的实习项目
+  processTypeCode: {
+    type: String,
+    default: null
+  },
 });
 
 const emit = defineEmits([
@@ -73,6 +80,7 @@ const emit = defineEmits([
   'edit-click',
   'delete-click',
   'audit-click',
+  'audit-command',
   'post-detail-close',
   'post-detail-success',
   'project-selected',
@@ -264,6 +272,11 @@ function handleAuditClick(row) {
   emit('audit-click', row);
 }
 
+// 处理批量审核命令（转发给父组件）
+function handleAuditCommand(command, rows) {
+  emit('audit-command', command, rows);
+}
+
 // 处理提交按钮点击（转发给父组件）
 function handleSubmitClick(row) {
   emit('submit-click', row);
@@ -277,17 +290,34 @@ function handleViewClick(rowOrArray) {
 // 处理 more1 按钮点击事件（实习项目选择）
 async function handleMore1Click(rows) {
   try {
+    // 合并调用方传入的查询条件和当前流程类型过滤
+    const searchKey = {
+      ...(props.projectSelectSearchKey || {})
+    };
+    if (props.processTypeCode) {
+      searchKey.processTypeCode = props.processTypeCode;
+    }
+
     const response = await listAPI.getSomeRecords({
       keyWords: props.projectListKeyWords,
-      searchKey: props.projectSelectSearchKey,
+      searchKey,
       reg: props.projectSelectRegKey
     });
     if (response && response.data) {
       const internshipList = response.data.content || response.data || [];
+      // 按 internshipId / id 去重，避免同一实习项目在视图中多行导致下拉重复
+      const seen = new Set();
+      const uniqueList = [];
+      internshipList.forEach((item) => {
+        const key = item.internshipId || item.id;
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        uniqueList.push(item);
+      });
       const internshipItem = projectSelectDialogProps.formItems.find(item => item.field === 'internshipId');
       if (internshipItem) {
         internshipItem.type = 'select_noremote';
-        internshipItem.options = internshipList.map(item => ({
+        internshipItem.options = uniqueList.map(item => ({
           ...item,
           realId: item.id,
           id: item.internshipId || item.id,
@@ -304,20 +334,37 @@ async function handleMore1Click(rows) {
 // 初始化时调用后端接口获取当前可申报的实习项目
 async function initInternshipList() {
   try {
+    // 合并调用方传入的查询条件和当前流程类型过滤
+    const searchKey = {
+      ...(props.projectSelectSearchKey || {})
+    };
+    if (props.processTypeCode) {
+      searchKey.processTypeCode = props.processTypeCode;
+    }
+
     const response = await listAPI.getSomeRecords({
       keyWords: props.projectListKeyWords,
-      searchKey: props.projectSelectSearchKey,
+      searchKey,
       reg: props.projectSelectRegKey
     });
 
     if (response && response.data) {
       const internshipList = response.data.content || response.data || [];
+      // 按 internshipId / id 去重，避免同一实习项目在视图中多行导致下拉重复
+      const seen = new Set();
+      const uniqueList = [];
+      internshipList.forEach((item) => {
+        const key = item.internshipId || item.id;
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        uniqueList.push(item);
+      });
 
-      if (internshipList.length === 0) {
+      if (uniqueList.length === 0) {
         emit('project-selected', null, props.noProjectMessage);
         isMore1Disabled.value = true;
-      } else if (internshipList.length === 1) {
-        const item = internshipList[0];
+      } else if (uniqueList.length === 1) {
+        const item = uniqueList[0];
         currentInternship.value = _.cloneDeep({
           ...item,
           internshipId: item.internshipId || item.id,

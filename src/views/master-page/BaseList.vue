@@ -5,7 +5,7 @@
       :get-verify-role-name="getVerifyRoleName" @append-click="appendClick" @edit-click="editClick"
       @view-click="viewClick" @update-column="updateColumn" @delete-click="deleteClick" @export-click="exportClick"
       @more1-click="more1Click" @more2-click="more2Click" @after-init-data="afterInitData" @audit-click="auditClick"
-      @submit-click="submitClick">
+      @audit-command="auditCommand" @submit-click="submitClick">
       <!--数据操作按钮类 -->
       <!-- <template #searchPanel>
       <slot name="searchPanel" />
@@ -114,6 +114,7 @@ const emit = defineEmits([
   'tree-select-change',
   'confirm-click',
   'audit-click',
+  'audit-command',
   'update-record',
 ]);
 
@@ -283,6 +284,12 @@ const auditClick = async (row) => {
     // 无监听器:可以执行默认逻辑（如果需要）
     // 暂时不做任何处理，由父组件处理
   }
+};
+
+// 顶部批量审核命令（来自 DataTableHeader）
+// command 为审核结果（PASS / NOTPASS / BACK 等），rows 为当前选中的行列表
+const auditCommand = async (command, rows) => {
+  emit('audit-command', command, rows);
 };
 // #endregion
 

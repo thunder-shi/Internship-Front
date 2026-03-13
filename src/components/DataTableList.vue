@@ -2,7 +2,8 @@
   <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns"
     :default-props="defaultDTHPropsWithButtonCondition" @init-click="refreshInit" @show-search="showSearchPanel"
     @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick"
-    @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload">
+    @more1-click="more1Click" @more2-click="more2Click" @upload-finish="uploadFinish" @upload="upload"
+    @audit-click="auditClick" @audit-command="auditCommand">
     <template #searchPanel>
       <!-- v-model="searchName" -->
       <slot name="searchPanel">
@@ -342,6 +343,7 @@ const emit = defineEmits([
   'spec-move',
   'batch-import-click',
   'audit-click',
+  'audit-command',
   'submit-click',
 ]);
 
@@ -901,6 +903,12 @@ const submitClick = async (row) => {
 // 按钮审核
 const auditClick = async (row) => {
   emit('audit-click', row);
+};
+
+// 顶部批量审核下拉选择（来自 DataTableHeader）
+// command 为审核结果（PASS / NOTPASS / BACK 等），rows 为当前选中的行列表
+const auditCommand = async (command, rows) => {
+  emit('audit-command', command, rows);
 };
 
 // #region 按钮删除
