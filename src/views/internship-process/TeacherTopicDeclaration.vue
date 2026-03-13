@@ -17,6 +17,7 @@
   >
     <template #dialogs>
       <DlgTopicDetail ref="dlgTopicDetailRef" :current-internship="currentInternship" @close-dialog="handleTopicDetailClose" @success="handleTopicDetailSuccess" />
+      <!-- 审核进度查看（仿照实习计划制定） -->
       <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" key-words="ViewVerifyProcessRelTeacherStudent" />
     </template>
   </InternshipPostHeaderPage>
@@ -24,11 +25,12 @@
 
 <script setup>
 import { reactive, ref, computed } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgTopicDetail from './components/DlgTopicDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
+import { ElMessageBox } from 'element-plus';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
@@ -53,12 +55,6 @@ const currentInternship = computed(() => headerPageRef.value?.currentInternship?
 
 const isMore1Disabled = computed(() => headerPageRef.value?.isMore1Disabled?.value ?? false);
 
-// 统一获取审核状态，兼容 isAudit / is_audit
-function getAuditStatus(row) {
-  if (!row) return null;
-  return row.isAudit ?? row.is_audit ?? null;
-}
-
 function buildSearchKey(baseSearchKey) {
   return {
     ...baseSearchKey,
@@ -71,14 +67,11 @@ const defaultDTLProps = computed(() => ({
   someFlags: {
     autoInit: false,
   },
-  // 将视图中的 is_audit 归一到 isAudit，便于状态列与按钮条件统一判断
-  clientFilterFn: (rows) =>
-    Array.isArray(rows)
-      ? rows.map((r) => ({
-          ...r,
-          isAudit: r.isAudit ?? r.is_audit ?? r.isAudit,
-        }))
-      : rows,
+  // 列表按题目维度展示：用 ViewRelTeacherStudent 一题一行，避免用审核视图导致一条题目多行
+  clientFilterFn: (rows) => {
+    if (!Array.isArray(rows)) return rows;
+    return rows.map((r) => ({ ...r, isAudit: r.isAudit ?? r.is_audit }));
+  },
   enableAuditStatusCustom: true,
   defaultDTHProps: {
     buttonProps: {
@@ -91,10 +84,13 @@ const defaultDTLProps = computed(() => ({
     },
     buttonCondition: {
       update: (row) => {
-        const isAudit = getAuditStatus(row);
+        const isAudit = row?.isAudit ?? row?.is_audit;
         return isAudit === null || isAudit === undefined || isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
       },
-      submit: (row) => getAuditStatus(row) === CONSTANT.AUDIT_STATUS.SAVE,
+      submit: (row) => {
+        const isAudit = row?.isAudit ?? row?.is_audit;
+        return isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
+      },
     },
     keyWord: { edit: 'RelTeacherStudent', view: 'ViewRelTeacherStudent' },
     allTableColumns: [
@@ -123,7 +119,7 @@ function handleAppendClick(cur) {
 }
 
 function handleEditClick(row) {
-  const isAudit = getAuditStatus(row);
+  const isAudit = row?.isAudit ?? row?.is_audit;
   const editable = isAudit === null || isAudit === undefined ||
     isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
   if (!editable) {
@@ -134,9 +130,15 @@ function handleEditClick(row) {
 }
 
 async function handleSubmitClick(row) {
-  const isAudit = getAuditStatus(row);
-  if (isAudit !== CONSTANT.AUDIT_STATUS.SAVE) {
-    ElMessage.warning('该记录已提交，不能再次提交');
+  const isAudit = row?.isAudit ?? row?.is_audit;
+  const canSubmit = isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
+  if (!canSubmit) {
+    ElMessage.warning('该记录已提交或已审核，不能再次提交');
+    return;
+  }
+  const verifyProcessId = row.verifyProcessId ?? row.verify_process_id;
+  if (verifyProcessId == null) {
+    ElMessage.warning('无法获取审核记录，请稍后重试');
     return;
   }
   try {
@@ -148,19 +150,13 @@ async function handleSubmitClick(row) {
   } catch {
     return;
   }
-  // ViewRelTeacherStudent 需提供 verifyProcessId（或 verify_process_id）用于提交审核
-  const verifyProcessId = row.verifyProcessId ?? row.verify_process_id;
-  if (verifyProcessId == null) {
-    ElMessage.warning('无法获取审核记录，请稍后重试');
-    return;
-  }
   const node = {
     id: verifyProcessId,
     isAudit: CONSTANT.AUDIT_STATUS.SUBMIT,
     tableName: 'RelTeacherStudent',
+    relationId: row.id,
   };
   if (row.processId != null) node.processId = row.processId;
-  if (row.id != null) node.relationId = row.id;
   if (row.createUserId != null) node.createUserId = row.createUserId;
   try {
     const res = await internshipProcessAPI.auditProcess(node);
@@ -172,7 +168,6 @@ async function handleSubmitClick(row) {
     }
   } catch (e) {
     console.error('提交失败:', e);
-    ElMessage.error('提交失败');
   }
 }
 
@@ -182,7 +177,7 @@ async function handleDeleteClick(rows) {
     ElMessage.warning('请选择要删除的记录');
     return;
   }
-  const invalid = list.filter((r) => getAuditStatus(r) !== CONSTANT.AUDIT_STATUS.SAVE);
+  const invalid = list.filter((r) => (r.isAudit ?? r.is_audit) !== CONSTANT.AUDIT_STATUS.SAVE);
   if (invalid.length > 0) {
     ElMessage.warning(`只能删除"${CONSTANT.AUDIT_STATUS.SAVENAME}"状态的记录`);
     return;
@@ -203,20 +198,36 @@ async function handleDeleteClick(rows) {
   }
 }
 
-function handleViewClick(rowOrArray) {
+// 查看进度：仿照实习计划制定，先拉取该题目的审核记录再打开弹窗，传入 _allRecords 供弹窗分情况展示
+async function handleViewClick(rowOrArray) {
   const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
-  // 查看进度时传 process-info：id 为审核记录 id（供展示），relationId 为题目 id，保证只查当前题目的审核记录，与实习计划一致
-  if (row) {
-    const verifyId = row.verifyProcessId ?? row.verify_process_id;
-    const topicId = row.id; // ViewRelTeacherStudent 的 id 即题目(RelTeacherStudent) id
-    currentRow.value = {
-      ...row,
-      id: verifyId ?? row.id,
-      relationId: row.relationId ?? topicId,
-    };
-  } else {
+  if (!row) {
     currentRow.value = {};
+    showProgressDialog.value = true;
+    return;
   }
+  const verifyId = row.verifyProcessId ?? row.verify_process_id;
+  const relationId = row.id;
+  let allRecords = [];
+  if (relationId != null) {
+    try {
+      const res = await listAPI.getSomeRecords({
+        keyWords: 'ViewVerifyProcessRelTeacherStudent',
+        pageInfo: { page: 1, size: 100 },
+        searchKey: { relationId },
+        sort: { properties: 'id', direction: 'ASC' },
+      });
+      allRecords = res?.data?.content ?? [];
+    } catch (e) {
+      console.error('获取审核记录失败:', e);
+    }
+  }
+  currentRow.value = {
+    ...row,
+    id: verifyId ?? row.id,
+    relationId: row.id,
+    _allRecords: allRecords,
+  };
   showProgressDialog.value = true;
 }
 

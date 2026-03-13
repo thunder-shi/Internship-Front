@@ -79,6 +79,7 @@ const defaultProps = reactive({
   footButtons: {
     cancel: { show: true, name: '取消', type: '' },
     confirm: { show: true, name: '确定', type: 'primary' },
+    repeatAdd: { show: false },
   },
   someFlags: {
     noFooter: false,
@@ -152,9 +153,9 @@ const tableListProps = reactive({
       search: { show: true },
     },
     allTableColumns: [
-      { id: 1, showName: '姓名', tableColumnName: 'name', sortable: true },
-      { id: 2, showName: '单位部门', tableColumnName: 'departmentName', sortable: true },
-      { id: 3, showName: '工号', tableColumnName: 'workId', sortable: true },
+      { id: 1, showName: '单位部门', tableColumnName: 'departmentName', sortable: true },
+      { id: 2, showName: '工号', tableColumnName: 'workId', sortable: true },
+      { id: 3, showName: '姓名', tableColumnName: 'name', sortable: true },
       { id: 4, showName: '手机号', tableColumnName: 'phone', sortable: true },
     ],
   },

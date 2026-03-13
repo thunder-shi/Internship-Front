@@ -404,11 +404,11 @@ async function supplementReturnRecords(records) {
       sort: { properties: 'id', direction: 'ASC' }
     });
     if (res?.data?.content?.length > 0) {
-      const existingIds = new Set(records.map(r => r.id));
-      const newRecords = res.data.content.filter(r => !existingIds.has(r.id));
+      const existingIds = new Set(records.map((r) => (r.id == null ? '' : String(r.id))));
+      const newRecords = res.data.content.filter((r) => !existingIds.has(r.id == null ? '' : String(r.id)));
       if (newRecords.length > 0) {
         records.push(...newRecords);
-        records.sort((a, b) => (a.id || 0) - (b.id || 0));
+        records.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
       }
     }
   } catch (error) {
@@ -425,6 +425,19 @@ function filterInitialSaveRecords(records) {
   return records.filter(r => r.isAudit !== -1);
 }
 
+// 分情况过滤：当主记录为「待提交」且流程不是「无需审核」时，不展示「系统自动通过」的审核记录
+// （一级/多级审核下未提交却出现系统自动通过为异常；无需审核流程保持原样）
+function filterAutoPassWhenNotSubmitted(records) {
+  const mainAudit = props.processInfo?.isAudit;
+  if (mainAudit !== -1 && mainAudit !== '-1' && mainAudit != null) return records;
+  const verifyTypeId = props.processInfo?.verifyTypeId ?? records[0]?.verifyTypeId;
+  if (verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY) return records;
+  return records.filter((r) => {
+    if (r.isAudit === 1 && r.reason && String(r.reason).includes('系统自动通过')) return false;
+    return true;
+  });
+}
+
 // 加载审核进度数据
 async function loadVerifyProgress() {
   // 预加载角色名称和流程配置（用于将角色 ID 解析为名称）
@@ -433,11 +446,20 @@ async function loadVerifyProgress() {
 
   // 如果 props 中已经传入了所有记录，直接使用
   if (props.processInfo?._allRecords && props.processInfo._allRecords.length > 0) {
-    let records = [...props.processInfo._allRecords].sort((a, b) => (a.id || 0) - (b.id || 0));
+    let records = [...props.processInfo._allRecords].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+    const seenIds = new Set();
+    records = records.filter((r) => {
+      const id = r.id == null ? '' : String(r.id);
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
     // 从基表补充视图中缺失的退回记录
     await supplementReturnRecords(records);
     // 过滤掉初始保存未提交的记录（未提交时不显示卡片）
     records = filterInitialSaveRecords(records);
+    // 主记录为待提交时，不展示「系统自动通过」的审核记录，避免与状态矛盾
+    records = filterAutoPassWhenNotSubmitted(records);
     await fillVerifyUserNames(records);
     // 规范化显示字段：将字符串类型的空值替换为 '-'
     // verifyUserName 如果为空或系统自动通过，替换为 '系统'
@@ -479,11 +501,11 @@ async function loadVerifyProgress() {
       sort: { properties: 'id', direction: 'ASC' }
     });
     if (res && res.data && res.data.content) {
-      // 按 id 升序排列，并按 id 去重（一个阶段只显示一条，与实习计划制定一致）
-      let records = res.data.content.sort((a, b) => (a.id || 0) - (b.id || 0));
+      // 按 id 升序排列，并按 id 去重（统一转字符串比较，避免 123 与 "123" 被当成两条）
+      let records = res.data.content.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
       const seenIds = new Set();
       records = records.filter((r) => {
-        const id = r.id;
+        const id = r.id == null ? '' : String(r.id);
         if (seenIds.has(id)) return false;
         seenIds.add(id);
         return true;
@@ -493,20 +515,10 @@ async function loadVerifyProgress() {
       await supplementReturnRecords(records);
       // 过滤掉初始保存未提交的记录（未提交时不显示卡片）
       records = filterInitialSaveRecords(records);
+      // 主记录为待提交时，不展示「系统自动通过」的审核记录，避免与状态矛盾
+      records = filterAutoPassWhenNotSubmitted(records);
 
-      // 获取审核级数
-      const verifyTypeId = records.length > 0 ? (records[0].verifyTypeId || 1) : 1;
-
-      // 统计已通过的审核数
-      const passedNum = records.filter(r => r.isAudit === 1).length;
-
-      // 如果已通过数 >= 审核级数，过滤掉多余的待审核记录（历史错误数据）
-      // 但如果存在退回记录（isAudit=3），保留完整历史以展示退回过程
-      const hasReturnRecords = records.some(r => r.isAudit === 3);
-      if (!hasReturnRecords && passedNum >= verifyTypeId) {
-        records = records.filter(r => r.isAudit === 1).slice(0, verifyTypeId);
-      }
-
+      // 保留所有历史记录（含退回、再提交等多轮），不再按“已通过数”截断
       // 为每条记录补充审核人姓名（verifyUserId 是 string，BaseUser.id 是 int）
       await fillVerifyUserNames(records);
 
