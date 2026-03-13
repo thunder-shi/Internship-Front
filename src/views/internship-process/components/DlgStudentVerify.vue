@@ -1,18 +1,43 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+  <DlgBasic
+    ref="dlgBasicRef"
+    v-model:default-props="defaultProps"
+    :dlgbasic-confirm="confirm"
+    @close-dialog="onCloseDialog"
+    @open-dialog="openDialog"
+  >
     <template #mainForm>
-      <el-form ref="formPanelRef" :rules="formRules" :model="form" label-suffix=":" label-width="120px">
-        <!-- 审核选项和理由（在 tab 页上方） -->
+      <el-form
+        ref="formPanelRef"
+        :rules="formRules"
+        :model="form"
+        label-suffix=":"
+        label-width="120px"
+      >
+        <!-- 审核选项和理由 -->
         <div class="audit-section-top">
           <el-form-item label="审核结果" prop="auditResult">
             <el-radio-group v-model="form.auditResult">
-              <el-radio v-if="!isRecallMode" :label="CONSTANT.AUDIT_STATUS.PASS">{{ CONSTANT.AUDIT_STATUS.PASSNAME }}</el-radio>
-              <el-radio v-if="!isRecallMode" :label="CONSTANT.AUDIT_STATUS.NOTPASS">{{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-radio>
-              <el-radio :label="CONSTANT.AUDIT_STATUS.BACK">{{ CONSTANT.AUDIT_STATUS.BACKNAME }}</el-radio>
+              <el-radio v-if="!isRecallMode" :label="CONSTANT.AUDIT_STATUS.PASS">
+                {{ CONSTANT.AUDIT_STATUS.PASSNAME }}
+              </el-radio>
+              <el-radio v-if="!isRecallMode" :label="CONSTANT.AUDIT_STATUS.NOTPASS">
+                {{ CONSTANT.AUDIT_STATUS.NOTPASSNAME }}
+              </el-radio>
+              <el-radio :label="CONSTANT.AUDIT_STATUS.BACK">
+                {{ CONSTANT.AUDIT_STATUS.BACKNAME }}
+              </el-radio>
             </el-radio-group>
           </el-form-item>
           <el-form-item label="审核理由" prop="auditReason">
-            <el-input v-model="form.auditReason" type="textarea" :rows="4" placeholder="请输入审核理由" :maxlength="500" show-word-limit />
+            <el-input
+              v-model="form.auditReason"
+              type="textarea"
+              :rows="4"
+              placeholder="请输入审核理由"
+              :maxlength="500"
+              show-word-limit
+            />
           </el-form-item>
         </div>
       </el-form>
@@ -46,13 +71,13 @@ const isRecallMode = ref(false);
 const defaultProps = reactive({
   form: {},
   width: '40%',
-  dlgTitle: '项目指导老师审核',
+  dlgTitle: '学生实习项目安排审核',
   someFlags: {
     noFooter: false,
     needValidate: true,
     validate: true,
-    needVerifyUpdate: false, // 审核对话框不需要验证数据变更
-    needMaxBtn: true, // 显示最大化按钮
+    needVerifyUpdate: false,
+    needMaxBtn: true,
   },
 });
 
@@ -63,7 +88,6 @@ const formRules = {
   auditReason: [{ required: true, message: '请输入审核理由', trigger: 'blur' }],
 };
 
-
 // 审核记录的 DataTableList 配置
 const auditTableListProps = reactive({
   keyWord: {},
@@ -72,17 +96,17 @@ const auditTableListProps = reactive({
   sortStr: { properties: 'id', direction: 'ASC' },
   pageInfo: { page: 1, size: 100 },
   initSearchWords: {
-    searchKey: { processId: form.processId }
+    searchKey: { processId: form.processId },
   },
   someFlags: {
-    operateShow: false, // 审核窗口中的审核记录只读，不显示操作按钮
+    operateShow: false,
     checkFlag: false,
     showPage: false,
     autoInit: false,
   },
   defaultDTHProps: {
     keyWord: { edit: 'ViewVerifyProcessInternship', view: 'ViewVerifyProcessInternship' },
-    buttonProps: { buttonGroup: { show: false } }, // 隐藏刷新和网格按钮
+    buttonProps: { buttonGroup: { show: false } },
     allTableColumns: [
       { id: 1, showName: '发送人', theOrder: 1, tableColumnName: 'createUserName', sortable: false },
       { id: 2, showName: '审核人', theOrder: 2, tableColumnName: 'verifyUserName', sortable: false },
@@ -90,7 +114,7 @@ const auditTableListProps = reactive({
       { id: 4, showName: '审核状态', theOrder: 4, tableColumnName: 'isAudit', sortable: false },
       { id: 5, showName: '审核理由', theOrder: 5, tableColumnName: 'reason', sortable: false },
     ],
-  }
+  },
 });
 
 // 审核结果对应的文本映射
@@ -100,35 +124,26 @@ const auditResultTextMap = {
   [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
 };
 
-
-// 加载审核记录
 async function loadAuditRecords() {
   if (!form.processId) {
     return;
   }
-
-  // 更新审核记录表格的搜索条件
-  auditTableListProps.initSearchWords.searchKey = { 
-    processId: form.processId
+  auditTableListProps.initSearchWords.searchKey = {
+    processId: form.processId,
   };
-  
-  // 初始化审核记录表格
   await nextTick();
   auditTableList.value?.initDataList(true);
 }
 
-// 监听审核结果变化，自动填充审核理由
 watch(
   () => form.auditResult,
   (newVal) => {
     if (newVal !== null && newVal !== undefined) {
-      // 当审核结果变化时，自动填充对应的文本到审核理由
       form.auditReason = auditResultTextMap[newVal] || '';
     }
   }
 );
 
-// 监听表单变化，更新按钮状态
 watch(
   form,
   () => {
@@ -151,7 +166,6 @@ function verifyValid(showMessage = true) {
             dlgBasicRef.value.validate = true;
           });
       } else {
-        // 手动检查规则但不显示错误
         const rules = formRules;
         const fields = Object.keys(rules);
         let hasError = false;
@@ -179,7 +193,7 @@ function verifyValid(showMessage = true) {
   });
 }
 
-// 从 RelProcessInternship 加载审核角色配置和审核级别信息（用于显示）
+// 从 ViewRelProcessInternship 加载审核角色配置
 async function loadVerifyRoleIds(processId) {
   if (!processId) {
     return;
@@ -195,11 +209,8 @@ async function loadVerifyRoleIds(processId) {
     if (res && res.data && res.data.content && res.data.content.length > 0) {
       const processInfo = res.data.content[0];
 
-      // 更新 form 中的审核级别信息
       if (processInfo.verifyTypeId) form.verifyTypeId = processInfo.verifyTypeId;
       if (processInfo.currentVerifyTypeId) form.currentVerifyTypeId = processInfo.currentVerifyTypeId;
-
-      // 更新 form 中的角色ID（排除旧版占位值 17，0 和 null 视为未设置）
       if (processInfo.verifyFirstRoleId) form.verifyFirstRoleId = processInfo.verifyFirstRoleId;
       if (processInfo.verifySecondRoleId) form.verifySecondRoleId = processInfo.verifySecondRoleId;
       if (processInfo.verifyThirdRoleId) form.verifyThirdRoleId = processInfo.verifyThirdRoleId;
@@ -213,35 +224,26 @@ async function loadVerifyRoleIds(processId) {
 
 async function showDialog(val, formData = {}) {
   if (formData !== null) {
-    // 清空 form 的所有现有字段
     const formKeys = Object.keys(form);
     formKeys.forEach((key) => {
       delete form[key];
     });
-    // 先深拷贝 formData，保留所有字段
     const clonedData = _.cloneDeep(formData);
-
-    // 规范化显示字段：将字符串类型的空值替换为 '-'
     const normalizedData = normalizeFormForDisplay(clonedData);
-
-    // 直接将规范化后的数据赋值给 form，保留所有字段
     Object.assign(form, normalizedData);
   }
 
-  // 检测退回模式：已通过的记录只允许退回操作
   isRecallMode.value = formData?.isAudit === CONSTANT.AUDIT_STATUS.PASS;
   if (isRecallMode.value) {
-    defaultProps.dlgTitle = '退回已通过的实习计划';
-    // 预设退回选项和理由
+    defaultProps.dlgTitle = '退回已通过的学生实习安排';
     form.auditResult = CONSTANT.AUDIT_STATUS.BACK;
     form.auditReason = CONSTANT.AUDIT_STATUS.BACKNAME;
   } else {
-    defaultProps.dlgTitle = '实习项目审核';
+    defaultProps.dlgTitle = '学生实习项目安排审核';
   }
 
   dlgBasicRef.value?.showDialog(val, form, 'edit');
 
-  // 等待 DOM 更新后再进行操作
   await nextTick();
 
   formPanelRef.value?.clearValidate();
@@ -249,15 +251,13 @@ async function showDialog(val, formData = {}) {
   if (formData && formData.id != null && formData.id !== 0) {
     verifyValid(false);
 
-    // 并行加载数据
     const loadPromises = [
-      loadVerifyRoleIds(form.processId),  // 加载审核角色配置（用于显示）
-      loadAuditRecords()                    // 加载审核记录
+      loadVerifyRoleIds(form.processId),
+      loadAuditRecords(),
     ];
 
     await Promise.all(loadPromises);
 
-    // 加载流程列表
     dataTableList.value?.initDataList(true);
   } else {
     dlgBasicRef.value.validate = true;
@@ -265,7 +265,6 @@ async function showDialog(val, formData = {}) {
 }
 
 async function confirm(_option, type) {
-  // 验证表单
   if (!formPanelRef.value) {
     return;
   }
@@ -277,9 +276,8 @@ async function confirm(_option, type) {
     return;
   }
 
-  // 获取当前用户ID
-  const userInfo = store.getters.userInfo;
-  const verifyUserId = userInfo?.id;
+  const userInfoStore = store.getters.userInfo;
+  const verifyUserId = userInfoStore?.id;
 
   if (!verifyUserId) {
     ElMessage.error('无法获取当前用户信息，请重新登录');
@@ -291,31 +289,26 @@ async function confirm(_option, type) {
     return;
   }
 
-  // 退回已通过的流程时，弹出二次确认
   if (isRecallMode.value) {
     try {
       await ElMessageBox.confirm('当前流程已经审核完毕，确定退回吗？', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-        type: 'warning'
+        type: 'warning',
       });
     } catch {
-      return; // 用户取消
+      return;
     }
   }
 
-  // 构建保存数据对象
-  // 注意：verifyUserId 必须是整数类型，否则后端 join BaseUser 时会失败
   const saveData = {
-    id:form.id, 
+    id: form.id,
     isAudit: form.auditResult,
     reason: form.auditReason,
-    verifyUserId: parseInt(verifyUserId, 10), // 保存实际审核人ID（整数类型）
+    verifyUserId: parseInt(verifyUserId, 10),
   };
   try {
-    // 调用 editOneNode 接口保存到 MainVerifyProcess 表
-    // 后端会自动处理多级审核逻辑（创建下一级审核记录、更新 currentVerifyTypeId）
-    const resInfo = await internshipProcessAPI.auditProcess(saveData)
+    const resInfo = await internshipProcessAPI.auditProcess(saveData);
 
     if (resInfo && resInfo.message === 'successful') {
       const resultText = {
@@ -326,7 +319,6 @@ async function confirm(_option, type) {
 
       ElMessage.success(`审核完成：${resultText}`);
 
-      // 触发更新记录事件，刷新列表
       emit('update-record', form);
       if (type === 'stop') {
         dlgBasicRef.value?.showDialog(false, form);
@@ -335,7 +327,6 @@ async function confirm(_option, type) {
       ElMessage.warning(resInfo?.message || '保存失败');
     }
   } catch (error) {
-    // axios 拦截器已经处理了错误提示，这里不需要重复显示
     console.error('保存审核数据失败:', error);
   }
 }
@@ -347,9 +338,7 @@ function onCloseDialog(saveType) {
   emit('close-dialog');
 }
 
-function openDialog(_row) {
-  // 对话框打开时的处理
-}
+function openDialog(_row) {}
 
 function closeAllDialogs() {
   dlgBasicRef.value?.showDialog?.(false, {});
@@ -362,51 +351,6 @@ defineExpose({
 </script>
 
 <style lang="scss" scoped>
-.info-wrapper {
-  background-color: #f5f7fa;
-  border-radius: 4px;
-  padding: 16px;
-  margin-bottom: 0;
-}
-
-.audit-tabs {
-  margin-bottom: 0;
-}
-
-.internship-info-section {
-  margin-bottom: 0;
-  padding: 0;
-  background-color: transparent; // 使用父容器的背景色
-
-  :deep(.el-descriptions) {
-    background-color: #fff;
-    table-layout: auto; // 使用自动表格布局，让列宽自适应内容
-
-    // 让标签列宽度自适应内容，尽可能短
-    .el-descriptions__table {
-      width: 100%;
-    }
-
-    .el-descriptions__label {
-      width: 1% !important; // 设置为最小宽度，让内容决定实际宽度
-      min-width: 0;
-      white-space: nowrap; // 防止标签文字换行
-      padding-right: 12px; // 标签和内容之间的间距
-    }
-
-    // 内容列占据剩余空间
-    .el-descriptions__content {
-      width: auto !important;
-    }
-  }
-
-  .remarks-content {
-    min-height: 82px;
-    line-height: 20px; // 设置行高
-    display: block;
-  }
-}
-
 .audit-section-top {
   margin-bottom: 20px;
   padding: 20px;
@@ -414,3 +358,4 @@ defineExpose({
   border-radius: 4px;
 }
 </style>
+

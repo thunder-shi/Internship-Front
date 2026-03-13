@@ -9,7 +9,7 @@
     <template #mainForm>
       <div class="dlg-content-wrapper">
         <div class="teacher-select-layout">
-          <!-- 左侧：单位部门树（使用 v-if 确保对话框打开时才渲染） -->
+          <!-- 左侧：单位部门树 -->
           <section class="teacher-select-aside">
             <DataTree
               v-if="visible"
@@ -18,7 +18,7 @@
               @node-click="handleNodeClick"
             />
           </section>
-          <!-- 右侧：教师列表 -->
+          <!-- 右侧：学生列表 -->
           <section class="teacher-select-main">
             <DataTableList
               ref="dataTableListRef"
@@ -45,8 +45,9 @@ import DataTableList from '@/components/DataTableList.vue';
 import DlgBasic from '@/components/DlgBasic.vue';
 import internshipProcessAPI from '@/api/internshipProcess';
 import constant from '@/utils/constant';
+
 defineOptions({
-  name: 'DlgTeacherSelect',
+  name: 'DlgStudentSelect',
 });
 
 const props = defineProps({
@@ -73,11 +74,10 @@ const visible = computed({
 const defaultProps = reactive({
   form: {},
   width: '60%',
-  dlgTitle: '选择指导老师',
+  dlgTitle: '选择学生',
   footButtons: {
     cancel: { show: true, name: '取消', type: '' },
     confirm: { show: true, name: '确定', type: 'primary' },
-    repeatAdd: { show: false },
   },
   someFlags: {
     noFooter: false,
@@ -92,18 +92,16 @@ const defaultProps = reactive({
 const dataTableListRef = ref(null);
 const dataTreeRef = ref(null);
 const confirmLoading = ref(false);
-/** 当前选中的部门ID，用于过滤教师列表 */
+/** 当前选中的部门ID，用于过滤学生列表 */
 const selectedDepartmentId = ref(null);
 /** 跨页保留勾选：id -> row */
 const selectedMap = ref(new Map());
 /** 已写入 RelIntershipUser 的 userId 集合，这些行在表格中禁用勾选 */
 const existingUserIds = ref(new Set());
 
-// 树组件配置（参考 User.vue，不显示"全部"节点，不使用虚拟根节点）
-// 过滤条件：只显示 typeCode='UNIVERSITY' 且 schoolId 等于当前用户的 schoolId 的部门
+// 树组件配置：同老师选择，按学校过滤部门
 const treeProps = computed(() => {
   const searchKey = { typeCode: 'UNIVERSITY' };
-  // 获取当前用户的 schoolId
   if (userInfo.value.schoolId) {
     searchKey.schoolId = userInfo.value.schoolId;
   }
@@ -120,23 +118,23 @@ const treeProps = computed(() => {
   };
 });
 
-// DataTableList 配置（参考 BaseTreeList 的实现）
+// DataTableList 配置：jobId 改为 2（学生）
 const tableListProps = reactive({
   keyWord: {},
   title: {},
-  bottomOffset: 80, // 设置底部偏移，确保分页能显示（包括分页组件和底部按钮的高度）
+  bottomOffset: 80,
   sortStr: { properties: 'id', direction: 'DESC' },
   pageInfo: { page: 1, size: 20 },
   initSearchWords: {
-    searchKey: { jobId: '3' },
+    searchKey: { jobId: '2' },
     regKey: {},
     andor: {},
   },
   someFlags: {
-    operateShow: false, // 不显示操作按钮
-    checkFlag: true, // 显示多选框
-    showPage: true, // 显示分页
-    autoInit: false, // 不自动初始化，手动控制
+    operateShow: false,
+    checkFlag: true,
+    showPage: true,
+    autoInit: false,
   },
   defaultDTHProps: {
     keyWord: { view: 'BaseUser' },
@@ -144,15 +142,15 @@ const tableListProps = reactive({
       search: { show: true },
     },
     allTableColumns: [
-      { id: 1, showName: '单位部门', tableColumnName: 'departmentName', sortable: true },
-      { id: 2, showName: '工号', tableColumnName: 'workId', sortable: true },
-      { id: 3, showName: '姓名', tableColumnName: 'name', sortable: true },
+      { id: 1, showName: '姓名', tableColumnName: 'name', sortable: true },
+      { id: 2, showName: '班级/单位', tableColumnName: 'departmentName', sortable: true },
+      { id: 3, showName: '学号', tableColumnName: 'workId', sortable: true },
       { id: 4, showName: '手机号', tableColumnName: 'phone', sortable: true },
     ],
   },
 });
 
-/** 查询当前实习项目已关联的指导老师 userId，这些行将禁用勾选 */
+/** 查询当前实习项目已关联的学生 userId，这些行将禁用勾选 */
 async function loadExistingUserIds() {
   const internshipId = props.currentInternship.internshipId;
   if (internshipId == null) {
@@ -175,23 +173,19 @@ async function loadExistingUserIds() {
       .filter((id) => id != null);
     existingUserIds.value = new Set(ids);
   } catch (e) {
-    console.error('加载已选老师失败:', e);
+    console.error('加载已选学生失败:', e);
     existingUserIds.value = new Set();
   }
 }
 
-// 处理树节点点击
 function handleNodeClick(node) {
   selectedDepartmentId.value = node?.id || null;
-  // 更新查询条件并重新加载列表
   updateSearchKey();
   dataTableListRef.value?.initDataList(true);
 }
 
-// 更新查询条件
 function updateSearchKey() {
   const searchKey = tableListProps.initSearchWords.searchKey;
-  // 如果选中了部门，添加部门过滤条件
   if (selectedDepartmentId.value != null) {
     searchKey.departmentId = selectedDepartmentId.value;
   }
@@ -205,21 +199,16 @@ function isExistingUserId(id) {
   return existingUserIds.value.has(Number(id)) || existingUserIds.value.has(id);
 }
 
-// 已关联（RelIntershipUser 已存在）的老师禁用勾选
 function isRowSelectable(row) {
   return !isExistingUserId(row?.id);
 }
 
-/** 已禁用的行加样式 */
 function getRowClassName({ row }) {
   return isExistingUserId(row.id) ? 'row-disabled' : '';
 }
 
 function handleSelectionChange(rows) {
-  // DataTableList 传递的是选中的行数组
-  // 需要过滤掉已禁用的行（已关联的老师）
   const validRows = rows.filter((row) => !isExistingUserId(row.id));
-  // 获取当前页的所有行ID
   const currentPageIds = new Set();
   if (dataTableListRef.value?.dataList) {
     dataTableListRef.value.dataList.forEach((r) => {
@@ -227,18 +216,13 @@ function handleSelectionChange(rows) {
     });
   }
 
-  // 清除当前页的选择
   currentPageIds.forEach((id) => selectedMap.value.delete(id));
-
-  // 添加新选择的行
   validRows.forEach((row) => {
     selectedMap.value.set(row.id, row);
   });
 
-  // 如果选择了已禁用的行，需要清除它们
   const disabledRows = rows.filter((row) => isExistingUserId(row.id));
   if (disabledRows.length > 0 && dataTableListRef.value?.table) {
-    // 使用 nextTick 确保在 DOM 更新后清除选择
     setTimeout(() => {
       disabledRows.forEach((row) => {
         dataTableListRef.value.table.toggleRowSelection(row, false);
@@ -247,7 +231,6 @@ function handleSelectionChange(rows) {
   }
 }
 
-// 数据加载完成后，清除已禁用行的选择状态
 function handleAfterInitData(dataList) {
   if (dataList && dataList.length > 0 && dataTableListRef.value?.table) {
     setTimeout(() => {
@@ -267,18 +250,13 @@ function onClose() {
   dataTableListRef.value?.table?.clearSelection?.();
 }
 
-// 对话框打开时的回调
 function onOpenDialog() {
-  // 对话框完全打开后，初始化数据
   nextTick(() => {
     setTimeout(async () => {
-      // 初始化树组件（v-if 确保组件已创建，onMounted 应该已经调用，但这里作为双重保险）
       if (dataTreeRef.value) {
         dataTreeRef.value.initDataTree();
       }
-      // 初始化表格数据
       if (dataTableListRef.value) {
-        // 双保险：确保 existingUserIds 已加载，避免禁用状态偶现不生效
         if (!existingUserIds.value || existingUserIds.value.size === 0) {
           await loadExistingUserIds();
         }
@@ -291,13 +269,13 @@ function onOpenDialog() {
 async function handleConfirm(option, type) {
   const list = Array.from(selectedMap.value.values());
   if (!list.length) {
-    ElMessage.warning('请至少勾选一位指导老师');
-    return false; // 返回 false 阻止关闭对话框
+    ElMessage.warning('请至少勾选一名学生');
+    return false;
   }
   const internshipId = props.currentInternship.internshipId;
   if (internshipId == null) {
     ElMessage.warning('缺少实习项目信息');
-    return false; // 返回 false 阻止关闭对话框
+    return false;
   }
   confirmLoading.value = true;
   try {
@@ -308,12 +286,12 @@ async function handleConfirm(option, type) {
       });
       if (!res || res.message !== 'successful') {
         ElMessage.error(res?.message || '保存失败');
-        return false; // 返回 false 阻止关闭对话框
+        return false;
       } else {
         const resp = await saveRelIntershipUserData(res);
         if (!resp.success) {
           ElMessage.error(resp?.message || '保存失败');
-          return false; // 返回 false 阻止关闭对话框
+          return false;
         }
       }
     }
@@ -323,17 +301,17 @@ async function handleConfirm(option, type) {
     if (type === 'stop') {
       dlgBasicRef.value?.showDialog(false, {});
     }
-    return true; // 返回 true 允许关闭对话框
+    return true;
   } catch (e) {
     console.error('保存失败', e);
     ElMessage.error('保存失败');
-    return false; // 返回 false 阻止关闭对话框
+    return false;
   } finally {
     confirmLoading.value = false;
   }
 }
 
-// 保存数据到 RelIntershipUser 表（公共方法）
+// 保存数据到 RelIntershipUser 表并激活流程（与老师版本一致）
 async function saveRelIntershipUserData(res) {
   const verifyUserIds = await internshipProcessAPI.getVerifyUserIds({
     verifyRoleId: props.currentInternship.verifyFirstRoleId,
@@ -341,13 +319,12 @@ async function saveRelIntershipUserData(res) {
   });
   const activateParams = {
     processId: props.currentInternship?.realId,
-    relationId: res.data?.id, // 新增数据的返回id
+    relationId: res.data?.id,
     tableName: 'RelIntershipUser',
-    createUserId: store.getters.userInfo?.id, // 当前操作用户的id
+    createUserId: store.getters.userInfo?.id,
     isAudit: constant.AUDIT_STATUS.SAVE,
     verifyUserId: verifyUserIds.data,
   };
-  // 先查询 MainVerifyProcess 表，检查是否存在相同记录
   try {
     const queryRes = await listAPI.getSomeRecords({
       keyWords: 'MainVerifyProcess',
@@ -357,9 +334,7 @@ async function saveRelIntershipUserData(res) {
         tableName: activateParams.tableName,
       },
     });
-    // 获取查询结果
     const existingRecords = queryRes?.data?.records || queryRes?.data?.content || [];
-    // 如果不存在记录，才执行激活流程
     if (existingRecords.length == 0) {
       const resInfo = await listAPI.editOneNode('MainVerifyProcess', activateParams);
       if (!resInfo || resInfo.message !== 'successful') {
@@ -374,7 +349,6 @@ async function saveRelIntershipUserData(res) {
   }
 }
 
-// 暴露 showDialog 方法供外部调用
 function showDialog(val) {
   visible.value = val;
   dlgBasicRef.value?.showDialog(val, {});
@@ -385,7 +359,6 @@ watch(visible, async (val) => {
     selectedDepartmentId.value = null;
     await loadExistingUserIds();
     updateSearchKey();
-    // 初始化逻辑移到 onOpenDialog 中，确保对话框完全打开后再初始化
   }
 });
 
@@ -427,7 +400,6 @@ defineExpose({
   overflow: hidden;
 }
 
-/* 确保 DataTree 组件能够正确显示 */
 .teacher-select-aside :deep(.tree-panel) {
   display: flex;
   flex-direction: column;
@@ -462,7 +434,6 @@ defineExpose({
   overflow: hidden;
 }
 
-/* 确保 DataTableList 能正确计算高度 */
 .teacher-select-main :deep(.data-table-header) {
   display: flex;
   flex-direction: column;
@@ -498,3 +469,4 @@ defineExpose({
   background-color: var(--el-fill-color-light);
 }
 </style>
+
