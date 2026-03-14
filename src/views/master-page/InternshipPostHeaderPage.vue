@@ -1,12 +1,25 @@
 <template>
   <div class="internship-post-header-page-container">
-    <BaseList :default-props="mergedDefaultProps" ref="baseListRef" @more1-click="handleMore1Click"
-      @view-click="handleViewClick" @append-click="handleAppendClick" @edit-click="handleEditClick"
-      @delete-click="handleDeleteClick" @audit-click="handleAuditClick" @audit-command="handleAuditCommand"
-      @submit-click="handleSubmitClick" />
+    <BaseList
+      :default-props="mergedDefaultProps"
+      ref="baseListRef"
+      @more1-click="handleMore1Click"
+      @view-click="handleViewClick"
+      @append-click="handleAppendClick"
+      @edit-click="handleEditClick"
+      @delete-click="handleDeleteClick"
+      @audit-click="handleAuditClick"
+      @audit-command="handleAuditCommand"
+      @submit-click="handleSubmitClick"
+      @more2-click="handleMore2Click"
+    />
     <!-- 实习项目选择对话框 -->
-    <SimpleDialog ref="projectSelectDialog" :default-props="projectSelectDialogProps"
-      :simpledialog-confirm="handleProjectSelectConfirm" @simple-select-change="handleInternshipSelectChange" />
+    <SimpleDialog
+      ref="projectSelectDialog"
+      :default-props="projectSelectDialogProps"
+      :simpledialog-confirm="handleProjectSelectConfirm"
+      @simple-select-change="handleInternshipSelectChange"
+    />
     <!-- 其他对话框插槽 -->
     <slot name="dialogs"></slot>
   </div>
@@ -25,53 +38,53 @@ const props = defineProps({
   // 页面标题
   pageTitle: {
     type: String,
-    required: true
+    required: true,
   },
   // 无项目时的提示信息
   noProjectMessage: {
     type: String,
-    required: true
+    required: true,
   },
   // 待选择时的提示信息
   pendingSelectMessage: {
     type: String,
-    default: '当前实习项目：待选择'
+    default: '当前实习项目：待选择',
   },
   // BaseList 的默认配置（由子组件传入，包含按钮和列配置）
   defaultDTLProps: {
     type: Object,
-    required: true
+    required: true,
   },
   // 查询条件构建函数（用于添加额外的查询条件，如 isAudit）
   buildSearchKey: {
     type: Function,
-    default: (baseSearchKey) => baseSearchKey
+    default: (baseSearchKey) => baseSearchKey,
   },
   // 是否是企业用户（用于查询条件）
   isCompanyUser: {
     type: Boolean,
-    default: false
+    default: false,
   },
   // 实习项目选择对话框的查询关键字（用于 getSomeRecords）
   projectSelectSearchKey: {
     type: Object,
-    default: () => ({})
+    default: () => ({}),
   },
   // 实习项目选择对话框的查询操作符（用于 getSomeRecords）
   projectSelectRegKey: {
     type: Object,
-    default: () => ({})
+    default: () => ({}),
   },
   // 实习项目列表的视图关键字（用于 getSomeRecords，如 ViewRelProcessInternship / ViewTeacherSelectedInternship）
   projectListKeyWords: {
     type: String,
-    default: 'ViewRelProcessInternship'
+    default: 'ViewRelProcessInternship',
   },
   // 当前页面对应的流程类型编码（如校内实习-老师申报题目等）
   // 用于在实习项目选择窗口中按流程类型筛选项目，只展示当前流程相关的实习项目
   processTypeCode: {
     type: String,
-    default: null
+    default: null,
   },
 });
 
@@ -81,6 +94,7 @@ const emit = defineEmits([
   'delete-click',
   'audit-click',
   'audit-command',
+  'more2-click',
   'post-detail-close',
   'post-detail-success',
   'project-selected',
@@ -106,14 +120,14 @@ const userInfo = computed(() => store.getters.userInfo || {});
 const nowSearchWords = reactive({
   searchKey: {},
   regKey: {},
-  andor: {}
+  andor: {},
 });
 
 // 处理 select_noremote 类型的选择变化
 function handleSelectChange(item, val, form) {
   if (item.field === 'internshipId' && val) {
     // 从 options 中找到选中的项，深拷贝整个对象
-    const selectedOption = item.options?.find(opt => opt.id === val);
+    const selectedOption = item.options?.find((opt) => opt.id === val);
     if (selectedOption) {
       currentInternship.value = _.cloneDeep(selectedOption);
     }
@@ -131,7 +145,7 @@ const projectSelectDialogProps = reactive({
       field: 'internshipId',
       type: 'select',
       keyWords: props.projectListKeyWords,
-      changeLabel: 'internshipName'
+      changeLabel: 'internshipName',
     },
   ],
   formRules: {
@@ -168,7 +182,7 @@ async function updateSearchWordsAndRefresh() {
 
   // 构建基础查询条件
   const baseSearchKey = {
-    internshipId: internshipId
+    internshipId: internshipId,
   };
 
   // 如果是企业用户，添加 createUserId 条件
@@ -215,7 +229,7 @@ function handleInternshipSelectChange(val, field, form, options) {
     const selectedOption = options[0];
     currentInternship.value = _.cloneDeep({
       ...selectedOption,
-      internshipId: selectedOption.internshipId || selectedOption.id
+      internshipId: selectedOption.internshipId || selectedOption.id,
     });
   }
 }
@@ -224,14 +238,18 @@ function handleInternshipSelectChange(val, field, form, options) {
 async function handleProjectSelectConfirm(option, type, form) {
   // 获取选中的实习项目信息
   if (!currentInternship.value && form.internshipId) {
-    const internshipItem = projectSelectDialogProps.formItems.find(item => item.field === 'internshipId');
+    const internshipItem = projectSelectDialogProps.formItems.find(
+      (item) => item.field === 'internshipId'
+    );
     if (internshipItem && internshipItem.options) {
-      const selectedOption = internshipItem.options.find(opt => opt.id === form.internshipId || opt.internshipId === form.internshipId);
+      const selectedOption = internshipItem.options.find(
+        (opt) => opt.id === form.internshipId || opt.internshipId === form.internshipId
+      );
       if (selectedOption) {
         currentInternship.value = _.cloneDeep({
           ...selectedOption,
           internshipId: selectedOption.internshipId || selectedOption.id,
-          processId: selectedOption.processId || selectedOption.id
+          processId: selectedOption.processId || selectedOption.id,
         });
       }
     }
@@ -282,6 +300,11 @@ function handleSubmitClick(row) {
   emit('submit-click', row);
 }
 
+// 处理 more2 按钮点击（转发给父组件，用于批量操作）
+function handleMore2Click(rows) {
+  emit('more2-click', rows);
+}
+
 // 查看进度按钮点击（转发给父组件）
 function handleViewClick(rowOrArray) {
   emit('view-click', rowOrArray);
@@ -292,7 +315,7 @@ async function handleMore1Click(rows) {
   try {
     // 合并调用方传入的查询条件和当前流程类型过滤
     const searchKey = {
-      ...(props.projectSelectSearchKey || {})
+      ...(props.projectSelectSearchKey || {}),
     };
     if (props.processTypeCode) {
       searchKey.processTypeCode = props.processTypeCode;
@@ -301,7 +324,7 @@ async function handleMore1Click(rows) {
     const response = await listAPI.getSomeRecords({
       keyWords: props.projectListKeyWords,
       searchKey,
-      reg: props.projectSelectRegKey
+      reg: props.projectSelectRegKey,
     });
     if (response && response.data) {
       const internshipList = response.data.content || response.data || [];
@@ -314,14 +337,16 @@ async function handleMore1Click(rows) {
         seen.add(key);
         uniqueList.push(item);
       });
-      const internshipItem = projectSelectDialogProps.formItems.find(item => item.field === 'internshipId');
+      const internshipItem = projectSelectDialogProps.formItems.find(
+        (item) => item.field === 'internshipId'
+      );
       if (internshipItem) {
         internshipItem.type = 'select_noremote';
-        internshipItem.options = uniqueList.map(item => ({
+        internshipItem.options = uniqueList.map((item) => ({
           ...item,
           realId: item.id,
           id: item.internshipId || item.id,
-          name: item.internshipName || item.name
+          name: item.internshipName || item.name,
         }));
       }
     }
@@ -336,7 +361,7 @@ async function initInternshipList() {
   try {
     // 合并调用方传入的查询条件和当前流程类型过滤
     const searchKey = {
-      ...(props.projectSelectSearchKey || {})
+      ...(props.projectSelectSearchKey || {}),
     };
     if (props.processTypeCode) {
       searchKey.processTypeCode = props.processTypeCode;
@@ -345,7 +370,7 @@ async function initInternshipList() {
     const response = await listAPI.getSomeRecords({
       keyWords: props.projectListKeyWords,
       searchKey,
-      reg: props.projectSelectRegKey
+      reg: props.projectSelectRegKey,
     });
 
     if (response && response.data) {
@@ -368,7 +393,7 @@ async function initInternshipList() {
         currentInternship.value = _.cloneDeep({
           ...item,
           internshipId: item.internshipId || item.id,
-          processId: item.id
+          processId: item.id,
         });
         const newTitle = generateTitleWithDate(currentInternship.value);
         emit('project-selected', currentInternship.value, newTitle);
@@ -400,8 +425,8 @@ const mergedDefaultProps = computed(() => {
   return {
     defaultDTLProps: {
       ...defaultDTLPropsValue,
-      nowSearchWords: nowSearchWords
-    }
+      nowSearchWords: nowSearchWords,
+    },
   };
 });
 
@@ -410,6 +435,6 @@ defineExpose({
   baseListRef,
   currentInternship,
   updateSearchWordsAndRefresh,
-  isMore1Disabled
+  isMore1Disabled,
 });
 </script>

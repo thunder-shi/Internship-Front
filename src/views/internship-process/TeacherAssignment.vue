@@ -12,12 +12,17 @@
     @delete-click="handleDeleteClick"
     @submit-click="handleSubmitClick"
     @view-click="handleViewClick"
+    @more2-click="handleBatchSubmitClick"
     @project-selected="handleProjectSelected"
   >
     <!-- 指导老师选择对话框 -->
     <template #dialogs>
-      <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
-        :process-info="currentRow" key-words="ViewRelIntershipUser" />
+      <DlgVerifyProgress
+        v-model="showProgressDialog"
+        :main-internship-id="currentRow.internshipId"
+        :process-info="currentRow"
+        key-words="ViewRelIntershipUser"
+      />
       <DlgTeacherSelect
         ref="dlgTeacherSelectRef"
         :model-value="dlgTeacherSelectVisible"
@@ -129,6 +134,7 @@ const buttonPropsComputed = computed(() => {
     submit: { show: true },
     delete: { show: true },
     visible: { show: true, type: 'primary', name: '查看进度' },
+    more2: { show: true, name: '批量提交', type: 'primary' },
     more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
   };
 });
@@ -231,14 +237,14 @@ function handleViewClick(rowOrArray) {
 async function handleDeleteClick(rows) {
   // 将 rows 转换为数组
   const rowsToDelete = Array.isArray(rows) ? rows : [rows];
-  
+
   if (!rowsToDelete || rowsToDelete.length === 0) {
     ElMessage.warning('请选择要删除的记录');
     return;
   }
 
   // 1. 检查状态：只有"待提交"（-1）状态的项目才可以删除
-  const invalidRows = rowsToDelete.filter(row => {
+  const invalidRows = rowsToDelete.filter((row) => {
     const isAudit = row.isAudit;
     return isAudit !== CONSTANT.AUDIT_STATUS.SAVE;
   });
@@ -253,11 +259,11 @@ async function handleDeleteClick(rows) {
     const verifyProcessIds = [];
     const internshipUserIds = [];
 
-    rowsToDelete.forEach(row => {
+    rowsToDelete.forEach((row) => {
       if (row.id) {
         verifyProcessIds.push(row.id);
       }
-      const relIntershipUserId = row.relIntershipUserId ;
+      const relIntershipUserId = row.relIntershipUserId;
       if (relIntershipUserId) {
         internshipUserIds.push(relIntershipUserId);
       }
@@ -265,7 +271,10 @@ async function handleDeleteClick(rows) {
 
     // 2. 先删除 MainVerifyProcess 表中的记录（流程表）
     if (verifyProcessIds.length > 0) {
-      const deleteVerifyProcessRes = await listAPI.delOneOrManyNodes('MainVerifyProcess', verifyProcessIds);
+      const deleteVerifyProcessRes = await listAPI.delOneOrManyNodes(
+        'MainVerifyProcess',
+        verifyProcessIds
+      );
       if (!deleteVerifyProcessRes || deleteVerifyProcessRes.message !== 'successful') {
         ElMessage.error(deleteVerifyProcessRes?.message || '删除流程记录失败');
         return;
@@ -294,14 +303,49 @@ function handleSubmitClick(row) {
     return;
   }
   let STATUS, reason;
-  if (row.currentVerifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+  if (row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
     STATUS = CONSTANT.AUDIT_STATUS.PASS;
     reason = '系统自动通过';
   } else STATUS = CONSTANT.AUDIT_STATUS.SUBMIT;
   updateVerifyProcess(row.id, STATUS);
 }
 
-async function updateVerifyProcess(id, isAudit) {
+// 批量提交：只提交选中行中 isAudit 为 -1 的记录
+async function handleBatchSubmitClick(rows) {
+  const rowsArray = Array.isArray(rows) ? rows : [rows].filter(Boolean);
+  if (!rowsArray.length) {
+    ElMessage.warning('请先勾选需要提交的记录');
+    return;
+  }
+
+  const pendingRows = rowsArray.filter((row) => row && row.isAudit === CONSTANT.AUDIT_STATUS.SAVE);
+  if (!pendingRows.length) {
+    ElMessage.warning(`选中的记录中没有"${CONSTANT.AUDIT_STATUS.SAVENAME}"状态可以提交的记录`);
+    return;
+  }
+
+  let successCount = 0;
+  for (const row of pendingRows) {
+    let STATUS;
+    let reason;
+    if (row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+      STATUS = CONSTANT.AUDIT_STATUS.PASS;
+      reason = '系统自动通过';
+    } else {
+      STATUS = CONSTANT.AUDIT_STATUS.SUBMIT;
+    }
+    const ok = await updateVerifyProcess(row.id, STATUS, false);
+    if (ok) {
+      successCount += 1;
+    }
+  }
+
+  if (successCount > 0) {
+    ElMessage.success(`批量提交完成，共成功提交 ${successCount} 条记录`);
+  }
+}
+
+async function updateVerifyProcess(id, isAudit, messageVisible = true) {
   try {
     // 更新流程状态到 MainVerifyProcess
     const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
@@ -309,7 +353,9 @@ async function updateVerifyProcess(id, isAudit) {
       isAudit: isAudit,
     });
     if (resInfo && resInfo.message === 'successful') {
-      ElMessage.success('提交成功');
+      if (messageVisible) {
+        ElMessage.success('提交成功');
+      }
       headerPageRef.value?.baseListRef?.initDataList(true);
       return true;
     } else {

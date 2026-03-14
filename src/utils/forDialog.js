@@ -208,28 +208,33 @@ const attachDrag = (dialogInstance) => {
     dragDom.style.position = 'fixed'
   }
 
-  // 初始化对话框位置：如果位置未设置或为 0，则居中显示
+  // 初始化对话框位置
   const rect = dragDom.getBoundingClientRect()
-  const currentLeft = parseFloat(style.left) || 0
-  const currentTop = parseFloat(style.top) || 0
-  const hasTransform = style.transform && style.transform !== 'none'
-  const hasMarginAuto = style.marginLeft === 'auto' || style.marginRight === 'auto'
-  
-  // 如果位置是 0 或者使用了 transform/margin 居中，则计算居中位置
-  // 或者如果当前实际位置在屏幕最左边（left < 10px），也重新居中
-  if ((currentLeft === 0 && currentTop === 0) || hasTransform || hasMarginAuto || rect.left < 10) {
-    const windowWidth = document.documentElement.clientWidth
-    const windowHeight = document.documentElement.clientHeight
-    
-    // 计算居中位置（使用实际渲染后的尺寸）
-    const centerLeft = (windowWidth - rect.width) / 2
-    const centerTop = (windowHeight - rect.height) / 2
-    
-    dragDom.style.left = `${centerLeft}px`
-    dragDom.style.top = `${centerTop}px`
-    dragDom.style.margin = '0' // 清除 margin，使用绝对定位
-    dragDom.style.transform = 'none' // 清除 transform
+  const windowWidth = document.documentElement.clientWidth
+  const windowHeight = document.documentElement.clientHeight
+
+  const isFullScreen =
+    dragDom.classList.contains('is-fullscreen') ||
+    Math.abs(rect.width - windowWidth) <= 1
+
+  if (isFullScreen) {
+    // 全屏对话框固定在左上角且不支持拖拽
+    dragDom.style.left = '0px'
+    dragDom.style.top = '0px'
+    dragDom.style.margin = '0'
+    dragDom.style.transform = 'none'
+    headerEl.style.cursor = 'default'
+    return null
   }
+
+  // 非全屏对话框始终居中，避免继承前一个对话框的位置
+  const centerLeft = (windowWidth - rect.width) / 2
+  const centerTop = (windowHeight - rect.height) / 2
+
+  dragDom.style.left = `${centerLeft}px`
+  dragDom.style.top = `${centerTop}px`
+  dragDom.style.margin = '0'
+  dragDom.style.transform = 'none'
 
   headerEl.style.cursor = 'move'
 

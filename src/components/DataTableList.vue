@@ -300,6 +300,13 @@ const props = defineProps({
     type: Function,
     default: null
   },
+  // 自定义数据获取函数：如果传入则使用该函数替代默认的 listAPI.getSomeRecords
+  // 签名要求与 listAPI.getSomeRecords 一致：async (params) => resp
+  // 参数和返回结构需保持不变，方便复用现有处理逻辑
+  fetchRecords: {
+    type: Function,
+    default: null
+  },
   // 是否启用审核状态自定义显示（用于 customize-status 列）
   enableAuditStatusCustom: {
     type: Boolean,
@@ -786,7 +793,7 @@ const _initDataList = async () => {
     try {
       // 优化：直接判断对象是否为空，避免 JSON.stringify 的性能开销
       const isEmptyTreeInfo = !treeInfo.value || Object.keys(treeInfo.value).length === 0;
-      resp = await listAPI.getSomeRecords({
+      const requestParams = {
         keyWords: keyWord.value?.view,
         pageInfo: pageInfo,
         treeInfo: isEmptyTreeInfo ? null : treeInfo.value,
@@ -794,7 +801,11 @@ const _initDataList = async () => {
         sort: sortStr.value,
         reg: usedSearchWords.regKey,
         andor: usedSearchWords.andor,
-      });
+      };
+
+      // 如果父组件传入了自定义接口函数，则优先使用；否则使用默认的 listAPI.getSomeRecords
+      const apiFn = props.fetchRecords || listAPI.getSomeRecords;
+      resp = await apiFn(requestParams);
     } catch (error) {
       console.error('_initDataList: API 调用失败:', error);
       loading.value = false;
@@ -1116,14 +1127,16 @@ const view = async (val) => {
 const handleSizeChange = async (val) => {
   pageInfo.size = val;
   isPageInit.value = true;
-  await initDataList();
+  // 强制手动刷新，确保在 autoInit=false 的场景（如选择弹窗）也会重新请求数据
+  await initDataList(true);
   isPageInit.value = false;
 };
 
 const handleCurrentChange = async (val) => {
   pageInfo.page = val;
   isPageInit.value = true;
-  await initDataList();
+  // 强制手动刷新，确保在 autoInit=false 的场景（如选择弹窗）也会重新请求数据
+  await initDataList(true);
   isPageInit.value = false;
 };
 

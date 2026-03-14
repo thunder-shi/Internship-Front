@@ -25,6 +25,7 @@
               :default-props="tableListProps"
               :row-class-name="getRowClassName"
               :row-selectable-fn="isRowSelectable"
+              :fetch-records="fetchAvailableTeachers"
               @selection-change="handleSelectionChange"
               @after-init-data="handleAfterInitData"
             />
@@ -45,6 +46,7 @@ import DataTableList from '@/components/DataTableList.vue';
 import DlgBasic from '@/components/DlgBasic.vue';
 import internshipProcessAPI from '@/api/internshipProcess';
 import constant from '@/utils/constant';
+import otherAPI from '@/api/other';
 defineOptions({
   name: 'DlgTeacherSelect',
 });
@@ -127,8 +129,15 @@ const tableListProps = reactive({
   bottomOffset: 80, // 设置底部偏移，确保分页能显示（包括分页组件和底部按钮的高度）
   sortStr: { properties: 'id', direction: 'DESC' },
   pageInfo: { page: 1, size: 20 },
+  // 初始查询条件
   initSearchWords: {
     searchKey: { jobId: '3' },
+    regKey: {},
+    andor: {},
+  },
+  // 动态查询条件：用于在选择实习项目后注入 internshipId 等过滤条件
+  nowSearchWords: {
+    searchKey: {},
     regKey: {},
     andor: {},
   },
@@ -180,6 +189,12 @@ async function loadExistingUserIds() {
   }
 }
 
+// 使用 other.js 的 getAvailableUsersForInternship 作为 DataTableList 的数据接口
+// 保持参数和返回结构与原 listAPI.getSomeRecords 一致
+async function fetchAvailableTeachers(params) {
+  return await otherAPI.getAvailableUsersForInternship(params);
+}
+
 // 处理树节点点击
 function handleNodeClick(node) {
   selectedDepartmentId.value = node?.id || null;
@@ -198,6 +213,22 @@ function updateSearchKey() {
   tableListProps.initSearchWords.searchKey = searchKey;
   tableListProps.initSearchWords.regKey = {};
   tableListProps.initSearchWords.andor = {};
+}
+
+// 根据当前实习项目更新 nowSearchWords 中的 internshipId 过滤条件
+function updateInternshipFilter() {
+  const internshipId = props.currentInternship?.internshipId;
+  if (!internshipId) {
+    return;
+  }
+  if (!tableListProps.nowSearchWords) {
+    tableListProps.nowSearchWords = { searchKey: {}, regKey: {}, andor: {} };
+  }
+  const currentSearchKey = tableListProps.nowSearchWords.searchKey || {};
+  tableListProps.nowSearchWords.searchKey = {
+    ...currentSearchKey,
+    internshipId,
+  };
 }
 
 function isExistingUserId(id) {
@@ -385,9 +416,25 @@ watch(visible, async (val) => {
     selectedDepartmentId.value = null;
     await loadExistingUserIds();
     updateSearchKey();
+    updateInternshipFilter();
     // 初始化逻辑移到 onOpenDialog 中，确保对话框完全打开后再初始化
   }
 });
+
+// 监听当前实习项目变化：在对话框已打开的情况下，切换实习项目时更新过滤条件
+watch(
+  () => props.currentInternship?.internshipId,
+  async (newId, oldId) => {
+    if (!visible.value) return;
+    if (!newId || newId === oldId) return;
+    // 重新加载当前实习项目已关联的老师，更新禁用状态
+    await loadExistingUserIds();
+    // 更新实习项目过滤条件
+    updateInternshipFilter();
+    // 重新加载列表数据
+    dataTableListRef.value?.initDataList(true);
+  }
+);
 
 watch(
   () => props.showSearchBar,

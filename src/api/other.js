@@ -1,20 +1,20 @@
-import request from '@/utils/request'
-import { getEncryptKeyWord } from '@/utils/rsaEncrypt'
-import CONSTANT from '@/utils/constant'
+import request from '@/utils/request';
+import { getEncryptKeyWord } from '@/utils/rsaEncrypt';
+import CONSTANT from '@/utils/constant';
 
 // 获取密钥
 const getKey = () => {
   return request({
     url: '/common/getKey',
-    method: 'post'
-  })
-}
+    method: 'post',
+  });
+};
 
 // 生成完整密钥
 const getWholeKey = (key, value) => {
-  const formattedValue = value > 9 ? value : `0${value}`
-  return `${key}${formattedValue}${key.split('').reverse().join('')}`
-}
+  const formattedValue = value > 9 ? value : `0${value}`;
+  return `${key}${formattedValue}${key.split('').reverse().join('')}`;
+};
 
 /**
  * 新增实习项目
@@ -25,25 +25,25 @@ const addNewInternship = (form) => {
     url: '/internshipProcess/addNewInternship',
     method: 'post',
     data: {
-      node: JSON.stringify(form)
-    }
-  })
-}
+      node: JSON.stringify(form),
+    },
+  });
+};
 
 /**
  * 删除实习项目
  */
 const deleteNewInternship = async (ids) => {
   // 将数组转换为逗号分隔的字符串，与 delOneOrManyNodes 保持一致
-  const idsString = Array.isArray(ids) ? ids.join(CONSTANT.SPLIT_OPERATOR.COMMA) : ids
+  const idsString = Array.isArray(ids) ? ids.join(CONSTANT.SPLIT_OPERATOR.COMMA) : ids;
   // 对 ids 进行加密，与 delOneOrManyNodes 保持一致
-  const encryptedIds = await getEncryptKeyWord(idsString)
+  const encryptedIds = await getEncryptKeyWord(idsString);
   return request({
     url: '/internshipProcess/deleteNewInternship',
     method: 'post',
-    data: { ids: encryptedIds }
-  })
-}
+    data: { ids: encryptedIds },
+  });
+};
 
 /**
  * 学生选择岗位
@@ -53,20 +53,30 @@ const deleteNewInternship = async (ids) => {
  */
 const stuSelPost = async (studentId, oldPostId, newPostId) => {
   // 对参数进行加密
-  const encryptedStudentId = await getEncryptKeyWord(String(studentId))
-  const encryptedOldPostId = await getEncryptKeyWord(String(oldPostId))
-  const encryptedNewPostId = await getEncryptKeyWord(String(newPostId))
-  
+  const encryptedStudentId = await getEncryptKeyWord(String(studentId));
+  const encryptedOldPostId = await getEncryptKeyWord(String(oldPostId));
+  const encryptedNewPostId = await getEncryptKeyWord(String(newPostId));
+
   return request({
     url: '/internshipPost/StuSelPost',
     method: 'post',
     data: {
       StudentId: encryptedStudentId,
       oldPostId: encryptedOldPostId,
-      newPostId: encryptedNewPostId
-    }
-  })
-}
+      newPostId: encryptedNewPostId,
+    },
+  });
+};
+
+const getAvailableUsersForInternship = (form) => {
+  return request({
+    url: '/internshipProcess/getAvailableUsersForInternship',
+    method: 'post',
+    data: {
+      node: JSON.stringify(form),
+    },
+  });
+};
 
 export default {
   getKey,
@@ -74,4 +84,5 @@ export default {
   addNewInternship,
   deleteNewInternship,
   stuSelPost,
-}
+  getAvailableUsersForInternship,
+};
