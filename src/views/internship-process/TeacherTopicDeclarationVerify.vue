@@ -107,9 +107,11 @@ const defaultDTLProps = computed(() => ({
     // 审核页：不提供新增/删除/提交
     keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelTeacherStudent' },
     allTableColumns: [
-      { id: 1, showName: '题目名称', tableColumnName: 'name', sortable: true },
-      { id: 2, showName: '申报教师', tableColumnName: 'teacherName', sortable: true },
-      { id: 3, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
+      
+      { id: 1, showName: '申报教师', tableColumnName: 'teacherName', sortable: true },
+      { id: 2, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
+      { id: 3, showName: '题目名称', tableColumnName: 'name', sortable: true },
+      { id: 4, showName: '题目详情', tableColumnName: 'remarks', sortable:true},
       //{ id: 4, showName: '审核要求', tableColumnName: 'current_verify_type_name', sortable: true },
       { id: 5, showName: '状态', tableColumnName: 'customize-status' },
     ],
@@ -139,6 +141,7 @@ async function handleEditClick(row) {
     name: selectedRow.name,
     internshipId: selectedRow.internshipId,
     internshipName: selectedRow.internshipName,
+    remarks: selectedRow.remarks,
   };
 
   // 尝试从 ViewRelTeacherStudent 再查一遍，补齐 remarks（题目详情）

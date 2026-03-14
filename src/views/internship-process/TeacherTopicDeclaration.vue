@@ -94,11 +94,13 @@ const defaultDTLProps = computed(() => ({
     },
     keyWord: { edit: 'RelTeacherStudent', view: 'ViewRelTeacherStudent' },
     allTableColumns: [
-      { id: 1, showName: '题目名称', tableColumnName: 'name', sortable: true },
-      { id: 2, showName: '实习项目', tableColumnName: 'internshipName', sortable: true },
-      { id: 3, showName: '创建人', tableColumnName: 'teacherName', sortable: true },
-      { id: 4, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
-      { id: 5, showName: '状态', tableColumnName: 'customize-status' },
+      { id: 1, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
+      { id: 2, showName: '题目名称', tableColumnName: 'name', sortable: true },
+      { id: 3, showName: '题目详情', tableColumnName: 'remarks', sortable:true},
+      //{ id: 2, showName: '实习项目', tableColumnName: 'internshipName', sortable: true },
+      //{ id: 3, showName: '创建人', tableColumnName: 'teacherName', sortable: true },
+      
+      { id: 3, showName: '状态', tableColumnName: 'customize-status' },
     ],
   },
   defaultDBIProps: {},
