@@ -26,6 +26,7 @@ import InternshipPostPage from '@/views/master-page/InternshipPostPage.vue';
 import DlgInternshipVerify from '@/views/internship-process/components/DlgInternshipVerify.vue';
 import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
 import CONSTANT from '@/utils/constant';
+import { isUserIdInVerifyUserId } from '@/utils/verify';
 
 defineOptions({
   name: 'InternshipPostVerify',
@@ -35,20 +36,8 @@ const internshipPostPageRef = ref(null);
 const dlgInternshipVerify = ref(null);
 const dlgVerify = ref(null);
 
-// Vuex store
 const store = useStore();
-
-// 获取用户信息
 const userInfo = computed(() => store.getters.userInfo || {});
-
-// 精确检查 verifyUserId 是否包含指定的用户ID
-const isUserIdInVerifyUserId = (verifyUserId, userId) => {
-  if (!verifyUserId || !userId) return false;
-  const userIdStr = String(userId);
-  const verifyUserIdStr = String(verifyUserId);
-  const ids = verifyUserIdStr.split('|').filter(id => id !== '');
-  return ids.includes(userIdStr);
-};
 
 // 客户端过滤函数：精确过滤 verifyUserId 包含当前用户ID 的记录
 const clientFilterFn = (dataList) => {

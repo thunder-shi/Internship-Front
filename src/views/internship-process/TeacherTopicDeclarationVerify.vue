@@ -38,7 +38,6 @@ import DlgTopicDetail from './components/DlgTopicDetail.vue';
 import CONSTANT from '@/utils/constant';
 import internshipProcessAPI from '@/api/internshipProcess';
 import listAPI from '@/api/list';
-
 defineOptions({
   name: 'TeacherTopicDeclarationVerify',
 });
@@ -56,15 +55,6 @@ const titleObj = reactive({ mainTitle: '题目申报审核' });
 
 const currentInternship = computed(() => headerPageRef.value?.currentInternship?.value ?? null);
 const isMore1Disabled = computed(() => headerPageRef.value?.isMore1Disabled?.value ?? false);
-
-// 精确检查 verifyUserId 是否包含指定的用户ID（与企业岗位审核一致）
-function isUserIdInVerifyUserId(verifyUserId, userId) {
-  if (!verifyUserId || !userId) return false;
-  const userIdStr = String(userId);
-  const verifyUserIdStr = String(verifyUserId);
-  const ids = verifyUserIdStr.split('|').filter((id) => id !== '');
-  return ids.includes(userIdStr);
-}
 
 // 客户端过滤：按题目(relationId)去重——同一题目只保留一条待审记录，避免一题多行
 //（不再按 verifyUserId 过滤，防止看不到记录）

@@ -14,7 +14,6 @@
         label-suffix=":"
         label-width="120px"
       >
-        <!-- 审核选项和理由 -->
         <div class="audit-section-top">
           <el-form-item label="审核结果" prop="auditResult">
             <el-radio-group v-model="form.auditResult">
@@ -46,6 +45,12 @@
 </template>
 
 <script setup>
+/**
+ * 通用审核对话框
+ *
+ * 适用于学生实习安排审核、指导老师审核等无需 Tab 页的审核场景。
+ * 通过 props 控制对话框标题和退回模式标题等差异化文案。
+ */
 import { ref, reactive, watch, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useStore } from 'vuex';
@@ -56,22 +61,31 @@ import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
 import { normalizeFormForDisplay } from '@/utils/common';
 
+const props = defineProps({
+  /** 对话框标题 */
+  dlgTitle: {
+    type: String,
+    default: '审核',
+  },
+  /** 退回模式下的对话框标题 */
+  recallTitle: {
+    type: String,
+    default: '退回已通过的记录',
+  },
+});
+
 const emit = defineEmits(['update-record', 'close-dialog']);
 
 const store = useStore();
 const dlgBasicRef = ref(null);
 const formPanelRef = ref(null);
-const dataTableList = ref(null);
-const auditTableList = ref(null);
-const activeTab = ref('basic');
 
-// 退回模式：当打开已通过的记录时，仅允许"退回"操作
 const isRecallMode = ref(false);
 
 const defaultProps = reactive({
   form: {},
   width: '40%',
-  dlgTitle: '学生实习项目安排审核',
+  dlgTitle: props.dlgTitle,
   someFlags: {
     noFooter: false,
     needValidate: true,
@@ -88,116 +102,81 @@ const formRules = {
   auditReason: [{ required: true, message: '请输入审核理由', trigger: 'blur' }],
 };
 
-// 审核记录的 DataTableList 配置
-const auditTableListProps = reactive({
-  keyWord: {},
-  title: {},
-  bottomOffset: 0,
-  sortStr: { properties: 'id', direction: 'ASC' },
-  pageInfo: { page: 1, size: 100 },
-  initSearchWords: {
-    searchKey: { processId: form.processId },
-  },
-  someFlags: {
-    operateShow: false,
-    checkFlag: false,
-    showPage: false,
-    autoInit: false,
-  },
-  defaultDTHProps: {
-    keyWord: { edit: 'ViewVerifyProcessInternship', view: 'ViewVerifyProcessInternship' },
-    buttonProps: { buttonGroup: { show: false } },
-    allTableColumns: [
-      { id: 1, showName: '发送人', theOrder: 1, tableColumnName: 'createUserName', sortable: false },
-      { id: 2, showName: '审核人', theOrder: 2, tableColumnName: 'verifyUserName', sortable: false },
-      { id: 3, showName: '审核时间', theOrder: 3, tableColumnName: 'updateTime', sortable: false },
-      { id: 4, showName: '审核状态', theOrder: 4, tableColumnName: 'isAudit', sortable: false },
-      { id: 5, showName: '审核理由', theOrder: 5, tableColumnName: 'reason', sortable: false },
-    ],
-  },
-});
-
-// 审核结果对应的文本映射
 const auditResultTextMap = {
   [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
   [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
   [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
 };
 
-async function loadAuditRecords() {
-  if (!form.processId) {
-    return;
-  }
-  auditTableListProps.initSearchWords.searchKey = {
-    processId: form.processId,
-  };
-  await nextTick();
-  auditTableList.value?.initDataList(true);
-}
-
+// 监听审核结果变化，自动填充审核理由
 watch(
   () => form.auditResult,
   (newVal) => {
     if (newVal !== null && newVal !== undefined) {
       form.auditReason = auditResultTextMap[newVal] || '';
     }
-  }
+  },
 );
 
+// 监听表单变化，更新按钮验证状态
 watch(
   form,
   () => {
     verifyValid(false);
   },
-  { deep: true }
+  { deep: true },
 );
 
+/**
+ * 校验表单并更新 DlgBasic 的确认按钮状态
+ *
+ * @param {boolean} showMessage - 是否在校验失败时显示错误提示
+ */
 function verifyValid(showMessage = true) {
   const panelRef = formPanelRef.value;
   if (!panelRef || !dlgBasicRef.value) return;
-  nextTick(() => {
-    if (panelRef && dlgBasicRef.value) {
-      if (showMessage) {
-        panelRef
-          .validate((valid) => {
-            dlgBasicRef.value.validate = !valid;
-          })
-          .catch(() => {
-            dlgBasicRef.value.validate = true;
-          });
-      } else {
-        const rules = formRules;
-        const fields = Object.keys(rules);
-        let hasError = false;
 
-        fields.forEach((field) => {
-          const ruleArray = rules[field];
-          if (Array.isArray(ruleArray)) {
-            const value = form[field];
-            const requiredRule = ruleArray.find((r) => r.required === true);
-            if (requiredRule) {
-              if (
-                value === undefined ||
-                value === null ||
-                value === '' ||
-                (Array.isArray(value) && value.length === 0)
-              ) {
-                hasError = true;
-              }
-            }
-          }
+  nextTick(() => {
+    if (!panelRef || !dlgBasicRef.value) return;
+
+    if (showMessage) {
+      panelRef
+        .validate((valid) => {
+          dlgBasicRef.value.validate = !valid;
+        })
+        .catch(() => {
+          dlgBasicRef.value.validate = true;
         });
-        dlgBasicRef.value.validate = hasError;
-      }
+    } else {
+      // 静默校验：手动检查 required 规则但不触发 UI 错误提示
+      const fields = Object.keys(formRules);
+      let hasError = false;
+
+      fields.forEach((field) => {
+        const ruleArray = formRules[field];
+        if (!Array.isArray(ruleArray)) return;
+
+        const value = form[field];
+        const requiredRule = ruleArray.find((r) => r.required === true);
+        if (requiredRule) {
+          if (
+            value === undefined ||
+            value === null ||
+            value === '' ||
+            (Array.isArray(value) && value.length === 0)
+          ) {
+            hasError = true;
+          }
+        }
+      });
+      dlgBasicRef.value.validate = hasError;
     }
   });
 }
 
-// 从 ViewRelProcessInternship 加载审核角色配置
+/** 从 ViewRelProcessInternship 加载审核角色配置 */
 async function loadVerifyRoleIds(processId) {
-  if (!processId) {
-    return;
-  }
+  if (!processId) return;
 
   try {
     const res = await listAPI.getSomeRecords({
@@ -206,7 +185,7 @@ async function loadVerifyRoleIds(processId) {
       searchKey: { id: processId },
     });
 
-    if (res && res.data && res.data.content && res.data.content.length > 0) {
+    if (res?.data?.content?.length > 0) {
       const processInfo = res.data.content[0];
 
       if (processInfo.verifyTypeId) form.verifyTypeId = processInfo.verifyTypeId;
@@ -233,13 +212,14 @@ async function showDialog(val, formData = {}) {
     Object.assign(form, normalizedData);
   }
 
+  // 检测退回模式：已通过的记录只允许退回操作
   isRecallMode.value = formData?.isAudit === CONSTANT.AUDIT_STATUS.PASS;
   if (isRecallMode.value) {
-    defaultProps.dlgTitle = '退回已通过的学生实习安排';
+    defaultProps.dlgTitle = props.recallTitle;
     form.auditResult = CONSTANT.AUDIT_STATUS.BACK;
     form.auditReason = CONSTANT.AUDIT_STATUS.BACKNAME;
   } else {
-    defaultProps.dlgTitle = '学生实习项目安排审核';
+    defaultProps.dlgTitle = props.dlgTitle;
   }
 
   dlgBasicRef.value?.showDialog(val, form, 'edit');
@@ -250,34 +230,24 @@ async function showDialog(val, formData = {}) {
 
   if (formData && formData.id != null && formData.id !== 0) {
     verifyValid(false);
-
-    const loadPromises = [
-      loadVerifyRoleIds(form.processId),
-      loadAuditRecords(),
-    ];
-
-    await Promise.all(loadPromises);
-
-    dataTableList.value?.initDataList(true);
+    await loadVerifyRoleIds(form.processId);
   } else {
     dlgBasicRef.value.validate = true;
   }
 }
 
 async function confirm(_option, type) {
-  if (!formPanelRef.value) {
-    return;
-  }
+  if (!formPanelRef.value) return;
 
   try {
     await formPanelRef.value.validate();
-  } catch (error) {
+  } catch {
     ElMessage.warning('请填写完整的审核信息');
     return;
   }
 
-  const userInfoStore = store.getters.userInfo;
-  const verifyUserId = userInfoStore?.id;
+  const userInfo = store.getters.userInfo;
+  const verifyUserId = userInfo?.id;
 
   if (!verifyUserId) {
     ElMessage.error('无法获取当前用户信息，请重新登录');
@@ -289,6 +259,7 @@ async function confirm(_option, type) {
     return;
   }
 
+  // 退回已通过的流程时，弹出二次确认
   if (isRecallMode.value) {
     try {
       await ElMessageBox.confirm('当前流程已经审核完毕，确定退回吗？', '提示', {
@@ -307,18 +278,13 @@ async function confirm(_option, type) {
     reason: form.auditReason,
     verifyUserId: parseInt(verifyUserId, 10),
   };
+
   try {
     const resInfo = await internshipProcessAPI.auditProcess(saveData);
 
     if (resInfo && resInfo.message === 'successful') {
-      const resultText = {
-        [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
-        [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
-        [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
-      }[form.auditResult] || '未知';
-
+      const resultText = auditResultTextMap[form.auditResult] || '未知';
       ElMessage.success(`审核完成：${resultText}`);
-
       emit('update-record', form);
       if (type === 'stop') {
         dlgBasicRef.value?.showDialog(false, form);
@@ -338,7 +304,7 @@ function onCloseDialog(saveType) {
   emit('close-dialog');
 }
 
-function openDialog(_row) {}
+function openDialog() {}
 
 function closeAllDialogs() {
   dlgBasicRef.value?.showDialog?.(false, {});
@@ -358,4 +324,3 @@ defineExpose({
   border-radius: 4px;
 }
 </style>
-
