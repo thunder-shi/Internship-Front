@@ -23,10 +23,9 @@
  * - 提交：提交审核（isAudit = 0）
  * - 提交后显示查看进度按钮
  */
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import moment from 'moment';
 import BaseList from '@/views/master-page/BaseList.vue';
 import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
@@ -65,9 +64,6 @@ const templateSearchKey = computed(() => {
   return {};
 });
 
-// 当前时间
-const currentTime = computed(() => moment().format('YYYY-MM-DD HH:mm:ss'));
-
 // 当前操作的行数据（用于查看进度）
 const currentRow = ref({});
 
@@ -76,87 +72,6 @@ const showProgressDialog = ref(false);
 
 // 存储所有记录，用于查看进度时显示完整审核历史
 const allRecordsMap = ref(new Map());
-
-// 流程配置缓存（processId → 流程配置），从 ViewRelProcessInternship 加载
-// 流程配置包含每个审核级别对应的角色 ID（verifyFirstRoleId 等）
-const processConfigMap = ref(new Map());
-
-// 角色名称缓存（roleId → roleName），从 SysRole 表加载（用于将角色ID解析为名称）
-const roleNameMap = ref(new Map());
-
-// 预加载流程配置（包含审核角色 ID）
-async function loadProcessConfigs() {
-  try {
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewRelProcessInternship',
-      pageInfo: { page: 1, size: 500 },
-    });
-    if (res?.data?.content) {
-      res.data.content.forEach(config => {
-        processConfigMap.value.set(config.id, config);
-      });
-    }
-  } catch (error) {
-    console.error('加载流程配置失败:', error);
-  }
-}
-
-// 预加载角色名称（将角色 ID 解析为角色名称）
-async function loadRoleNames() {
-  try {
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'SysRole',
-      pageInfo: { page: 1, size: 100 },
-    });
-    if (res?.data?.content) {
-      res.data.content.forEach(role => {
-        roleNameMap.value.set(role.id, role.name);
-      });
-    }
-  } catch (error) {
-    console.error('加载角色名称失败:', error);
-  }
-}
-
-// 通过 processId 和审核级别索引（0-based）获取角色名称
-// 先从流程配置中查找角色名称，再回退到 SysRole 解析角色 ID
-function getRoleNameByLevel(processId, levelIndex) {
-  const config = processConfigMap.value.get(processId);
-  if (!config) return '';
-
-  const roleNameFields = [
-    'verifyFirstRoleName', 'verifySecondRoleName', 'verifyThirdRoleName',
-    'verifyFourthRoleName', 'verifyFifthRoleName'
-  ];
-  const roleIdFields = [
-    'verifyFirstRoleId', 'verifySecondRoleId', 'verifyThirdRoleId',
-    'verifyFourthRoleId', 'verifyFifthRoleId'
-  ];
-
-  if (levelIndex < 0 || levelIndex >= roleNameFields.length) return '';
-
-  // 优先使用 VIEW 中的角色名称
-  const roleName = config[roleNameFields[levelIndex]];
-  if (roleName && roleName !== '--' && roleName.trim() !== '') {
-    return roleName;
-  }
-
-  // 回退：通过 SysRole 解析角色 ID
-  const roleId = config[roleIdFields[levelIndex]];
-  if (roleId && roleNameMap.value.has(roleId)) {
-    return roleNameMap.value.get(roleId);
-  }
-
-  return '';
-}
-
-// 根据当前审核级别获取角色名称
-const getVerifyRoleName = (row) => {
-  if (row._currentRoleName) {
-    return row._currentRoleName;
-  }
-  return '';
-};
 
 // 客户端过滤函数：按 relationId 聚合，只显示最新状态的记录
 const clientFilterFn = (dataList) => {
@@ -184,16 +99,6 @@ const clientFilterFn = (dataList) => {
     records.sort((a, b) => (b.id || 0) - (a.id || 0));
     const latestRecord = records[0];
 
-    // 确定当前审核级别的角色名（从流程配置中获取）
-    // 通过计算已通过的级别数来确定当前是第几级
-    if (latestRecord.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT) {
-      const passedCount = records.filter(r => r.isAudit === CONSTANT.AUDIT_STATUS.PASS).length;
-      const roleName = getRoleNameByLevel(latestRecord.processId, passedCount);
-      if (roleName) {
-        latestRecord._currentRoleName = roleName;
-      }
-    }
-
     // 保存该 relationId 的所有记录引用
     latestRecord._allRecords = records;
 
@@ -204,22 +109,6 @@ const clientFilterFn = (dataList) => {
 };
 
 
-// /**
-//  * 列表查询条件：
-//  * - 从 ViewVerifyInternshipPlanProcess 查询数据
-//  * - 筛选正在流程时间内的项目
-//  */
-// const initSearchWords = computed(() => ({
-//   searchKey: {
-//     startTime: currentTime.value,
-//     endTime: currentTime.value
-//   },
-//   regKey: {
-//     startTime: CONSTANT.SEARCH_OPERATOR.LE,
-//     endTime: CONSTANT.SEARCH_OPERATOR.GE
-//   }
-// }));
-
 // 判断记录是否为系统自动通过
 const isAutoApproved = (row) => {
   return row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
@@ -227,7 +116,8 @@ const isAutoApproved = (row) => {
 };
 
 // 处理编辑按钮点击事件
-// 对于系统自动通过的记录，先确认撤回，再打开编辑窗口
+// 所有状态均可打开弹窗查看，DlgInternshipDetail 内部根据 isAudit 控制按钮显隐
+// 系统自动通过的记录需先撤回再编辑
 const editClick = async (row) => {
   if (isAutoApproved(row)) {
     try {
@@ -266,7 +156,6 @@ const viewClick = (rowOrArray) => {
   currentRow.value = {
     ...row,
     _allRecords: row._allRecords || allRecordsMap.value.get(row.relationId) || [row],
-    _currentRoleName: row._currentRoleName || getVerifyRoleName(row)
   };
   showProgressDialog.value = true;
 };
@@ -336,8 +225,6 @@ const handleConfirm = async (option, type, form) => {
         type: 'success',
         duration: 5000
       });
-      // 新增项目后后端会创建新的流程配置，需要刷新缓存才能解析角色名
-      await loadProcessConfigs();
       baseList.value?.initDataList();
       return true;
     } else {
@@ -355,13 +242,13 @@ const appendClick = () => {
 };
 
 // 自定义删除处理
-// 检查审核状态，只有待提交状态（isAudit = -1）的项目才能删除
+// 仅待提交状态（isAudit = -1）的项目可删除，其余状态提示
 const handleDeleteClick = async (rows) => {
   const items = Array.isArray(rows) ? rows : rows ? [rows] : [];
-  // 检查是否有项目已经进入审核状态（isAudit !== -1）
+  if (items.length === 0) return;
   const hasAuditedItem = items.some(item => item.isAudit !== CONSTANT.AUDIT_STATUS.SAVE);
   if (hasAuditedItem) {
-    ElMessage.warning('选择项目已经进入审核状态，无法删除！');
+    ElMessage.warning('仅待提交状态的项目可删除，已提交或审核中的项目无法删除');
     return;
   }
   // 提取 internshipId
@@ -382,15 +269,11 @@ const handleDeleteClick = async (rows) => {
 };
 
 
-// 处理更新记录后的回调（编辑/提交后流程配置可能变化，需要刷新缓存）
-const handleUpdateRecord = async () => {
-  await loadProcessConfigs();
+const handleUpdateRecord = () => {
   baseList.value?.initDataList();
 };
 
-// 预加载流程配置和角色名称，加载完成后刷新列表以应用角色名解析
-onMounted(async () => {
-  await Promise.all([loadProcessConfigs(), loadRoleNames()]);
+onMounted(() => {
   baseList.value?.initDataList();
 });
 
@@ -402,25 +285,13 @@ onBeforeUnmount(() => {
 // 列表配置
 const defaultProps = computed(() => ({
   defaultDTLProps: {
-    // initSearchWords: initSearchWords.value,
-    // 客户端过滤函数
     clientFilterFn: clientFilterFn,
     // 启用审核状态自定义显示
     enableAuditStatusCustom: true,
-    // 获取审核角色名称函数
-    getVerifyRoleName: getVerifyRoleName,
-    // 按钮条件：控制各按钮在不同审核状态下的显示
-    buttonCondition: {
-      // 编辑按钮：待提交(-1)、审核退回(3)、系统自动通过的记录可编辑
-      update: (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE
-        || row.isAudit === CONSTANT.AUDIT_STATUS.BACK
-        || isAutoApproved(row),
-      // 删除按钮：仅待提交状态可删除
-      delete: (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE,
-    },
+    // 按钮始终显示，不可用时由点击事件拦截并提示
+    buttonCondition: {},
     defaultDTHProps: {
       buttonProps: { create: { show: true }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true, name: '编辑' }, delete: { show: true } },
-      // keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyInternshipPlanProcess' },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternship' },
       allTableColumns: [
         { id: 1, showName: '实习项目编号', theOrder: 1, tableColumnName: 'internshipCode' },

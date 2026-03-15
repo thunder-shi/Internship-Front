@@ -1,8 +1,10 @@
 <template>
   <div class="internship-verify-container">
-    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @audit-click="handleAuditClick" />
+    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @audit-click="handleAuditClick" @edit-click="handleEditClick" />
     <!-- 审核对话框 -->
     <DlgInternshipVerify ref="dlgInternshipVerify" @update-record="handleUpdateRecord" />
+    <!-- 查看详情对话框（只读） -->
+    <DlgInternshipDetail ref="dlgInternshipDetail" />
   </div>
 </template>
 <script setup>
@@ -10,6 +12,7 @@ import { reactive, ref, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
 import DlgInternshipVerify from '@/views/internship-process/components/DlgInternshipVerify.vue';
+import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import { useVerifyFilter } from '@/composables/useVerifyFilter';
 import { buildVerifySearchWords } from '@/utils/verify';
 
@@ -20,6 +23,7 @@ defineOptions({
 const store = useStore();
 const baseList = ref(null);
 const dlgInternshipVerify = ref(null);
+const dlgInternshipDetail = ref(null);
 
 const { clientFilterFn, getVerifyRoleName, initAndLoad } = useVerifyFilter();
 
@@ -45,6 +49,13 @@ const handleAuditClick = (row) => {
   }
 };
 
+const handleEditClick = (row) => {
+  const selectedRow = Array.isArray(row) ? row[0] : row;
+  if (selectedRow) {
+    dlgInternshipDetail.value?.showDialog(true, selectedRow);
+  }
+};
+
 // 预加载流程配置和角色名称，加载完成后刷新列表以应用角色名解析
 onMounted(async () => {
   await initAndLoad();
@@ -53,6 +64,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   dlgInternshipVerify.value?.closeAllDialogs?.();
+  dlgInternshipDetail.value?.closeAllDialogs?.();
 });
 
 const defaultProps = reactive({
@@ -61,7 +73,10 @@ const defaultProps = reactive({
     enableAuditStatusCustom: true,
     getVerifyRoleName,
     defaultDTHProps: {
-      buttonProps: { audit: { show: true, showPass: true, showNotPass: true, showBack: true } },
+      buttonProps: {
+        audit: { show: true, showPass: true, showNotPass: true, showBack: true },
+        update: { show: true, name: '查看详情' },
+      },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternship' },
       allTableColumns: [
         { id: 1, showName: '实习项目编码', theOrder: 1, tableColumnName: 'internshipCode' },

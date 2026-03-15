@@ -10,6 +10,7 @@
       :build-search-key="buildSearchKey"
       :is-company-user="isCompanyUser"
       @audit-click="handleAuditClick"
+      @edit-click="handleEditClick"
       @project-selected="handleProjectSelected"
     >
       <!-- 审核对话框 -->
@@ -20,6 +21,8 @@
           recall-title="退回已通过的指导老师安排"
           @update-record="handleUpdateRecord"
         />
+        <!-- 查看详情对话框（只读） -->
+        <DlgInternshipDetail ref="dlgInternshipDetail" />
       </template>
     </InternshipPostHeaderPage>
   </div>
@@ -29,6 +32,7 @@ import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgUnifiedVerify from '@/views/internship-process/components/DlgUnifiedVerify.vue';
+import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/composables/useVerifyFilter';
 import { buildVerifySearchWords } from '@/utils/verify';
@@ -41,6 +45,7 @@ defineOptions({
 const store = useStore();
 const headerPageRef = ref(null);
 const dlgVerifyRef = ref(null);
+const dlgInternshipDetail = ref(null);
 
 const roles = computed(() => store.getters.roles || []);
 
@@ -92,6 +97,7 @@ function buildSearchKey(baseSearchKey) {
 const buttonPropsComputed = computed(() => ({
   more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
   audit: { show: true, showPass: true, showNotPass: true, showBack: true },
+  update: { show: true, name: '查看详情' },
 }));
 
 const defaultDTLProps = computed(() => ({
@@ -126,11 +132,19 @@ const handleAuditClick = (row) => {
   }
 };
 
+const handleEditClick = (row) => {
+  const selectedRow = Array.isArray(row) ? row[0] : row;
+  if (selectedRow) {
+    dlgInternshipDetail.value?.showDialog(true, selectedRow);
+  }
+};
+
 onMounted(async () => {
   await initAndLoad();
 });
 
 onBeforeUnmount(() => {
   dlgVerifyRef.value?.closeAllDialogs?.();
+  dlgInternshipDetail.value?.closeAllDialogs?.();
 });
 </script>

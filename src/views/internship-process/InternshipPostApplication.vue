@@ -54,14 +54,8 @@ function getButtonProps(currentInternship, isMore1Disabled) {
   };
 }
 
-// 按钮条件配置
-const buttonCondition = {
-  update: (row) => {
-    const isAudit = row?.isAudit;
-    // 只有待提交(SAVE=-1)、审核退回(BACK=3)或未设置状态时可以修改
-    return isAudit === null || isAudit === undefined || isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
-  }
-};
+// 按钮条件配置（update 按钮始终显示，由 handleEditClick 控制只读模式）
+const buttonCondition = {};
 
 // 构建查询条件（不添加 isAudit 过滤）
 function buildSearchKey(baseSearchKey) {
@@ -78,11 +72,13 @@ function handleAppendClick(currentInternship) {
   dlgPostDetail?.showDialog(true, {});
 }
 
-// 处理修改按钮点击
+// 处理修改按钮点击（已提交或审核中的记录以只读模式打开）
 function handleEditClick(row) {
-  // 将当前行数据传入对话框
+  const isAudit = row?.isAudit;
+  const editable = isAudit === null || isAudit === undefined ||
+    isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
   const dlgPostDetail = internshipPostPageRef.value?.dlgPostDetail;
-  dlgPostDetail?.showDialog(true, {}, row);
+  dlgPostDetail?.showDialog(true, {}, row, !editable);
 }
 
 // 处理删除按钮点击

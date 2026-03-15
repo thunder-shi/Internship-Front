@@ -83,10 +83,6 @@ const defaultDTLProps = computed(() => ({
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
     },
     buttonCondition: {
-      update: (row) => {
-        const isAudit = row?.isAudit ?? row?.is_audit;
-        return isAudit === null || isAudit === undefined || isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
-      },
       submit: (row) => {
         const isAudit = row?.isAudit ?? row?.is_audit;
         return isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
@@ -124,11 +120,7 @@ function handleEditClick(row) {
   const isAudit = row?.isAudit ?? row?.is_audit;
   const editable = isAudit === null || isAudit === undefined ||
     isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
-  if (!editable) {
-    ElMessage.warning('已提交或已审核，不可修改');
-    return;
-  }
-  dlgTopicDetailRef.value?.showDialog(true, {}, row, currentInternship.value);
+  dlgTopicDetailRef.value?.showDialog(true, {}, row, currentInternship.value, !editable);
 }
 
 async function handleSubmitClick(row) {

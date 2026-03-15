@@ -133,13 +133,38 @@ watch( form, () => {
 async function showDialog(val, formData = {}) {
   // 标记开始初始化
   isInitializing.value = true;
-  
+
+  // 预加载专业数据（在清空表单之前加载，避免级联选择器竞态条件）
+  // 竞态原因：清空表单 → majorIds 变 undefined → 级联选择器 initData(loading=true)
+  //           → 随后设置 majorIds → initData 被 loading 守卫拦截 → 显示为空
+  let preloadedMajorIds = [];
+  let preloadedMajorRecords = [];
+  if (formData && formData.internshipId != null && formData.internshipId !== 0) {
+    try {
+      const resInfo = await listAPI.getSomeRecords({
+        keyWords: 'RelInterMajor',
+        pageInfo: { page: 1, size: 1000 },
+        searchKey: { internshipId: formData.internshipId },
+        reg: { internshipId: '=' }
+      });
+      const records = resInfo?.data?.records || resInfo?.data?.content || [];
+      if (records.length > 0) {
+        preloadedMajorIds = records.map(item => item.majorId);
+        preloadedMajorRecords = records;
+      }
+    } catch (error) {
+      console.error('加载专业数据失败:', error);
+    }
+  }
+
+  // 清空表单并一次性赋值（包含 majorIds），确保级联选择器只触发一次 watch
   if (formData !== null) {
     const formKeys = Object.keys(form);
     formKeys.forEach(key => {
       delete form[key];
     });
-    Object.assign(form, formData);
+    Object.assign(form, formData, { majorIds: preloadedMajorIds });
+    majorList.value = preloadedMajorRecords;
     // 保存 processId（用于提交时更新 MainVerifyProcess 表）
     if (formData.processId != null) {
       form.processId = formData.processId;
@@ -148,7 +173,7 @@ async function showDialog(val, formData = {}) {
 
   // 判断是否允许修改：只有 SAVE(-1) 或 BACK(3) 状态才能修改
   const canEdit = formData.isAudit === CONSTANT.AUDIT_STATUS.SAVE || formData.isAudit === CONSTANT.AUDIT_STATUS.BACK;
-  
+
   // 根据审核状态控制按钮显示
   defaultProps.footButtons.confirm.show = canEdit;
   defaultProps.footButtons.submit.show = canEdit;
@@ -159,14 +184,9 @@ async function showDialog(val, formData = {}) {
   if (formData && formData.internshipId != null && formData.internshipId !== 0) {
     tableListProps.initSearchWords.searchKey = { internshipId: formData.internshipId };
     tableListProps.moveSearchWords.searchKey = { internshipId: formData.internshipId };
-    // 在打开对话框前先加载专业数据，避免组件初始化后再设置值导致重复加载
-    await loadMajorIds(formData.internshipId);
   } else {
     tableListProps.initSearchWords.searchKey = {};
     tableListProps.moveSearchWords.searchKey = {};
-    // 清空专业选择
-    form.majorIds = [];
-    majorList.value = [];
   }
 
   dlgBasicRef.value?.showDialog(val, form, 'edit');
@@ -468,38 +488,6 @@ function handleTableEdit(row) {
 function closeAllDialogs() {
   dlgProcessSelect.value?.showDialog?.(false, {});
   dlgBasicRef.value?.showDialog?.(false, {});
-}
-
-// 加载已选择的专业ID列表
-async function loadMajorIds(internshipId) {
-  try {
-    // 查询关联表，获取当前实习项目关联的所有专业
-    const resInfo = await listAPI.getSomeRecords({
-      keyWords: 'RelInterMajor',
-      pageInfo: { page: 1, size: 1000 },
-      searchKey: { internshipId: internshipId },
-      reg: { internshipId: '=' }
-    });
-
-    // 注意：后端返回的数据结构可能是 data.content 而不是 data.records
-    const records = resInfo?.data?.records || resInfo?.data?.content || [];
-    
-    if (records && records.length > 0) {
-      // 提取所有专业ID（后端返回的字段名是 majorId）
-      const majorIds = records.map(item => item.majorId);
-      
-      // 在初始化期间设置值，不会触发"已修改"状态
-      form.majorIds = majorIds;
-      majorList.value = records;
-    } else {
-      form.majorIds = [];
-      majorList.value = [];
-    }
-  } catch (error) {
-    console.error('加载专业数据失败:', error);
-    form.majorIds = [];
-    majorList.value = [];
-  }
 }
 
 // 保存专业关联关系
