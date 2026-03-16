@@ -55,16 +55,8 @@ export function useVerifyFilter() {
     return row.currentRoleName || '';
   }
 
-  /**
-   * 初始化（Merge View 无需预加载流程配置和角色名称）
-   */
-  function initAndLoad() {
-    return Promise.resolve();
-  }
-
   return {
     clientFilterFn,
     getVerifyRoleName,
-    initAndLoad,
   };
 }

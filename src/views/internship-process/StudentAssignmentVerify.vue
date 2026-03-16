@@ -13,15 +13,13 @@
       @edit-click="handleEditClick"
       @project-selected="handleProjectSelected"
     >
-      <!-- 审核对话框 -->
       <template #dialogs>
-        <DlgUnifiedVerify
+        <DlgVerify
           ref="dlgVerifyRef"
           dlg-title="学生实习项目安排审核"
           recall-title="退回已通过的学生实习安排"
-          @update-record="handleUpdateRecord"
+          @success="handleVerifySuccess"
         />
-        <!-- 查看详情对话框（只读） -->
         <DlgInternshipDetail ref="dlgInternshipDetail" />
       </template>
     </InternshipPostHeaderPage>
@@ -29,10 +27,10 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { reactive, ref, computed } from 'vue';
 import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
-import DlgUnifiedVerify from '@/views/internship-process/components/DlgUnifiedVerify.vue';
+import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
 import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
@@ -49,32 +47,21 @@ const dlgVerifyRef = ref(null);
 const dlgInternshipDetail = ref(null);
 
 const roles = computed(() => store.getters.roles || []);
-
 const isCompanyUser = computed(() =>
   roles.value.some(
-    (r) =>
-      r === CONSTANT.ROLE_TABLE.COMPANY_ADMIN || r === CONSTANT.ROLE_TABLE.COMPANY_TUTOR
+    (r) => r === CONSTANT.ROLE_TABLE.COMPANY_ADMIN || r === CONSTANT.ROLE_TABLE.COMPANY_TUTOR
   )
 );
 
 const titleObj = reactive({ mainTitle: '学生实习项目安排审核' });
-
-const isMore1Disabled = computed(
-  () => headerPageRef.value?.isMore1Disabled?.value || false
-);
-
+const isMore1Disabled = computed(() => headerPageRef.value?.isMore1Disabled?.value || false);
 const processTypeCode = CONSTANT.PROCESS_TYPE.STUDENT_SELECT_INTERNSHIP;
 
-const { clientFilterFn, getVerifyRoleName, initAndLoad } = useVerifyFilter();
+const { clientFilterFn, getVerifyRoleName } = useVerifyFilter();
 
-// 实习项目选择对话框查询关键字
 const projectSelectSearchKey = computed(() => {
   const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
-  return {
-    processTypeCode,
-    startTime: currentTime,
-    endTime: currentTime,
-  };
+  return { processTypeCode, startTime: currentTime, endTime: currentTime };
 });
 
 const projectSelectRegKey = computed(() => ({
@@ -83,9 +70,7 @@ const projectSelectRegKey = computed(() => ({
 }));
 
 function handleProjectSelected(_internship, title) {
-  if (title) {
-    titleObj.mainTitle = title;
-  }
+  if (title) titleObj.mainTitle = title;
 }
 
 function buildSearchKey(baseSearchKey) {
@@ -111,7 +96,7 @@ const defaultDTLProps = computed(() => ({
   initSearchWords: buildVerifySearchWords(),
   defaultDTHProps: {
     buttonProps: buttonPropsComputed.value,
-    keyWord: { edit: 'RelIntershipUser', view: 'ViewVerifyProcessRelStuInternshipMerge' },
+    keyWord: { edit: 'RelIntershipUser', view: 'ViewVerifyProcessRelIntershipUserMerge' },
     allTableColumns: [
       { id: 2, showName: '实习项目名称', theOrder: 2, tableColumnName: 'internshipName' },
       { id: 3, showName: '学生姓名', theOrder: 3, tableColumnName: 'userName' },
@@ -123,30 +108,17 @@ const defaultDTLProps = computed(() => ({
   },
 }));
 
-const handleUpdateRecord = () => {
+const handleVerifySuccess = () => {
   headerPageRef.value?.updateSearchWordsAndRefresh();
 };
 
 const handleAuditClick = (row) => {
   const selectedRow = Array.isArray(row) ? row[0] : row;
-  if (selectedRow) {
-    dlgVerifyRef.value?.showDialog(true, selectedRow);
-  }
+  if (selectedRow) dlgVerifyRef.value?.showDialog(true, selectedRow);
 };
 
 const handleEditClick = (row) => {
   const selectedRow = Array.isArray(row) ? row[0] : row;
-  if (selectedRow) {
-    dlgInternshipDetail.value?.showDialog(true, selectedRow);
-  }
+  if (selectedRow) dlgInternshipDetail.value?.showDialog(true, selectedRow);
 };
-
-onMounted(async () => {
-  await initAndLoad();
-});
-
-onBeforeUnmount(() => {
-  dlgVerifyRef.value?.closeAllDialogs?.();
-  dlgInternshipDetail.value?.closeAllDialogs?.();
-});
 </script>

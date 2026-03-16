@@ -48,6 +48,7 @@ import { useStore } from 'vuex';
 import DlgBasic from '@/components/DlgBasic.vue';
 import { ElMessage } from 'element-plus';
 import listAPI from '@/api/list';
+import CONSTANT from '@/utils/constant';
 
 defineOptions({
   name: 'DlgTopicDetail',
@@ -177,6 +178,9 @@ async function handleConfirm() {
     saveData.id = currentRowId.value;
   } else {
     saveData.stuId = saveData.stuId ?? 0;
+    saveData.currentVerifyTypeId = internshipSrc?.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      : CONSTANT.VERIFY_LEVEL.ONE_VERIFY;
   }
 
   const res = await listAPI.editOneNode('RelTeacherStudent', saveData);

@@ -647,7 +647,13 @@ async function savePostData() {
       code: form.code || '',
       name: form.name || '',
       allPersonNum: form.allPersonNum,
-      postTypeId: form.postTypeId
+      postTypeId: form.postTypeId,
+      // 新增时设置 currentVerifyTypeId（Merge 视图从此表读取以计算 currentRoleName）
+      ...(!isEditMode.value ? {
+        currentVerifyTypeId: props.currentInternship?.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY
+          ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
+          : CONSTANT.VERIFY_LEVEL.ONE_VERIFY,
+      } : {}),
     };
 
     // 如果是编辑模式，添加ID（MainInternshipPost表的主键）
@@ -667,7 +673,7 @@ async function savePostData() {
         processId: props.currentInternship?.id,
         relationId: response.data.id, // 新增数据的返回id
         tableName: 'MainInternshipPost',
-        createUserId: store.getters.userInfo?.id // 当前操作用户的id
+        createUserId: store.getters.userInfo?.id, // 当前操作用户的id
       };
       // 先查询 MainVerifyProcess 表，检查是否存在相同记录
       try {

@@ -30,10 +30,9 @@ import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgTopicDetail from './components/DlgTopicDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
-import { ElMessageBox } from 'element-plus';
 import CONSTANT from '@/utils/constant';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import listAPI from '@/api/list';
-import internshipProcessAPI from '@/api/internshipProcess';
 
 defineOptions({
   name: 'TeacherTopicDeclaration',
@@ -46,6 +45,7 @@ const showProgressDialog = ref(false);
 const currentRow = ref({});
 
 const userInfo = computed(() => store.getters.userInfo || {});
+const { getVerifyRoleName } = useVerifyFilter();
 
 const titleObj = reactive({
   mainTitle: '老师申报题目',
@@ -57,8 +57,10 @@ const isMore1Disabled = computed(() => headerPageRef.value?.isMore1Disabled?.val
 
 function buildSearchKey(baseSearchKey) {
   return {
-    ...baseSearchKey,
-    teacherId: userInfo.value?.id,
+    processTypeCode: CONSTANT.PROCESS_TYPE.INTERNAL_TEACHER_DECLARE_TOPIC,
+    internshipId: baseSearchKey.internshipId,
+    tableName: 'RelTeacherStudent',
+    createUserId: userInfo.value?.id,
   };
 }
 
@@ -67,12 +69,8 @@ const defaultDTLProps = computed(() => ({
   someFlags: {
     autoInit: false,
   },
-  // 列表按题目维度展示：用 ViewRelTeacherStudent 一题一行，避免用审核视图导致一条题目多行
-  clientFilterFn: (rows) => {
-    if (!Array.isArray(rows)) return rows;
-    return rows.map((r) => ({ ...r, isAudit: r.isAudit ?? r.is_audit }));
-  },
   enableAuditStatusCustom: true,
+  getVerifyRoleName,
   defaultDTHProps: {
     buttonProps: {
       update: { show: true },
@@ -88,7 +86,7 @@ const defaultDTLProps = computed(() => ({
         return isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
       },
     },
-    keyWord: { edit: 'RelTeacherStudent', view: 'ViewRelTeacherStudent' },
+    keyWord: { edit: 'RelTeacherStudent', view: 'ViewVerifyProcessRelTeacherStudentMerge' },
     allTableColumns: [
       { id: 1, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
       { id: 2, showName: '题目名称', tableColumnName: 'name', sortable: true },
@@ -117,52 +115,24 @@ function handleAppendClick(cur) {
 }
 
 function handleEditClick(row) {
-  const isAudit = row?.isAudit ?? row?.is_audit;
-  const editable = isAudit === null || isAudit === undefined ||
-    isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
-  dlgTopicDetailRef.value?.showDialog(true, {}, row, currentInternship.value, !editable);
+  const editable = row.isAudit === null || row.isAudit === undefined ||
+    row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK;
+  // Merge 视图中 row.id = MainVerifyProcess.id，需要用 relationId 作为业务记录 ID
+  const topicRow = { ...row, id: row.relationId };
+  dlgTopicDetailRef.value?.showDialog(true, {}, topicRow, currentInternship.value, !editable);
 }
 
-async function handleSubmitClick(row) {
-  const isAudit = row?.isAudit ?? row?.is_audit;
-  const canSubmit = isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
-  if (!canSubmit) {
+function handleSubmitClick(row) {
+  if (row.isAudit !== CONSTANT.AUDIT_STATUS.SAVE && row.isAudit !== CONSTANT.AUDIT_STATUS.BACK) {
     ElMessage.warning('该记录已提交或已审核，不能再次提交');
     return;
   }
-  const verifyProcessId = row.verifyProcessId ?? row.verify_process_id;
-  if (verifyProcessId == null) {
-    ElMessage.warning('无法获取审核记录，请稍后重试');
-    return;
-  }
-  try {
-    await ElMessageBox.confirm('提交后将进入审核流程，信息将不可修改，确定提交吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-  } catch {
-    return;
-  }
-  const node = {
-    id: verifyProcessId,
-    isAudit: CONSTANT.AUDIT_STATUS.SUBMIT,
-    tableName: 'RelTeacherStudent',
-    relationId: row.id,
-  };
-  if (row.processId != null) node.processId = row.processId;
-  if (row.createUserId != null) node.createUserId = row.createUserId;
-  try {
-    const res = await internshipProcessAPI.auditProcess(node);
-    if (res?.message === 'successful') {
-      ElMessage.success(`提交成功，${CONSTANT.AUDIT_STATUS.SUBMITNAME}`);
-      headerPageRef.value?.baseListRef?.initDataList?.(true);
-    } else {
-      ElMessage.error(res?.message || '提交失败');
-    }
-  } catch (e) {
-    console.error('提交失败:', e);
-  }
+  // Merge 视图中 row.id 就是 MainVerifyProcess.id
+  const STATUS =
+    row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      ? CONSTANT.AUDIT_STATUS.PASS
+      : CONSTANT.AUDIT_STATUS.SUBMIT;
+  updateVerifyProcess(row.id, STATUS);
 }
 
 async function handleDeleteClick(rows) {
@@ -171,58 +141,57 @@ async function handleDeleteClick(rows) {
     ElMessage.warning('请选择要删除的记录');
     return;
   }
-  const invalid = list.filter((r) => (r.isAudit ?? r.is_audit) !== CONSTANT.AUDIT_STATUS.SAVE);
+  const invalid = list.filter((r) => r.isAudit !== CONSTANT.AUDIT_STATUS.SAVE);
   if (invalid.length > 0) {
     ElMessage.warning(`只能删除"${CONSTANT.AUDIT_STATUS.SAVENAME}"状态的记录`);
     return;
   }
-  const ids = list.map((r) => r.id).filter((id) => id != null);
-  if (!ids.length) return;
   try {
-    const res = await listAPI.delOneOrManyNodes('RelTeacherStudent', ids);
-    if (res?.message === 'successful') {
-      ElMessage.success('删除成功');
-      headerPageRef.value?.updateSearchWordsAndRefresh?.();
-    } else {
-      ElMessage.error(res?.message || '删除失败');
+    // Merge 视图中 row.id = MainVerifyProcess.id, row.relationId = RelTeacherStudent.id
+    const verifyProcessIds = list.map((r) => r.id).filter(Boolean);
+    const relationIds = list.map((r) => r.relationId).filter(Boolean);
+
+    if (verifyProcessIds.length > 0) {
+      const res = await listAPI.delOneOrManyNodes('MainVerifyProcess', verifyProcessIds);
+      if (!res || res.message !== 'successful') {
+        ElMessage.error(res?.message || '删除流程记录失败');
+        return;
+      }
     }
+    if (relationIds.length > 0) {
+      const res = await listAPI.delOneOrManyNodes('RelTeacherStudent', relationIds);
+      if (!res || res.message !== 'successful') {
+        ElMessage.error(res?.message || '删除记录失败');
+        return;
+      }
+    }
+    ElMessage.success('删除成功');
+    headerPageRef.value?.baseListRef?.initDataList?.(true);
   } catch (e) {
     console.error('删除失败:', e);
     ElMessage.error('删除失败');
   }
 }
 
-// 查看进度：仿照实习计划制定，先拉取该题目的审核记录再打开弹窗，传入 _allRecords 供弹窗分情况展示
-async function handleViewClick(rowOrArray) {
+function handleViewClick(rowOrArray) {
   const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
-  if (!row) {
-    currentRow.value = {};
-    showProgressDialog.value = true;
-    return;
-  }
-  const verifyId = row.verifyProcessId ?? row.verify_process_id;
-  const relationId = row.id;
-  let allRecords = [];
-  if (relationId != null) {
-    try {
-      const res = await listAPI.getSomeRecords({
-        keyWords: 'ViewVerifyProcessRelTeacherStudent',
-        pageInfo: { page: 1, size: 100 },
-        searchKey: { relationId },
-        sort: { properties: 'id', direction: 'ASC' },
-      });
-      allRecords = res?.data?.content ?? [];
-    } catch (e) {
-      console.error('获取审核记录失败:', e);
-    }
-  }
-  currentRow.value = {
-    ...row,
-    id: verifyId ?? row.id,
-    relationId: row.id,
-    _allRecords: allRecords,
-  };
+  // Merge 视图中 row.id = MainVerifyProcess.id, row.relationId = RelTeacherStudent.id
+  currentRow.value = row ? { ...row } : {};
   showProgressDialog.value = true;
+}
+
+async function updateVerifyProcess(id, isAudit) {
+  try {
+    const resInfo = await listAPI.editOneNode('MainVerifyProcess', { id, isAudit });
+    if (resInfo && resInfo.message === 'successful') {
+      ElMessage.success('提交成功');
+      headerPageRef.value?.baseListRef?.initDataList?.(true);
+    } else {
+      ElMessage.warning(resInfo?.message || '更新审核状态失败');
+    }
+  } catch (error) {
+    console.error('更新审核状态失败:', error);
+  }
 }
 
 function handleTopicDetailClose() {}

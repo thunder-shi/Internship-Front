@@ -15,7 +15,7 @@
     @project-selected="handleProjectSelected"
   >
     <template #dialogs>
-      <DlgVerify ref="dlgVerifyRef" @success="handleVerifySuccess" />
+      <DlgVerify ref="dlgVerifyRef" dlg-title="题目申报审核" recall-title="退回已通过的题目申报" @success="handleVerifySuccess" />
       <DlgTopicDetail ref="dlgTopicDetailRef" :current-internship="currentInternship" />
       <DlgVerifyProgress
         v-model="showProgressDialog"
@@ -40,6 +40,7 @@ import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { buildVerifySearchWords } from '@/utils/verify';
 import internshipProcessAPI from '@/api/internshipProcess';
 import listAPI from '@/api/list';
+
 defineOptions({
   name: 'TeacherTopicDeclarationVerify',
 });
@@ -64,11 +65,8 @@ function handleProjectSelected(internship, title) {
   if (title) titleObj.mainTitle = title;
 }
 
-// 查询待审核/已通过/已退回记录（Merge View 每个 processId 仅一条，前端再做用户级过滤）
 function buildSearchKey(baseSearchKey) {
-  return {
-    ...baseSearchKey,
-  };
+  return { ...baseSearchKey };
 }
 
 const defaultDTLProps = computed(() => ({
@@ -85,15 +83,12 @@ const defaultDTLProps = computed(() => ({
       visible: { show: true, type: 'primary', name: '查看审核进度' },
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
     },
-    // 审核页：不提供新增/删除/提交
     keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelTeacherStudentMerge' },
     allTableColumns: [
-      
       { id: 1, showName: '申报教师', tableColumnName: 'teacherName', sortable: true },
       { id: 2, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
       { id: 3, showName: '题目名称', tableColumnName: 'name', sortable: true },
-      { id: 4, showName: '题目详情', tableColumnName: 'remarks', sortable:true},
-      //{ id: 4, showName: '审核要求', tableColumnName: 'current_verify_type_name', sortable: true },
+      { id: 4, showName: '题目详情', tableColumnName: 'remarks', sortable: true },
       { id: 5, showName: '状态', tableColumnName: 'customize-status' },
     ],
   },
@@ -106,7 +101,6 @@ function handleAuditClick(row) {
   dlgVerifyRef.value?.showDialog(true, selectedRow);
 }
 
-// 查看题目详情：打开只读弹窗（row.id 为审核记录 id，题目 id 在 relationId）
 async function handleEditClick(row) {
   const selectedRow = Array.isArray(row) ? row[0] : row;
   if (!selectedRow) return;
@@ -116,7 +110,6 @@ async function handleEditClick(row) {
     return;
   }
 
-  // 先用审核视图中的字段构建基础对象
   let topicRow = {
     id: topicId,
     name: selectedRow.name,
@@ -125,7 +118,6 @@ async function handleEditClick(row) {
     remarks: selectedRow.remarks,
   };
 
-  // 尝试从 ViewRelTeacherStudent 再查一遍，补齐 remarks（题目详情）
   try {
     const res = await listAPI.getSomeRecords({
       keyWords: 'ViewRelTeacherStudent',
@@ -133,12 +125,7 @@ async function handleEditClick(row) {
       searchKey: { id: topicId },
     });
     const fullRow = res?.data?.content?.[0];
-    if (fullRow) {
-      topicRow = {
-        ...topicRow,
-        ...fullRow,
-      };
-    }
+    if (fullRow) topicRow = { ...topicRow, ...fullRow };
   } catch (e) {
     console.error('加载题目详情失败:', e);
   }
@@ -149,14 +136,10 @@ async function handleEditClick(row) {
 function handleViewClick(rowOrArray) {
   const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
   if (!row) return;
-  currentRow.value = {
-    ...row,
-    relationId: row.relationId,
-  };
+  currentRow.value = { ...row, relationId: row.relationId };
   showProgressDialog.value = true;
 }
 
-// 批量审核处理：根据下拉选择的审核结果，对选中记录统一审核
 async function handleBatchAuditCommand(command, rows) {
   const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
   if (!list.length) {
@@ -164,7 +147,6 @@ async function handleBatchAuditCommand(command, rows) {
     return;
   }
 
-  // 仅处理当前为待审核的记录
   const targetList = list.filter((r) => r && r.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT);
   if (!targetList.length) {
     ElMessage.warning('选中的记录中没有待审核的数据');
@@ -177,7 +159,6 @@ async function handleBatchAuditCommand(command, rows) {
     [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
   };
 
-  // 统一输入审核理由，应用到所有选中记录
   let reason;
   try {
     const { value } = await ElMessageBox.prompt(
@@ -208,17 +189,14 @@ async function handleBatchAuditCommand(command, rows) {
 
   let successCount = 0;
   for (const row of targetList) {
-    const saveData = {
-      id: row.id,
-      isAudit: command,
-      reason,
-      verifyUserId: parseInt(uid, 10),
-    };
     try {
-      const res = await internshipProcessAPI.auditProcess(saveData);
-      if (res && res.message === 'successful') {
-        successCount += 1;
-      }
+      const res = await internshipProcessAPI.auditProcess({
+        id: row.id,
+        isAudit: command,
+        reason,
+        verifyUserId: parseInt(uid, 10),
+      });
+      if (res && res.message === 'successful') successCount += 1;
     } catch (e) {
       console.error('批量审核失败记录:', row.id, e);
     }

@@ -315,6 +315,9 @@ async function handleConfirm(option, type) {
       const res = await listAPI.editOneNode('RelIntershipUser', {
         userId: Number(row.id),
         internshipId: Number(internshipId),
+        currentVerifyTypeId: props.currentInternship?.verifyTypeId === constant.VERIFY_LEVEL.NO_VERIFY
+          ? constant.VERIFY_LEVEL.NO_VERIFY
+          : constant.VERIFY_LEVEL.ONE_VERIFY,
       });
       if (!res || res.message !== 'successful') {
         ElMessage.error(res?.message || '保存失败');

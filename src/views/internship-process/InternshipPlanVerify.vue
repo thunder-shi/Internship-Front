@@ -2,7 +2,15 @@
   <div class="internship-verify-container">
     <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @audit-click="handleAuditClick" @edit-click="handleEditClick" />
     <!-- 审核对话框 -->
-    <DlgInternshipVerify ref="dlgInternshipVerify" @update-record="handleUpdateRecord" />
+    <DlgVerify
+      ref="dlgVerifyRef"
+      dlg-title="实习项目审核"
+      recall-title="退回已通过的实习计划"
+      show-project-info
+      process-view-name="ViewRelProcessInternship"
+      audit-records-view-name="ViewVerifyProcessInternship"
+      @success="handleVerifySuccess"
+    />
     <!-- 查看详情对话框（只读） -->
     <DlgInternshipDetail ref="dlgInternshipDetail" />
   </div>
@@ -17,7 +25,7 @@
 import { reactive, ref, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
-import DlgInternshipVerify from '@/views/internship-process/components/DlgInternshipVerify.vue';
+import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
 import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { buildVerifySearchWords } from '@/utils/verify';
@@ -28,7 +36,7 @@ defineOptions({
 
 const store = useStore();
 const baseList = ref(null);
-const dlgInternshipVerify = ref(null);
+const dlgVerifyRef = ref(null);
 const dlgInternshipDetail = ref(null);
 
 const { clientFilterFn, getVerifyRoleName } = useVerifyFilter();
@@ -44,14 +52,14 @@ const handleConfirm = async (option, type, form) => {
   baseList.value?.initDataList();
 };
 
-const handleUpdateRecord = () => {
+const handleVerifySuccess = () => {
   baseList.value?.initDataList();
 };
 
 const handleAuditClick = (row) => {
   const selectedRow = Array.isArray(row) ? row[0] : row;
   if (selectedRow) {
-    dlgInternshipVerify.value?.showDialog(true, selectedRow);
+    dlgVerifyRef.value?.showDialog(true, selectedRow);
   }
 };
 
@@ -62,13 +70,12 @@ const handleEditClick = (row) => {
   }
 };
 
-// 无需预加载流程配置/角色名，视图已聚合完毕
 onMounted(() => {
   baseList.value?.initDataList();
 });
 
 onBeforeUnmount(() => {
-  dlgInternshipVerify.value?.closeAllDialogs?.();
+  dlgVerifyRef.value?.closeAllDialogs?.();
   dlgInternshipDetail.value?.closeAllDialogs?.();
 });
 

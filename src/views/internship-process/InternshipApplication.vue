@@ -27,6 +27,7 @@ import BaseList from '@/views/master-page/BaseList.vue';
 import listAPI from '@/api/list';
 import { CircleCheck, CircleClose, User, UserFilled } from '@element-plus/icons-vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
+import CONSTANT from '@/utils/constant';
 defineOptions({
   name: 'InternshipApplication',
 });
@@ -171,6 +172,9 @@ async function handleApply(row) {
         teacherId: userId.value,
         internshipId: row.id,
         relInternshipId: 0,
+        currentVerifyTypeId: row.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY
+          ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
+          : CONSTANT.VERIFY_LEVEL.ONE_VERIFY,
       };
       promises.push(listAPI.editOneNode('RelTeacherStudent', record));
     }
@@ -415,6 +419,9 @@ async function handleAdminConfirm(option, type, form) {
         teacherId: form.teacherId,
         internshipId: currentInternshipRow.value.id,
         relInternshipId: 0,
+        currentVerifyTypeId: currentInternshipRow.value.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY
+          ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
+          : CONSTANT.VERIFY_LEVEL.ONE_VERIFY,
       };
       promises.push(listAPI.editOneNode('RelTeacherStudent', record));
     }
