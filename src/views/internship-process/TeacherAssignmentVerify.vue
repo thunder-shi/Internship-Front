@@ -34,7 +34,7 @@ import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPa
 import DlgUnifiedVerify from '@/views/internship-process/components/DlgUnifiedVerify.vue';
 import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import CONSTANT from '@/utils/constant';
-import { useVerifyFilter } from '@/composables/useVerifyFilter';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { buildVerifySearchWords } from '@/utils/verify';
 import moment from 'moment';
 
@@ -109,7 +109,7 @@ const defaultDTLProps = computed(() => ({
   initSearchWords: buildVerifySearchWords(),
   defaultDTHProps: {
     buttonProps: buttonPropsComputed.value,
-    keyWord: { edit: 'RelIntershipUser', view: 'ViewRelIntershipUser' },
+    keyWord: { edit: 'RelIntershipUser', view: 'ViewVerifyProcessRelTeacherStudentMerge' },
     allTableColumns: [
       { id: 2, showName: '指导项目名称', theOrder: 2, tableColumnName: 'internshipName' },
       { id: 3, showName: '指导老师', theOrder: 3, tableColumnName: 'userName' },

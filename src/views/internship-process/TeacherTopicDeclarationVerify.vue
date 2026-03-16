@@ -36,6 +36,8 @@ import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import DlgTopicDetail from './components/DlgTopicDetail.vue';
 import CONSTANT from '@/utils/constant';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
+import { buildVerifySearchWords } from '@/utils/verify';
 import internshipProcessAPI from '@/api/internshipProcess';
 import listAPI from '@/api/list';
 defineOptions({
@@ -56,37 +58,26 @@ const titleObj = reactive({ mainTitle: '题目申报审核' });
 const currentInternship = computed(() => headerPageRef.value?.currentInternship?.value ?? null);
 const isMore1Disabled = computed(() => headerPageRef.value?.isMore1Disabled?.value ?? false);
 
-// 客户端过滤：按题目(relationId)去重——同一题目只保留一条待审记录，避免一题多行
-//（不再按 verifyUserId 过滤，防止看不到记录）
-function clientFilterFn(dataList) {
-  if (!Array.isArray(dataList)) return dataList;
-  const seenRelationId = new Set();
-  return dataList.filter((item) => {
-    const rid = item?.relationId != null ? String(item.relationId) : '';
-    if (seenRelationId.has(rid)) return false;
-    seenRelationId.add(rid);
-    return true;
-  });
-}
+const { clientFilterFn, getVerifyRoleName } = useVerifyFilter();
 
 function handleProjectSelected(internship, title) {
   if (title) titleObj.mainTitle = title;
 }
 
-// 只查询待审核（0）记录
+// 查询待审核/已通过/已退回记录（Merge View 每个 processId 仅一条，前端再做用户级过滤）
 function buildSearchKey(baseSearchKey) {
   return {
     ...baseSearchKey,
-    isAudit: CONSTANT.AUDIT_STATUS.SUBMIT,
   };
 }
 
 const defaultDTLProps = computed(() => ({
   title: titleObj,
   someFlags: { autoInit: false },
-  // 审核页的按题目(relationId)去重逻辑通过 clientFilterFn 传给 BaseList/DataTableList
   clientFilterFn,
   enableAuditStatusCustom: true,
+  getVerifyRoleName,
+  initSearchWords: buildVerifySearchWords(),
   defaultDTHProps: {
     buttonProps: {
       audit: { show: true, showPass: true, showNotPass: true, showBack: true },
@@ -95,7 +86,7 @@ const defaultDTLProps = computed(() => ({
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
     },
     // 审核页：不提供新增/删除/提交
-    keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelTeacherStudent' },
+    keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelTeacherStudentMerge' },
     allTableColumns: [
       
       { id: 1, showName: '申报教师', tableColumnName: 'teacherName', sortable: true },

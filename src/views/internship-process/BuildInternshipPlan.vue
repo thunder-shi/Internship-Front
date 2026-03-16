@@ -30,6 +30,7 @@ import BaseList from '@/views/master-page/BaseList.vue';
 import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import CONSTANT from '@/utils/constant';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import listAPI from '@/api/list';
 import otherAPI from '@/api/other';
 
@@ -70,43 +71,8 @@ const currentRow = ref({});
 // 审核进度对话框显示状态
 const showProgressDialog = ref(false);
 
-// 存储所有记录，用于查看进度时显示完整审核历史
-const allRecordsMap = ref(new Map());
-
-// 客户端过滤函数：按 relationId 聚合，只显示最新状态的记录
-const clientFilterFn = (dataList) => {
-  if (!dataList || !Array.isArray(dataList) || dataList.length === 0) {
-    return dataList;
-  }
-
-  // 按 relationId 分组
-  const groupedMap = new Map();
-  dataList.forEach(item => {
-    const relationId = item.relationId;
-    if (!groupedMap.has(relationId)) {
-      groupedMap.set(relationId, []);
-    }
-    groupedMap.get(relationId).push(item);
-  });
-
-  // 保存所有记录到 allRecordsMap，供查看进度时使用
-  allRecordsMap.value = groupedMap;
-
-  // 对每组取最新的记录（按 id 降序，最大的是最新的）
-  const result = [];
-  groupedMap.forEach((records, relationId) => {
-    // 按 id 降序排序
-    records.sort((a, b) => (b.id || 0) - (a.id || 0));
-    const latestRecord = records[0];
-
-    // 保存该 relationId 的所有记录引用
-    latestRecord._allRecords = records;
-
-    result.push(latestRecord);
-  });
-
-  return result;
-};
+// Merge View 已按 processId 聚合，无需前端分组
+const { getVerifyRoleName } = useVerifyFilter();
 
 
 // 判断记录是否为系统自动通过
@@ -153,10 +119,7 @@ const editClick = async (row) => {
 // 注意：DataTableList 的内置 view 按钮通过 view([scope.row]) 传入数组，需要解包
 const viewClick = (rowOrArray) => {
   const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
-  currentRow.value = {
-    ...row,
-    _allRecords: row._allRecords || allRecordsMap.value.get(row.relationId) || [row],
-  };
+  currentRow.value = { ...row };
   showProgressDialog.value = true;
 };
 
@@ -285,14 +248,14 @@ onBeforeUnmount(() => {
 // 列表配置
 const defaultProps = computed(() => ({
   defaultDTLProps: {
-    clientFilterFn: clientFilterFn,
-    // 启用审核状态自定义显示
+    // 启用审核状态自定义显示（Merge View 提供 currentRoleName）
     enableAuditStatusCustom: true,
+    getVerifyRoleName,
     // 按钮始终显示，不可用时由点击事件拦截并提示
     buttonCondition: {},
     defaultDTHProps: {
       buttonProps: { create: { show: true }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true, name: '编辑' }, delete: { show: true } },
-      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternship' },
+      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipMerge' },
       allTableColumns: [
         { id: 1, showName: '实习项目编号', theOrder: 1, tableColumnName: 'internshipCode' },
         { id: 2, showName: '实习项目名称', theOrder: 2, tableColumnName: 'internshipName' },

@@ -8,12 +8,18 @@
   </div>
 </template>
 <script setup>
+/**
+ * 实习计划审核页面
+ *
+ * 数据源：ViewVerifyProcessInternshipMerge（后端聚合视图，每个 processId 仅一条最新记录）
+ * 前端只负责用户级过滤（verifyUserId 精确匹配），不再做分组/聚合/角色名解析。
+ */
 import { reactive, ref, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
 import DlgInternshipVerify from '@/views/internship-process/components/DlgInternshipVerify.vue';
 import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
-import { useVerifyFilter } from '@/composables/useVerifyFilter';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { buildVerifySearchWords } from '@/utils/verify';
 
 defineOptions({
@@ -25,7 +31,7 @@ const baseList = ref(null);
 const dlgInternshipVerify = ref(null);
 const dlgInternshipDetail = ref(null);
 
-const { clientFilterFn, getVerifyRoleName, initAndLoad } = useVerifyFilter();
+const { clientFilterFn, getVerifyRoleName } = useVerifyFilter();
 
 // 自定义确认函数，添加 creator 字段（用于新增）
 const handleConfirm = async (option, type, form) => {
@@ -56,9 +62,8 @@ const handleEditClick = (row) => {
   }
 };
 
-// 预加载流程配置和角色名称，加载完成后刷新列表以应用角色名解析
-onMounted(async () => {
-  await initAndLoad();
+// 无需预加载流程配置/角色名，视图已聚合完毕
+onMounted(() => {
   baseList.value?.initDataList();
 });
 
@@ -77,7 +82,7 @@ const defaultProps = reactive({
         audit: { show: true, showPass: true, showNotPass: true, showBack: true },
         update: { show: true, name: '查看详情' },
       },
-      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternship' },
+      keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipMerge' },
       allTableColumns: [
         { id: 1, showName: '实习项目编码', theOrder: 1, tableColumnName: 'internshipCode' },
         { id: 2, showName: '实习项目名称', theOrder: 2, tableColumnName: 'internshipName' },

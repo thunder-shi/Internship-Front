@@ -77,6 +77,16 @@ const props = defineProps({
     type: Object,
     default: () => ({ edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipPost' })
   },
+  // 初始搜索条件（传递给 DataTableList）
+  initSearchWords: {
+    type: Object,
+    default: () => ({})
+  },
+  // 审核角色名称获取函数（传递给 DataTableList）
+  getVerifyRoleName: {
+    type: Function,
+    default: null
+  },
   // 表格列配置
   tableColumns: {
     type: Array,
@@ -201,13 +211,14 @@ const buttonPropsComputed = computed(() => {
 });
 
 const defaultDTLProps = computed(() => {
-  return {
+  const result = {
     title: titleObj,
     someFlags: {
       autoInit: false,
     },
     clientFilterFn: props.clientFilterFn,
     enableAuditStatusCustom: true,
+    getVerifyRoleName: props.getVerifyRoleName,
     defaultDTHProps: {
       buttonProps: buttonPropsComputed.value,
       buttonCondition: props.buttonCondition,
@@ -216,6 +227,11 @@ const defaultDTLProps = computed(() => {
     },
     defaultDBIProps: {},
   };
+  // 如果传入了 initSearchWords，添加到 DTL props
+  if (props.initSearchWords && Object.keys(props.initSearchWords).length > 0) {
+    result.initSearchWords = props.initSearchWords;
+  }
+  return result;
 });
 
 // 暴露给父组件的方法和属性
