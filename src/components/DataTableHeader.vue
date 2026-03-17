@@ -35,7 +35,7 @@
                   CONSTANT.AUDIT_STATUS.PASSNAME }}</el-dropdown-item>
                 <el-dropdown-item v-if="button.audit.showNotPass" :command="CONSTANT.AUDIT_STATUS.NOTPASS">批量{{
                   CONSTANT.AUDIT_STATUS.NOTPASSNAME }}</el-dropdown-item>
-                x<el-dropdown-item v-if="button.audit.showBack" :command="CONSTANT.AUDIT_STATUS.BACK">批量{{
+                <el-dropdown-item v-if="button.audit.showBack" :command="CONSTANT.AUDIT_STATUS.BACK">批量{{
                   CONSTANT.AUDIT_STATUS.BACKNAME }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>

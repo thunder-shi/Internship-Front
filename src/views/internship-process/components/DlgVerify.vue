@@ -126,6 +126,8 @@ const formPanelRef = ref(null);
 const processTableRef = ref(null);
 const auditTableRef = ref(null);
 const activeTab = ref('basic');
+/** 批量审核时的待审核行列表，为空表示单条审核 */
+const batchRows = ref([]);
 
 const hasTabs = props.showProjectInfo || props.processViewName || props.auditRecordsViewName;
 
@@ -310,7 +312,15 @@ async function loadAuditRecords() {
 
 // ---------- 对话框操作 ----------
 
-async function showDialog(val, formData = {}) {
+/**
+ * @param {boolean} val - 是否打开
+ * @param {Object} formData - 当前行数据（单条时为该行，批量时为首行用于展示/退回模式判断）
+ * @param {Array} [batchRowsParam] - 批量审核时的所有行；传入且 length>0 时为批量模式
+ * @param {number} [initialAuditResult] - 预选审核结果（来自下拉选择：PASS/NOTPASS/BACK），仅非退回模式生效
+ */
+async function showDialog(val, formData = {}, batchRowsParam = [], initialAuditResult = null) {
+  batchRows.value = Array.isArray(batchRowsParam) && batchRowsParam.length > 0 ? batchRowsParam : [];
+
   if (formData !== null) {
     const formKeys = Object.keys(form);
     formKeys.forEach((key) => delete form[key]);
@@ -322,11 +332,19 @@ async function showDialog(val, formData = {}) {
   // 已通过的记录进入退回模式
   isRecallMode.value = formData?.isAudit === CONSTANT.AUDIT_STATUS.PASS;
   if (isRecallMode.value) {
-    defaultProps.dlgTitle = props.recallTitle;
+    defaultProps.dlgTitle = batchRows.value.length > 0
+      ? `${props.recallTitle}（已选 ${batchRows.value.length} 条）`
+      : props.recallTitle;
     form.auditResult = CONSTANT.AUDIT_STATUS.BACK;
     form.auditReason = CONSTANT.AUDIT_STATUS.BACKNAME;
   } else {
-    defaultProps.dlgTitle = props.dlgTitle;
+    defaultProps.dlgTitle = batchRows.value.length > 0
+      ? `${props.dlgTitle}（已选 ${batchRows.value.length} 条）`
+      : props.dlgTitle;
+    if (initialAuditResult != null && auditResultTextMap[initialAuditResult] !== undefined) {
+      form.auditResult = initialAuditResult;
+      form.auditReason = auditResultTextMap[initialAuditResult];
+    }
   }
 
   // 设置流程 Tab 的过滤条件
@@ -373,7 +391,9 @@ async function confirm(_option, type) {
     return;
   }
 
-  if (!form.id) {
+  const rowsToSubmit = batchRows.value.length > 0 ? batchRows.value : [form];
+  const hasInvalidId = rowsToSubmit.some((r) => !r?.id && r?.id !== 0);
+  if (hasInvalidId) {
     ElMessage.error('缺少主键ID，无法保存');
     return;
   }
@@ -391,27 +411,35 @@ async function confirm(_option, type) {
     }
   }
 
-  const saveData = {
-    ...form,
-    isAudit: form.auditResult,
-    reason: form.auditReason,
-    verifyUserId: parseInt(verifyUserId, 10),
-  };
+  const isAudit = form.auditResult;
+  const reason = form.auditReason;
+  const verifyUserIdInt = parseInt(verifyUserId, 10);
 
   try {
-    const resInfo = await internshipProcessAPI.auditProcess(saveData);
-
-    if (resInfo && resInfo.message === 'successful') {
-      const resultText = auditResultTextMap[form.auditResult] || '未知';
-      ElMessage.success(`审核完成：${resultText}`);
-
-      emit('success', form);
-      if (type === 'stop') {
-        dlgBasicRef.value?.showDialog(false, form);
-      }
-    } else {
-      ElMessage.warning(resInfo?.message || '保存失败');
+    let successCount = 0;
+    for (const row of rowsToSubmit) {
+      const saveData = {
+        id: row.id,
+        isAudit,
+        reason,
+        verifyUserId: verifyUserIdInt,
+      };
+      const resInfo = await internshipProcessAPI.auditProcess(saveData);
+      if (resInfo && resInfo.message === 'successful') successCount += 1;
     }
+
+    const resultText = auditResultTextMap[form.auditResult] || '未知';
+    if (rowsToSubmit.length > 1) {
+      ElMessage.success(`批量审核完成：${resultText}，成功 ${successCount}/${rowsToSubmit.length} 条`);
+    } else {
+      ElMessage.success(`审核完成：${resultText}`);
+    }
+
+    emit('success', form);
+    if (type === 'stop') {
+      dlgBasicRef.value?.showDialog(false, form);
+    }
+    batchRows.value = [];
   } catch (error) {
     console.error('保存审核数据失败:', error);
   }
