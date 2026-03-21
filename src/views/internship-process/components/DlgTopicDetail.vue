@@ -49,6 +49,7 @@ import DlgBasic from '@/components/DlgBasic.vue';
 import { ElMessage } from 'element-plus';
 import listAPI from '@/api/list';
 import CONSTANT from '@/utils/constant';
+import internshipProcessAPI from '@/api/internshipProcess';
 
 defineOptions({
   name: 'DlgTopicDetail',
@@ -170,20 +171,55 @@ async function handleConfirm() {
     teacherId,
     internshipId,
     name: (form.name || '').trim(),
-    // 后端表 RelTeacherStudent 使用 remarks 字段保存题目详情
+    // 后端表 RelTitleTeacher 使用 remarks 字段保存题目详情
     remarks: (form.topicDetail || '').trim(),
   };
 
   if (isEditMode.value && currentRowId.value != null) {
     saveData.id = currentRowId.value;
   } else {
-    saveData.stuId = saveData.stuId ?? 0;
+    // 新增模式：初始化当前审核级别
     saveData.currentVerifyTypeId = internshipSrc?.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY
       ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
       : CONSTANT.VERIFY_LEVEL.ONE_VERIFY;
   }
 
-  const res = await listAPI.editOneNode('RelTeacherStudent', saveData);
+  const res = await listAPI.editOneNode('RelTitleTeacher', saveData);
+  if (!isEditMode.value && res && res.message === 'successful' && res.data?.id) {
+    // 项目选择弹窗中 id 可能是 internshipId，真实流程ID通常在 processId 或 realId
+    const processId = internshipSrc?.processId ?? internshipSrc?.realId ?? null;
+    const activateParams = {
+      processId,
+      relationId: res.data.id,
+      tableName: 'RelTitleTeacher',
+      createUserId: userInfo.value?.id,
+    };
+    if (!activateParams.processId) {
+      ElMessage.warning('保存成功，但未获取到流程ID，列表可能暂时无法显示');
+    } else if (activateParams.createUserId) {
+      try {
+        const queryRes = await listAPI.getSomeRecords({
+          keyWords: 'MainVerifyProcess',
+          searchKey: {
+            processId: activateParams.processId,
+            relationId: activateParams.relationId,
+            tableName: activateParams.tableName,
+          },
+          pageInfo: { page: 1, size: 1 },
+        });
+        const existingRecords = queryRes?.data?.records || queryRes?.data?.content || [];
+        if (existingRecords.length === 0) {
+          const activateRes = await internshipProcessAPI.activateProcess(activateParams);
+          if (!activateRes || activateRes.message !== 'successful') {
+            ElMessage.warning(activateRes?.message || '保存成功，但激活审核流程失败，列表可能暂时无法显示');
+          }
+        }
+      } catch (error) {
+        console.error('激活题目申报流程失败:', error);
+        ElMessage.warning('保存成功，但激活审核流程异常，列表可能暂时无法显示');
+      }
+    }
+  }
   if (res && res.message === 'successful') {
     ElMessage.success(isEditMode.value ? '修改成功' : '保存成功');
     emit('success', saveData);

@@ -18,7 +18,7 @@
     <template #dialogs>
       <DlgTopicDetail ref="dlgTopicDetailRef" :current-internship="currentInternship" @close-dialog="handleTopicDetailClose" @success="handleTopicDetailSuccess" />
       <!-- 审核进度查看（仿照实习计划制定） -->
-      <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" key-words="ViewVerifyProcessRelTeacherStudent" />
+      <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId" :process-info="currentRow" key-words="ViewVerifyProcessRelTitleTeacher" />
     </template>
   </InternshipPostHeaderPage>
 </template>
@@ -57,10 +57,8 @@ const isMore1Disabled = computed(() => headerPageRef.value?.isMore1Disabled?.val
 
 function buildSearchKey(baseSearchKey) {
   return {
-    processTypeCode: CONSTANT.PROCESS_TYPE.INTERNAL_TEACHER_DECLARE_TOPIC,
     internshipId: baseSearchKey.internshipId,
-    tableName: 'RelTeacherStudent',
-    createUserId: userInfo.value?.id,
+    teacherId: userInfo.value?.id,
   };
 }
 
@@ -86,7 +84,7 @@ const defaultDTLProps = computed(() => ({
         return isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
       },
     },
-    keyWord: { edit: 'RelTeacherStudent', view: 'ViewVerifyProcessRelTeacherStudentMerge' },
+    keyWord: { edit: 'RelTitleTeacher', view: 'ViewRelTitleTeacher' },
     allTableColumns: [
       { id: 1, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
       { id: 2, showName: '题目名称', tableColumnName: 'name', sortable: true },
@@ -117,8 +115,8 @@ function handleAppendClick(cur) {
 function handleEditClick(row) {
   const editable = row.isAudit === null || row.isAudit === undefined ||
     row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK;
-  // Merge 视图中 row.id = MainVerifyProcess.id，需要用 relationId 作为业务记录 ID
-  const topicRow = { ...row, id: row.relationId };
+  const relationId = row?.relationId ?? row?.relation_id ?? row?.id;
+  const topicRow = { ...row, id: relationId };
   dlgTopicDetailRef.value?.showDialog(true, {}, topicRow, currentInternship.value, !editable);
 }
 
@@ -127,12 +125,11 @@ function handleSubmitClick(row) {
     ElMessage.warning('该记录已提交或已审核，不能再次提交');
     return;
   }
-  // Merge 视图中 row.id 就是 MainVerifyProcess.id
   const STATUS =
     row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
       ? CONSTANT.AUDIT_STATUS.PASS
       : CONSTANT.AUDIT_STATUS.SUBMIT;
-  updateVerifyProcess(row.id, STATUS);
+  updateVerifyProcess(row, STATUS);
 }
 
 async function handleDeleteClick(rows) {
@@ -147,9 +144,12 @@ async function handleDeleteClick(rows) {
     return;
   }
   try {
-    // Merge 视图中 row.id = MainVerifyProcess.id, row.relationId = RelTeacherStudent.id
-    const verifyProcessIds = list.map((r) => r.id).filter(Boolean);
-    const relationIds = list.map((r) => r.relationId).filter(Boolean);
+    const verifyProcessIds = list
+      .map((r) => r?.verifyProcessId ?? r?.verify_process_id)
+      .filter(Boolean);
+    const relationIds = list
+      .map((r) => r?.relationId ?? r?.relation_id ?? r?.id)
+      .filter(Boolean);
 
     if (verifyProcessIds.length > 0) {
       const res = await listAPI.delOneOrManyNodes('MainVerifyProcess', verifyProcessIds);
@@ -159,7 +159,7 @@ async function handleDeleteClick(rows) {
       }
     }
     if (relationIds.length > 0) {
-      const res = await listAPI.delOneOrManyNodes('RelTeacherStudent', relationIds);
+      const res = await listAPI.delOneOrManyNodes('RelTitleTeacher', relationIds);
       if (!res || res.message !== 'successful') {
         ElMessage.error(res?.message || '删除记录失败');
         return;
@@ -175,13 +175,42 @@ async function handleDeleteClick(rows) {
 
 function handleViewClick(rowOrArray) {
   const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
-  // Merge 视图中 row.id = MainVerifyProcess.id, row.relationId = RelTeacherStudent.id
-  currentRow.value = row ? { ...row } : {};
+  const relationId = row?.relationId ?? row?.relation_id ?? row?.id;
+  currentRow.value = row ? { ...row, relationId } : {};
   showProgressDialog.value = true;
 }
 
-async function updateVerifyProcess(id, isAudit) {
+async function resolveVerifyProcessId(row) {
+  const directId = row?.verifyProcessId ?? row?.verify_process_id;
+  if (directId != null) return directId;
+
+  const relationId = row?.relationId ?? row?.relation_id ?? row?.id;
+  if (relationId == null) return null;
+
   try {
+    const queryRes = await listAPI.getSomeRecords({
+      keyWords: 'MainVerifyProcess',
+      searchKey: {
+        relationId,
+        tableName: 'RelTitleTeacher',
+      },
+      pageInfo: { page: 1, size: 1 },
+    });
+    const records = queryRes?.data?.records || queryRes?.data?.content || [];
+    return records[0]?.id ?? null;
+  } catch (error) {
+    console.error('查询流程记录失败:', error);
+    return null;
+  }
+}
+
+async function updateVerifyProcess(row, isAudit) {
+  try {
+    const id = await resolveVerifyProcessId(row);
+    if (id == null) {
+      ElMessage.warning('未找到流程记录，暂时不能提交');
+      return;
+    }
     const resInfo = await listAPI.editOneNode('MainVerifyProcess', { id, isAudit });
     if (resInfo && resInfo.message === 'successful') {
       ElMessage.success('提交成功');
