@@ -21,7 +21,7 @@
         v-model="showProgressDialog"
         :main-internship-id="currentRow.internshipId"
         :process-info="currentRow"
-        key-words="ViewVerifyProcessRelTeacherStudent"
+        key-words="ViewVerifyProcessRelTitleTeacher"
       />
     </template>
   </InternshipPostHeaderPage>
@@ -83,7 +83,7 @@ const defaultDTLProps = computed(() => ({
       visible: { show: true, type: 'primary', name: '查看审核进度' },
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
     },
-    keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelTeacherStudentMerge' },
+    keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelTitleTeacherMerge' },
     allTableColumns: [
       { id: 1, showName: '申报教师', tableColumnName: 'teacherName', sortable: true },
       { id: 2, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
@@ -120,7 +120,7 @@ async function handleEditClick(row) {
 
   try {
     const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewRelTeacherStudent',
+      keyWords: 'ViewRelTitleTeacher',
       pageInfo: { page: 1, size: 1 },
       searchKey: { id: topicId },
     });
