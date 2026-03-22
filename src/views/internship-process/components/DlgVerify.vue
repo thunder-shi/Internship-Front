@@ -129,7 +129,7 @@ const activeTab = ref('basic');
 /** 批量审核时的待审核行列表，为空表示单条审核 */
 const batchRows = ref([]);
 
-const hasTabs = props.showProjectInfo || props.processViewName || props.auditRecordsViewName;
+const hasTabs = !!(props.showProjectInfo || props.processViewName || props.auditRecordsViewName);
 
 const isRecallMode = ref(false);
 

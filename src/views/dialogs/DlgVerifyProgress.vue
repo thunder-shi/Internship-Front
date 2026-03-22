@@ -396,11 +396,18 @@ async function supplementReturnRecords(records) {
   const relationId = records[0]?.relationId || props.processInfo?.relationId;
   if (!relationId) return records;
 
+  // 必须加 tableName 过滤，否则不同业务表恰好存在相同 relationId 时会跨表污染
+  const tableName = records[0]?.tableName || props.processInfo?.tableName;
+  if (!tableName) {
+    console.warn('supplementReturnRecords: 无法确定 tableName，跳过补充查询以避免跨表污染');
+    return records;
+  }
+
   try {
     const res = await listAPI.getSomeRecords({
       keyWords: 'MainVerifyProcess',
       pageInfo: { page: 1, size: 100 },
-      searchKey: { relationId: relationId },
+      searchKey: { relationId: relationId, tableName: tableName },
       sort: { properties: 'id', direction: 'ASC' }
     });
     if (res?.data?.content?.length > 0) {
