@@ -1,17 +1,38 @@
 <template>
-  <InternshipPostHeaderPage ref="headerPageRef" :page-title="pageTitle" :no-project-message="noProjectMessage"
-    :pending-select-message="pendingSelectMessage" :project-select-search-key="projectSelectSearchKey"
-    :project-select-reg-key="projectSelectRegKey" :default-d-t-l-props="defaultDTLProps"
-    :build-search-key="buildSearchKey" :is-company-user="isCompanyUser" @append-click="handleAppendClick"
-    @edit-click="handleEditClick" @delete-click="handleDeleteClick" @audit-click="handleAuditClick"
-    @view-click="handleViewClick" @project-selected="handleProjectSelected" @submit-click="handleSubmitClick">
+  <InternshipPostHeaderPage
+    ref="headerPageRef"
+    :page-title="pageTitle"
+    :no-project-message="noProjectMessage"
+    :pending-select-message="pendingSelectMessage"
+    :project-select-search-key="projectSelectSearchKey"
+    :project-select-reg-key="projectSelectRegKey"
+    :default-d-t-l-props="defaultDTLProps"
+    :build-search-key="buildSearchKey"
+    :is-company-user="isCompanyUser"
+    @append-click="handleAppendClick"
+    @edit-click="handleEditClick"
+    @delete-click="handleDeleteClick"
+    @audit-click="handleAuditClick"
+    @view-click="handleViewClick"
+    @project-selected="handleProjectSelected"
+    @submit-click="handleSubmitClick"
+    @more2-click="handleMore2Click"
+  >
     <!-- 岗位详情对话框（新增/编辑/审核） -->
     <template #dialogs>
-      <DlgPostDetail ref="dlgPostDetail" :current-internship="currentInternship" @close-dialog="handlePostDetailClose"
-        @success="handlePostDetailSuccess" />
+      <DlgPostDetail
+        ref="dlgPostDetail"
+        :current-internship="currentInternship"
+        @close-dialog="handlePostDetailClose"
+        @success="handlePostDetailSuccess"
+      />
       <!-- 审核进度查看对话框 -->
-      <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
-        :process-info="currentRow" key-words="ViewVerifyProcessInternshipPost" />
+      <DlgVerifyProgress
+        v-model="showProgressDialog"
+        :main-internship-id="currentRow.internshipId"
+        :process-info="currentRow"
+        key-words="ViewVerifyProcessInternshipPost"
+      />
       <!-- 审核对话框（仅审核页面使用） -->
       <slot name="audit-dialog"></slot>
     </template>
@@ -19,7 +40,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue';
+import { reactive, ref, computed, unref } from 'vue';
 import moment from 'moment';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgPostDetail from '@/views/internship-process/components/DlgPostDetail.vue';
@@ -30,62 +51,67 @@ const props = defineProps({
   // 页面标题
   pageTitle: {
     type: String,
-    required: true
+    required: true,
   },
   // 无项目时的提示信息
   noProjectMessage: {
     type: String,
-    required: true
+    required: true,
   },
   // 待选择时的提示信息
   pendingSelectMessage: {
     type: String,
-    default: '当前实习项目：待选择'
+    default: '当前实习项目：待选择',
   },
   // 按钮配置（computed 函数）
   buttonPropsFn: {
     type: Function,
-    required: true
+    required: true,
   },
   // 按钮条件配置
   buttonCondition: {
     type: Object,
-    default: () => ({})
+    default: () => ({}),
   },
   // 查询条件构建函数（用于添加额外的查询条件，如 isAudit）
   buildSearchKey: {
     type: Function,
-    default: (baseSearchKey) => baseSearchKey
+    default: (baseSearchKey) => baseSearchKey,
   },
   // 客户端过滤函数
   clientFilterFn: {
     type: Function,
-    default: null
+    default: null,
   },
   // 是否是企业用户（用于查询条件）
   isCompanyUser: {
     type: Boolean,
-    default: false
+    default: false,
   },
   // 流程类型代码（用于获取实习项目列表）
   processTypeCode: {
     type: String,
-    default: () => CONSTANT.PROCESS_TYPE.EXTERNAL_ENTERPRISE_POST_DECLARATION
+    default: () => CONSTANT.PROCESS_TYPE.EXTERNAL_ENTERPRISE_POST_DECLARATION,
   },
   // 关键字配置
   keyWord: {
     type: Object,
-    default: () => ({ edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipPost' })
+    default: () => ({ edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipPostMerge' }),
   },
   // 初始搜索条件（传递给 DataTableList）
   initSearchWords: {
     type: Object,
-    default: () => ({})
+    default: () => ({}),
   },
   // 审核角色名称获取函数（传递给 DataTableList）
   getVerifyRoleName: {
     type: Function,
-    default: null
+    default: null,
+  },
+  // 合并进 DataTableList 的 someFlags（如 checkFlag: true 用于批量操作勾选项）
+  listSomeFlags: {
+    type: Object,
+    default: () => ({}),
   },
   // 表格列配置
   tableColumns: {
@@ -96,9 +122,9 @@ const props = defineProps({
       { id: 3, showName: '岗位名称', tableColumnName: 'internshipPostName', sortable: true },
       { id: 4, showName: '岗位人数', tableColumnName: 'allPersonNum', sortable: true },
       { id: 5, showName: '创建人', tableColumnName: 'createUserName' },
-      { id: 6, showName: '状态', tableColumnName: 'customize-status' }
-    ]
-  }
+      { id: 6, showName: '状态', tableColumnName: 'customize-status' },
+    ],
+  },
 });
 
 const emit = defineEmits([
@@ -109,6 +135,7 @@ const emit = defineEmits([
   'post-detail-close',
   'post-detail-success',
   'submit-click',
+  'more2-click',
 ]);
 
 const headerPageRef = ref(null);
@@ -122,17 +149,19 @@ const showProgressDialog = ref(false);
 
 // 创建响应式的 title 对象
 const titleObj = reactive({
-  mainTitle: props.pageTitle
+  mainTitle: props.pageTitle,
 });
 
 // 获取当前实习项目（从 headerPageRef）
+// 子组件 defineExpose 的 ref 在父级访问时可能仍是 Ref，也可能已被解包，用 unref 兼容两种形态
 const currentInternship = computed(() => {
-  return headerPageRef.value?.currentInternship?.value || null;
+  const exposed = headerPageRef.value?.currentInternship;
+  return unref(exposed) ?? null;
 });
 
 // 获取 isMore1Disabled（从 headerPageRef）
 const isMore1Disabled = computed(() => {
-  return headerPageRef.value?.isMore1Disabled?.value || false;
+  return unref(headerPageRef.value?.isMore1Disabled) ?? false;
 });
 
 // 实习项目选择对话框的查询关键字（用于 getSomeRecords，包含时间条件）
@@ -141,14 +170,14 @@ const projectSelectSearchKey = computed(() => {
   return {
     processTypeCode: props.processTypeCode,
     startTime: currentTime,
-    endTime: currentTime
+    endTime: currentTime,
   };
 });
 
 // 实习项目选择对话框的查询操作符（用于 getSomeRecords）
 const projectSelectRegKey = computed(() => ({
   startTime: CONSTANT.SEARCH_OPERATOR.LE, // startTime <= 当前时间
-  endTime: CONSTANT.SEARCH_OPERATOR.GE    // endTime >= 当前时间
+  endTime: CONSTANT.SEARCH_OPERATOR.GE, // endTime >= 当前时间
 }));
 
 // 处理项目选择后的回调
@@ -171,6 +200,11 @@ function handleEditClick(row) {
 // 处理提交按钮点击（转发给父组件）
 function handleSubmitClick(row) {
   emit('submit-click', row);
+}
+
+// 批量操作（如批量提交，参数为当前勾选行）
+function handleMore2Click(rows) {
+  emit('more2-click', rows);
 }
 
 // 处理删除按钮点击（转发给父组件）
@@ -215,6 +249,7 @@ const defaultDTLProps = computed(() => {
     title: titleObj,
     someFlags: {
       autoInit: false,
+      ...props.listSomeFlags,
     },
     clientFilterFn: props.clientFilterFn,
     enableAuditStatusCustom: true,
@@ -239,6 +274,6 @@ defineExpose({
   baseListRef: computed(() => headerPageRef.value?.baseListRef),
   dlgPostDetail,
   currentInternship,
-  updateSearchWordsAndRefresh: () => headerPageRef.value?.updateSearchWordsAndRefresh()
+  updateSearchWordsAndRefresh: () => headerPageRef.value?.updateSearchWordsAndRefresh(),
 });
 </script>

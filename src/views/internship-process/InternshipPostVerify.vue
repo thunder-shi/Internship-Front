@@ -21,7 +21,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, unref } from 'vue';
 import InternshipPostPage from '@/views/master-page/InternshipPostPage.vue';
 import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
@@ -66,7 +66,9 @@ function handleEditClick(row) {
 }
 
 function handleVerifySuccess() {
-  internshipPostPageRef.value?.baseListRef?.initDataList();
+  // InternshipPostPage 列表 someFlags.autoInit 为 false 时，必须传 true 才会真正请求数据
+  const baseList = unref(internshipPostPageRef.value?.baseListRef);
+  baseList?.initDataList(true);
 }
 
 function handlePostDetailClose() {}

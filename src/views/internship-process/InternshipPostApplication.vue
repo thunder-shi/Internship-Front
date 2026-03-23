@@ -7,16 +7,18 @@
     :button-condition="buttonCondition"
     :build-search-key="buildSearchKey"
     :is-company-user="isCompanyUser"
+    :list-some-flags="listSomeFlags"
     @append-click="handleAppendClick"
-    @edit-click="handleEditClick"
     @delete-click="handleDeleteClick"
+    @submit-click="handleRowSubmitClick"
+    @more2-click="handleBatchSubmitClick"
     @post-detail-close="handlePostDetailClose"
     @post-detail-success="handlePostDetailSuccess"
   />
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, unref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostPage from '@/views/master-page/InternshipPostPage.vue';
@@ -29,40 +31,74 @@ defineOptions({
 
 const internshipPostPageRef = ref(null);
 
-// Vuex store
-const store = useStore();
+/** 列表多选，用于批量提交 */
+const listSomeFlags = { checkFlag: true };
 
-// 获取用户信息和角色
-const userInfo = computed(() => store.getters.userInfo || {});
+const store = useStore();
 const roles = computed(() => store.getters.roles || []);
 
-// 判断是否是企业用户（企业管理员或企业导师）
 const isCompanyUser = computed(() => {
-  return roles.value.some(role => 
-    role === CONSTANT.ROLE_TABLE.COMPANY_ADMIN || role === CONSTANT.ROLE_TABLE.COMPANY_TUTOR
+  return roles.value.some(
+    (role) =>
+      role === CONSTANT.ROLE_TABLE.COMPANY_ADMIN || role === CONSTANT.ROLE_TABLE.COMPANY_TUTOR
   );
 });
 
-// 按钮配置函数
+/** 隐藏修改；行内提交 + 顶部批量提交 */
 function getButtonProps(currentInternship, isMore1Disabled) {
   return {
-    update: { show: true },
+    update: { show: false },
     create: { show: true, disabled: !currentInternship || !currentInternship.internshipId },
+    submit: { show: true, type: 'warning', name: '提交' },
     delete: { show: true },
     visible: { show: true, type: 'primary', name: '查看进度' },
-    more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled }
+    more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled },
+    more2: { show: true, name: '批量提交', type: 'primary' },
   };
 }
 
-// 按钮条件配置（update 按钮始终显示，由 handleEditClick 控制只读模式）
-const buttonCondition = {};
+/** 操作列「提交」仅对待提交行展示 */
+const buttonCondition = {
+  submit: (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE,
+};
 
-// 构建查询条件（不添加 isAudit 过滤）
 function buildSearchKey(baseSearchKey) {
   return baseSearchKey;
 }
 
-// 处理新增按钮点击
+function refreshList() {
+  const baseList = unref(internshipPostPageRef.value?.baseListRef);
+  baseList?.initDataList(true);
+}
+
+/**
+ * 仅更新 MainVerifyProcess，不调业务保存；返回成功条数
+ * @param {Array} pendingRows 已确认为待提交的行
+ */
+async function submitMainVerifyRows(pendingRows) {
+  let successCount = 0;
+  for (const row of pendingRows) {
+    const status =
+      row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
+        ? CONSTANT.AUDIT_STATUS.PASS
+        : CONSTANT.AUDIT_STATUS.SUBMIT;
+    try {
+      const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
+        id: row.id,
+        isAudit: status,
+      });
+      if (resInfo && resInfo.message === 'successful') {
+        successCount += 1;
+      } else {
+        ElMessage.warning(resInfo?.message || '更新审核状态失败');
+      }
+    } catch (error) {
+      console.error('提交失败:', error);
+    }
+  }
+  return successCount;
+}
+
 function handleAppendClick(currentInternship) {
   if (!currentInternship || !currentInternship.internshipId) {
     ElMessage.warning('请先选择实习项目');
@@ -72,27 +108,49 @@ function handleAppendClick(currentInternship) {
   dlgPostDetail?.showDialog(true, {});
 }
 
-// 处理修改按钮点击（已提交或审核中的记录以只读模式打开）
-function handleEditClick(row) {
-  const isAudit = row?.isAudit;
-  const editable = isAudit === null || isAudit === undefined ||
-    isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
-  const dlgPostDetail = internshipPostPageRef.value?.dlgPostDetail;
-  dlgPostDetail?.showDialog(true, {}, row, !editable);
+/** 行内提交：与 useAssignmentActions.handleSubmitClick 一致 */
+async function handleRowSubmitClick(row) {
+  if (!row) return;
+  if (row.isAudit !== CONSTANT.AUDIT_STATUS.SAVE) {
+    ElMessage.warning('该记录已提交，不能再次提交');
+    return;
+  }
+  const successCount = await submitMainVerifyRows([row]);
+  if (successCount > 0) {
+    ElMessage.success('提交成功');
+    refreshList();
+  }
 }
 
-// 处理删除按钮点击
+async function handleBatchSubmitClick(rows) {
+  const rowsArray = Array.isArray(rows) ? rows : [rows].filter(Boolean);
+  if (!rowsArray.length) {
+    ElMessage.warning('请先勾选需要提交的记录');
+    return;
+  }
+
+  const pendingRows = rowsArray.filter((row) => row && row.isAudit === CONSTANT.AUDIT_STATUS.SAVE);
+  if (!pendingRows.length) {
+    ElMessage.warning(`选中的记录中没有"${CONSTANT.AUDIT_STATUS.SAVENAME}"状态可以提交的记录`);
+    return;
+  }
+
+  const successCount = await submitMainVerifyRows(pendingRows);
+  if (successCount > 0) {
+    ElMessage.success(`批量提交完成，共成功提交 ${successCount} 条记录`);
+    refreshList();
+  }
+}
+
 async function handleDeleteClick(rows) {
-  // 将 rows 转换为数组
   const rowsToDelete = Array.isArray(rows) ? rows : [rows];
-  
+
   if (!rowsToDelete || rowsToDelete.length === 0) {
     ElMessage.warning('请选择要删除的记录');
     return;
   }
 
-  // 1. 检查状态：只有"待提交"（-1）状态的项目才可以删除
-  const invalidRows = rowsToDelete.filter(row => {
+  const invalidRows = rowsToDelete.filter((row) => {
     const isAudit = row.isAudit;
     return isAudit !== CONSTANT.AUDIT_STATUS.SAVE;
   });
@@ -103,11 +161,10 @@ async function handleDeleteClick(rows) {
   }
 
   try {
-    // 收集需要删除的 ID
     const verifyProcessIds = [];
     const internshipPostIds = [];
 
-    rowsToDelete.forEach(row => {
+    rowsToDelete.forEach((row) => {
       if (row.id) {
         verifyProcessIds.push(row.id);
       }
@@ -117,43 +174,37 @@ async function handleDeleteClick(rows) {
       }
     });
 
-    // 2. 先删除 MainVerifyProcess 表中的记录（流程表）
     if (verifyProcessIds.length > 0) {
-      const deleteVerifyProcessRes = await listAPI.delOneOrManyNodes('MainVerifyProcess', verifyProcessIds);
+      const deleteVerifyProcessRes = await listAPI.delOneOrManyNodes(
+        'MainVerifyProcess',
+        verifyProcessIds
+      );
       if (!deleteVerifyProcessRes || deleteVerifyProcessRes.message !== 'successful') {
         ElMessage.error(deleteVerifyProcessRes?.message || '删除流程记录失败');
         return;
       }
     }
 
-    // 3. 再删除 MainInternshipPost 表中的记录（岗位表）
     if (internshipPostIds.length > 0) {
-      const deletePostRes = await listAPI.delOneOrManyNodes('MainInternshipPost', internshipPostIds);
+      const deletePostRes = await listAPI.delOneOrManyNodes(
+        'MainInternshipPost',
+        internshipPostIds
+      );
       if (!deletePostRes || deletePostRes.message !== 'successful') {
         ElMessage.error(deletePostRes?.message || '删除岗位记录失败');
         return;
       }
     }
     ElMessage.success('删除成功');
-    // 刷新数据列表（强制刷新）
-    const baseListRef = internshipPostPageRef.value?.baseListRef;
-    baseListRef?.initDataList(true);
+    refreshList();
   } catch (error) {
     console.error('删除失败:', error);
   }
 }
 
-// 处理岗位详情对话框关闭
-function handlePostDetailClose() {
-  // 可以在这里处理关闭后的逻辑
-}
+function handlePostDetailClose() {}
 
-// 处理岗位详情保存成功
 function handlePostDetailSuccess() {
-  // 公共页面已经处理了刷新，这里可以添加额外的逻辑
+  refreshList();
 }
 </script>
-
-
-
-
