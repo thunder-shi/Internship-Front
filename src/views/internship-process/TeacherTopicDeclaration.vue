@@ -25,7 +25,7 @@
 
 <script setup>
 import { reactive, ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgTopicDetail from './components/DlgTopicDetail.vue';
@@ -81,10 +81,11 @@ const defaultDTLProps = computed(() => ({
     buttonCondition: {
       submit: (row) => {
         const isAudit = row?.isAudit ?? row?.is_audit;
-        return isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK;
+        return isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK ||
+          (isAudit === CONSTANT.AUDIT_STATUS.PASS && row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY);
       },
     },
-    keyWord: { edit: 'RelTitleTeacher', view: 'ViewRelTitleTeacher' },
+    keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelTitleTeacherMerge' },
     allTableColumns: [
       { id: 1, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
       { id: 2, showName: '题目名称', tableColumnName: 'name', sortable: true },
@@ -120,7 +121,28 @@ function handleEditClick(row) {
   dlgTopicDetailRef.value?.showDialog(true, {}, topicRow, currentInternship.value, !editable);
 }
 
-function handleSubmitClick(row) {
+async function handleSubmitClick(row) {
+  // 自动通过的记录：提供退回选项
+  if (row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
+      row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+    try {
+      await ElMessageBox.confirm('该记录为自动通过，是否退回以重新编辑？', '提示', {
+        confirmButtonText: '退回', cancelButtonText: '取消', type: 'warning',
+      });
+    } catch { return; }
+    try {
+      const res = await listAPI.editOneNode('MainVerifyProcess', {
+        id: row.id, isAudit: CONSTANT.AUDIT_STATUS.SAVE, reason: null, verifyUserName: null, verifyUserId: null,
+      });
+      if (res?.message === 'successful') {
+        ElMessage.success('退回成功，可以修改后重新提交');
+        headerPageRef.value?.baseListRef?.initDataList?.(true);
+      } else {
+        ElMessage.error(res?.message || '退回失败');
+      }
+    } catch (e) { console.error('退回失败:', e); }
+    return;
+  }
   if (row.isAudit !== CONSTANT.AUDIT_STATUS.SAVE && row.isAudit !== CONSTANT.AUDIT_STATUS.BACK) {
     ElMessage.warning('该记录已提交或已审核，不能再次提交');
     return;
@@ -129,7 +151,7 @@ function handleSubmitClick(row) {
     row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
       ? CONSTANT.AUDIT_STATUS.PASS
       : CONSTANT.AUDIT_STATUS.SUBMIT;
-  updateVerifyProcess(row, STATUS);
+  updateVerifyProcess(row.id, STATUS);
 }
 
 async function handleDeleteClick(rows) {
@@ -144,12 +166,9 @@ async function handleDeleteClick(rows) {
     return;
   }
   try {
-    const verifyProcessIds = list
-      .map((r) => r?.verifyProcessId ?? r?.verify_process_id)
-      .filter(Boolean);
-    const relationIds = list
-      .map((r) => r?.relationId ?? r?.relation_id ?? r?.id)
-      .filter(Boolean);
+    // Merge view: row.id = VP ID, row.relationId = business record ID
+    const verifyProcessIds = list.map((r) => r.id).filter(Boolean);
+    const relationIds = list.map((r) => r.relationId).filter(Boolean);
 
     if (verifyProcessIds.length > 0) {
       const res = await listAPI.delOneOrManyNodes('MainVerifyProcess', verifyProcessIds);
@@ -180,37 +199,8 @@ function handleViewClick(rowOrArray) {
   showProgressDialog.value = true;
 }
 
-async function resolveVerifyProcessId(row) {
-  const directId = row?.verifyProcessId ?? row?.verify_process_id;
-  if (directId != null) return directId;
-
-  const relationId = row?.relationId ?? row?.relation_id ?? row?.id;
-  if (relationId == null) return null;
-
+async function updateVerifyProcess(id, isAudit) {
   try {
-    const queryRes = await listAPI.getSomeRecords({
-      keyWords: 'MainVerifyProcess',
-      searchKey: {
-        relationId,
-        tableName: 'RelTitleTeacher',
-      },
-      pageInfo: { page: 1, size: 1 },
-    });
-    const records = queryRes?.data?.records || queryRes?.data?.content || [];
-    return records[0]?.id ?? null;
-  } catch (error) {
-    console.error('查询流程记录失败:', error);
-    return null;
-  }
-}
-
-async function updateVerifyProcess(row, isAudit) {
-  try {
-    const id = await resolveVerifyProcessId(row);
-    if (id == null) {
-      ElMessage.warning('未找到流程记录，暂时不能提交');
-      return;
-    }
     const resInfo = await listAPI.editOneNode('MainVerifyProcess', { id, isAudit });
     if (resInfo && resInfo.message === 'successful') {
       ElMessage.success('提交成功');

@@ -6,7 +6,7 @@
  * 各页面只需传入差异化配置即可。
  */
 import { ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 
@@ -71,7 +71,18 @@ export function useAssignmentActions(getRefreshFn) {
     }
   }
 
-  function handleSubmitClick(row) {
+  async function handleSubmitClick(row) {
+    // 自动通过的记录：提供退回选项
+    if (row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
+        row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+      try {
+        await ElMessageBox.confirm('该记录为自动通过，是否退回以重新编辑？', '提示', {
+          confirmButtonText: '退回', cancelButtonText: '取消', type: 'warning',
+        });
+      } catch { return; }
+      await rollbackVerifyProcess(row.id);
+      return;
+    }
     if (row.isAudit != -1) {
       ElMessage.warning('该记录已提交，不能再次提交');
       return;
@@ -81,6 +92,29 @@ export function useAssignmentActions(getRefreshFn) {
         ? CONSTANT.AUDIT_STATUS.PASS
         : CONSTANT.AUDIT_STATUS.SUBMIT;
     updateVerifyProcess(row.id, STATUS);
+  }
+
+  async function rollbackVerifyProcess(id) {
+    try {
+      const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
+        id,
+        isAudit: CONSTANT.AUDIT_STATUS.SAVE,
+        reason: null,
+        verifyUserName: null,
+        verifyUserId: null,
+      });
+      if (resInfo && resInfo.message === 'successful') {
+        ElMessage.success('退回成功，可以修改后重新提交');
+        getRefreshFn()?.();
+        return true;
+      }
+      ElMessage.error(resInfo?.message || '退回失败');
+      return false;
+    } catch (error) {
+      console.error('退回失败:', error);
+      ElMessage.error('退回失败');
+      return false;
+    }
   }
 
   async function handleBatchSubmitClick(rows) {

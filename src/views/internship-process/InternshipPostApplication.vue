@@ -8,7 +8,9 @@
     :build-search-key="buildSearchKey"
     :is-company-user="isCompanyUser"
     :list-some-flags="listSomeFlags"
+    :get-verify-role-name="getVerifyRoleName"
     @append-click="handleAppendClick"
+    @edit-click="handleEditClick"
     @delete-click="handleDeleteClick"
     @submit-click="handleRowSubmitClick"
     @more2-click="handleBatchSubmitClick"
@@ -19,10 +21,11 @@
 
 <script setup>
 import { ref, computed, unref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostPage from '@/views/master-page/InternshipPostPage.vue';
 import CONSTANT from '@/utils/constant';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import listAPI from '@/api/list';
 
 defineOptions({
@@ -30,6 +33,7 @@ defineOptions({
 });
 
 const internshipPostPageRef = ref(null);
+const { getVerifyRoleName } = useVerifyFilter();
 
 /** 列表多选，用于批量提交 */
 const listSomeFlags = { checkFlag: true };
@@ -47,7 +51,7 @@ const isCompanyUser = computed(() => {
 /** 隐藏修改；行内提交 + 顶部批量提交 */
 function getButtonProps(currentInternship, isMore1Disabled) {
   return {
-    update: { show: false },
+    update: { show: true },
     create: { show: true, disabled: !currentInternship || !currentInternship.internshipId },
     submit: { show: true, type: 'warning', name: '提交' },
     delete: { show: true },
@@ -57,9 +61,11 @@ function getButtonProps(currentInternship, isMore1Disabled) {
   };
 }
 
-/** 操作列「提交」仅对待提交行展示 */
+/** 操作列按钮显示条件 */
 const buttonCondition = {
-  submit: (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE,
+  submit: (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE ||
+    (row?.isAudit === CONSTANT.AUDIT_STATUS.PASS && row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY),
+  update: (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row?.isAudit === CONSTANT.AUDIT_STATUS.BACK,
 };
 
 function buildSearchKey(baseSearchKey) {
@@ -108,9 +114,42 @@ function handleAppendClick(currentInternship) {
   dlgPostDetail?.showDialog(true, {});
 }
 
+function handleEditClick(row) {
+  if (!row) return;
+  const editable = row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK;
+  const editRow = { ...row, id: row.internshipPostId || row.relationId };
+  const dlgPostDetail = internshipPostPageRef.value?.dlgPostDetail;
+  dlgPostDetail?.showDialog(true, {}, editRow, !editable);
+}
+
 /** 行内提交：与 useAssignmentActions.handleSubmitClick 一致 */
 async function handleRowSubmitClick(row) {
   if (!row) return;
+  // 自动通过的记录：提供退回选项
+  if (row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
+      row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+    try {
+      await ElMessageBox.confirm('该记录为自动通过，是否退回以重新编辑？', '提示', {
+        confirmButtonText: '退回', cancelButtonText: '取消', type: 'warning',
+      });
+    } catch { return; }
+    try {
+      const res = await listAPI.editOneNode('MainVerifyProcess', {
+        id: row.id,
+        isAudit: CONSTANT.AUDIT_STATUS.SAVE,
+        reason: null,
+        verifyUserName: null,
+        verifyUserId: null,
+      });
+      if (res?.message === 'successful') {
+        ElMessage.success('退回成功，可以修改后重新提交');
+        refreshList();
+      } else {
+        ElMessage.error(res?.message || '退回失败');
+      }
+    } catch (e) { console.error('退回失败:', e); }
+    return;
+  }
   if (row.isAudit !== CONSTANT.AUDIT_STATUS.SAVE) {
     ElMessage.warning('该记录已提交，不能再次提交');
     return;
