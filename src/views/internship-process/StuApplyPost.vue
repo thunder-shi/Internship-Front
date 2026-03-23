@@ -113,7 +113,7 @@ async function querySelectedPost(internshipId, studentId) {
   }
   try {
     const response = await listAPI.getSomeRecords({
-      keyWords: 'ViewVerifyProcessRelStuInternship',
+      keyWords: 'ViewVerifyProcessRelStuInternshipPost',
       searchKey: {
         internshipId: internshipId,
         studentId: studentId
