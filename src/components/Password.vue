@@ -44,6 +44,11 @@ watch(
   }
 );
 
+// 用户输入时同步给父组件（仅 v-model 绑定，不触发 input 事件，input 事件专用于重置按钮）
+watch(password, (val) => {
+  emit('update:modelValue', val);
+});
+
 async function reset() {
   // if (disabled.value) return
   password.value = '000000';

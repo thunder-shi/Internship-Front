@@ -364,7 +364,10 @@ const mountDirective = (el, binding) => {
     // 如果没有响应式的 visible，使用 MutationObserver 监听 DOM 变化
     const observer = new MutationObserver(() => {
       if (getVisible()) {
-        setup()
+        // 仅在拖拽尚未绑定时才初始化，避免表单交互等 DOM 变化导致对话框重新居中
+        if (!el.__dialogDragCleanup__) {
+          setup()
+        }
       } else {
         cleanupEvents(el)
       }
