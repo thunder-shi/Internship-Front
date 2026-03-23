@@ -1,5 +1,8 @@
 <template>
   <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" :dlgbasic-spec-submit="handleSubmit" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+    <template #otherBtn>
+      <el-button v-if="showRollbackBtn" type="warning" @click="handleRollback">回 退</el-button>
+    </template>
     <template #mainForm>
       <div class="dlg-content-wrapper">
         <!-- 上半部分：基本信息表单 -->
@@ -31,7 +34,8 @@ import CONSTANT from '@/utils/constant';
 
 const props = defineProps({
   userDepartmentId: { type: [Number, String], default: null },
-  isSuperAdmin: { type: Boolean, default: false }
+  isSuperAdmin: { type: Boolean, default: false },
+  hideSubmit: { type: Boolean, default: false }
 });
 
 const emit = defineEmits(['update-record', 'close-dialog']);
@@ -48,6 +52,7 @@ const keyWord = ref('MainInternship');
 const processList = ref([]);
 const majorList = ref([]); // 存储已选择的专业列表
 const isInitializing = ref(false); // 标记是否正在初始化，避免触发"已修改"状态
+const showRollbackBtn = ref(false); // 是否显示回退按钮（无需审核自动通过的记录）
 
 const defaultProps = reactive({
   form: {},
@@ -174,9 +179,14 @@ async function showDialog(val, formData = {}) {
   // 判断是否允许修改：只有 SAVE(-1) 或 BACK(3) 状态才能修改
   const canEdit = formData.isAudit === CONSTANT.AUDIT_STATUS.SAVE || formData.isAudit === CONSTANT.AUDIT_STATUS.BACK;
 
+  // 判断是否为无需审核系统自动通过的记录
+  const isAutoApproved = formData.isAudit === CONSTANT.AUDIT_STATUS.PASS
+    && formData.reason && formData.reason.includes('系统自动通过');
+  showRollbackBtn.value = isAutoApproved;
+
   // 根据审核状态控制按钮显示
   defaultProps.footButtons.confirm.show = canEdit;
-  defaultProps.footButtons.submit.show = canEdit;
+  defaultProps.footButtons.submit.show = canEdit && !props.hideSubmit;
   tableListProps.defaultDTHProps.showTopButtons = canEdit;
   tableListProps.someFlags.operateShow = canEdit;
 
@@ -420,6 +430,47 @@ async function handleSubmit() {
   } else {
     ElMessage.warning('缺少流程ID，无法提交审核');
     return false;
+  }
+}
+
+/**
+ * 回退：将无需审核自动通过的记录退回到待提交状态，允许重新编辑
+ */
+async function handleRollback() {
+  try {
+    await ElMessageBox.confirm(
+      '是否回退以修改计划？',
+      '提示',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    );
+  } catch {
+    return; // 用户取消
+  }
+
+  try {
+    const res = await listAPI.editOneNode('MainVerifyProcess', {
+      id: form.id,
+      isAudit: CONSTANT.AUDIT_STATUS.SAVE,
+      reason: null,
+      verifyUserName: null,
+      verifyUserId: null
+    });
+    if (res?.message !== 'successful') {
+      ElMessage.error(res?.message || '退回失败');
+      return;
+    }
+    ElMessage.success('退回成功，可以修改后重新提交');
+
+    // 更新本地状态为可编辑
+    form.isAudit = CONSTANT.AUDIT_STATUS.SAVE;
+    form.reason = null;
+    showRollbackBtn.value = false;
+    defaultProps.footButtons.confirm.show = true;
+    defaultProps.footButtons.submit.show = !props.hideSubmit;
+    tableListProps.defaultDTHProps.showTopButtons = true;
+    tableListProps.someFlags.operateShow = true;
+  } catch (error) {
+    console.error('退回失败:', error);
   }
 }
 

@@ -72,7 +72,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, useAttrs, getCurrentInstance, useSlots } from 'vue';
+import { ref, reactive, computed, watch, onMounted, useAttrs, getCurrentInstance, useSlots } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus';
 import {
@@ -246,6 +246,11 @@ async function init() {
 
 // 立即执行初始化
 init();
+
+// 当 allTableColumns 变化时（如动态切换视图模式），重新同步 tableColumnItem
+watch(allTableColumns, () => {
+  createDynamicTableColumns();
+});
 // #region 动态生成头部列
 async function createDynamicTableColumns() {
   allTableColumns.value.forEach((e) => {

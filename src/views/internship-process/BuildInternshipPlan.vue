@@ -1,11 +1,11 @@
 <template>
   <div class="build-internship-plan-container">
     <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" ref="baseList" @append-click="appendClick"
-      @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick">
+      @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick" @submit-click="handleSubmitClick">
     </BaseList>
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
     <DlgInternshipDetail ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin"
-      @update-record="handleUpdateRecord" />
+      hide-submit @update-record="handleUpdateRecord" />
     <!-- 审核进度查看对话框 -->
     <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
       :process-info="currentRow" key-words="ViewVerifyProcessInternship" />
@@ -20,7 +20,7 @@
  * - 显示正在"实习计划制定"流程时间内的实习项目
  * - 项目创建者可以编辑计划信息
  * - 暂存：保存但不提交（isAudit = -1）
- * - 提交：提交审核（isAudit = 0）
+ * - 提交：行内提交审核（isAudit = 0），无需审核则系统自动通过
  * - 提交后显示查看进度按钮
  */
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
@@ -75,43 +75,9 @@ const showProgressDialog = ref(false);
 const { getVerifyRoleName } = useVerifyFilter();
 
 
-// 判断记录是否为系统自动通过
-const isAutoApproved = (row) => {
-  return row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
-    row.reason && row.reason.includes('系统自动通过');
-};
-
 // 处理编辑按钮点击事件
 // 所有状态均可打开弹窗查看，DlgInternshipDetail 内部根据 isAudit 控制按钮显隐
-// 系统自动通过的记录需先撤回再编辑
-const editClick = async (row) => {
-  if (isAutoApproved(row)) {
-    try {
-      await ElMessageBox.confirm(
-        '此记录为系统自动通过，撤回后可修改并重新提交，是否撤回？',
-        '撤回确认',
-        { confirmButtonText: '确定撤回', cancelButtonText: '取消', type: 'warning' }
-      );
-      // 撤回：重置审核状态为待提交
-      const res = await listAPI.editOneNode('MainVerifyProcess', {
-        id: row.id,
-        isAudit: CONSTANT.AUDIT_STATUS.SAVE,
-        reason: null,
-        verifyUserName: null,
-        verifyUserId: null
-      });
-      if (res?.message !== 'successful') {
-        ElMessage.error(res?.message || '撤回失败');
-        return;
-      }
-      ElMessage.success('撤回成功，请修改后重新提交');
-      // 更新本地行数据的审核状态
-      row.isAudit = CONSTANT.AUDIT_STATUS.SAVE;
-      row.reason = null;
-    } catch {
-      return; // 用户取消
-    }
-  }
+const editClick = (row) => {
   dlgMainInternship.value?.showDialog(true, row);
 };
 
@@ -161,7 +127,7 @@ const saveInternshipData = async (form, successMessage) => {
  * 新增项目确认函数
  * 创建项目后需要进入编辑页面配置流程列表
  * 与 BuildInternship.vue 中的实现完全一样
- * 
+ *
  * 同时处理新增和编辑两种情况：
  * - option === 'append': 新增模式，使用新增逻辑
  * - option === 'edit': 编辑模式，使用暂存逻辑
@@ -231,6 +197,61 @@ const handleDeleteClick = async (rows) => {
   }
 };
 
+// 行内提交按钮点击
+const handleSubmitClick = async (row) => {
+  if (!row) return;
+  // 自动通过的记录：提供退回选项
+  if (row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
+      row.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+    try {
+      await ElMessageBox.confirm('该记录为自动通过，是否退回以重新编辑？', '提示', {
+        confirmButtonText: '退回', cancelButtonText: '取消', type: 'warning',
+      });
+    } catch { return; }
+    try {
+      const res = await listAPI.editOneNode('MainVerifyProcess', {
+        id: row.id,
+        isAudit: CONSTANT.AUDIT_STATUS.SAVE,
+        reason: null,
+        verifyUserName: null,
+        verifyUserId: null,
+      });
+      if (res?.message === 'successful') {
+        ElMessage.success('退回成功，可以修改后重新提交');
+        baseList.value?.initDataList();
+      } else {
+        ElMessage.error(res?.message || '退回失败');
+      }
+    } catch (e) { console.error('退回失败:', e); }
+    return;
+  }
+  if (row.isAudit !== CONSTANT.AUDIT_STATUS.SAVE && row.isAudit !== CONSTANT.AUDIT_STATUS.BACK) {
+    ElMessage.warning('该记录已提交，不能再次提交');
+    return;
+  }
+
+  const isNoVerify = row.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY;
+  const status = isNoVerify ? CONSTANT.AUDIT_STATUS.PASS : CONSTANT.AUDIT_STATUS.SUBMIT;
+  const extraFields = isNoVerify
+    ? { verifyUserName: '系统', reason: '无需审核，系统自动通过' }
+    : {};
+
+  try {
+    const res = await listAPI.editOneNode('MainVerifyProcess', {
+      id: row.id,
+      isAudit: status,
+      ...extraFields
+    });
+    if (res?.message === 'successful') {
+      ElMessage.success(isNoVerify ? '提交成功，无需审核，已自动通过' : `提交成功，${CONSTANT.AUDIT_STATUS.SUBMITNAME}`);
+      baseList.value?.initDataList();
+    } else {
+      ElMessage.error(res?.message || '提交失败');
+    }
+  } catch (error) {
+    console.error('提交失败:', error);
+  }
+};
 
 const handleUpdateRecord = () => {
   baseList.value?.initDataList();
@@ -251,10 +272,15 @@ const defaultProps = computed(() => ({
     // 启用审核状态自定义显示（Merge View 提供 currentRoleName）
     enableAuditStatusCustom: true,
     getVerifyRoleName,
-    // 按钮始终显示，不可用时由点击事件拦截并提示
     buttonCondition: {},
     defaultDTHProps: {
-      buttonProps: { create: { show: true }, visible: { show: true, type: 'primary', name: '查看进度' }, update: { show: true, name: '编辑' }, delete: { show: true } },
+      buttonProps: {
+        create: { show: true },
+        visible: { show: true, type: 'primary', name: '查看进度' },
+        update: { show: true, name: '编辑' },
+        submit: { show: true, type: 'warning', name: '提交' },
+        delete: { show: true }
+      },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipMerge' },
       allTableColumns: [
         { id: 1, showName: '实习项目编号', theOrder: 1, tableColumnName: 'internshipCode' },

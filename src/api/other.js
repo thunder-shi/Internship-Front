@@ -68,6 +68,28 @@ const stuSelPost = async (studentId, oldPostId, newPostId) => {
   });
 };
 
+/**
+ * 学生选择题目
+ * @param {Number} studentId - 学生ID
+ * @param {Number} oldTopicId - 旧题目ID
+ * @param {Number} newTopicId - 新题目ID
+ */
+const stuSelTopic = async (studentId, oldTopicId, newTopicId) => {
+  const encryptedStudentId = await getEncryptKeyWord(String(studentId));
+  const encryptedOldTopicId = await getEncryptKeyWord(String(oldTopicId));
+  const encryptedNewTopicId = await getEncryptKeyWord(String(newTopicId));
+
+  return request({
+    url: '/internshipPost/StuSelTopic',
+    method: 'post',
+    data: {
+      StudentId: encryptedStudentId,
+      oldTopicId: encryptedOldTopicId,
+      newTopicId: encryptedNewTopicId,
+    },
+  });
+};
+
 const getAvailableUsersForInternship = (form) => {
   return request({
     url: '/internshipProcess/getAvailableUsersForInternship',
@@ -84,5 +106,6 @@ export default {
   addNewInternship,
   deleteNewInternship,
   stuSelPost,
+  stuSelTopic,
   getAvailableUsersForInternship,
 };
