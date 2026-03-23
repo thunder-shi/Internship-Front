@@ -29,7 +29,7 @@ const defaultProps = reactive({
         sortJson: { properties: 'Id', direction: 'DESC' },
       },
       { name: '实习项目', field: 'internshipId', type: 'select', keyWords: 'MainInternship' },
-      { name: '实习岗位', field: 'relInternshipId', type: 'select', keyWords: 'RelStuInternship' },
+      { name: '实习岗位', field: 'relInternshipId', type: 'select', keyWords: 'RelStuInternshipPost' },
     ],
     formRules: {
       teacherId: [{ required: true, message: '教师名称不能为空', trigger: 'blur' }],

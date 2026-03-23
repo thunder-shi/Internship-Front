@@ -10,14 +10,14 @@ import listAPI from '@/api/list';
 const baseListRef = ref(null);
 
 defineOptions({
-  name: 'RelStuInternship',
+  name: 'RelStuInternshipPost',
 });
 const defaultProps = reactive({
   defaultDTLProps: {
     title: { mainTitle: '' },
     defaultDTHProps: {
       buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true } },
-      keyWord: { edit: 'RelStuInternship', view: 'ViewRelStuInternship' },
+      keyWord: { edit: 'RelStuInternshipPost', view: 'ViewRelStuInternshipPost' },
       allTableColumns: [
         { id: 1, showName: '学生名称', tableColumnName: 'studentName', sortable: true },
         { id: 2, showName: '实习岗位', tableColumnName: 'internshipPostName', sortable: true },
@@ -29,7 +29,7 @@ const defaultProps = reactive({
     defaultDBIProps: {},
   },
   defaultSDProps: {
-    keyWord: 'RelStuInternship',
+    keyWord: 'RelStuInternshipPost',
     formItems: [
       {
         name: '学生名称',
@@ -55,7 +55,7 @@ const defaultProps = reactive({
     },
   },
   defaultDBIProps: {
-    keyWords: 'RelStuInternship',
+    keyWords: 'RelStuInternshipPost',
   },
 });
 
@@ -81,7 +81,7 @@ async function checkDuplicateRecord(form) {
     
     // 查询该学生的所有选择记录
     const resp = await listAPI.getSomeRecords({
-      keyWords: 'RelStuInternship',
+      keyWords: 'RelStuInternshipPost',
       pageInfo: { page: 1, size: 1000 },
       searchKey: { 
         studentId: form.studentId,
@@ -182,7 +182,7 @@ async function getMaxSortForStudent(studentId, excludeId = null) {
     
     // 查询该学生的所有选择记录，使用表名而不是视图
     const resp = await listAPI.getSomeRecords({
-      keyWords: 'RelStuInternship', // 使用表名
+      keyWords: 'RelStuInternshipPost', // 使用表名
       pageInfo: { page: 1, size: 1000 }, // 获取所有记录
       searchKey: { studentId: studentId },
       reg: { studentId: '=' }
@@ -231,7 +231,7 @@ async function getMaxSortForStudent(studentId, excludeId = null) {
 
 // 在组件挂载后设置自定义确认逻辑
 onMounted(async () => {
-  console.log('=== RelStuInternship组件已挂载 ===');
+  console.log('=== RelStuInternshipPost组件已挂载 ===');
   await nextTick();
   
   // 获取 SimpleDialog 的引用
@@ -390,7 +390,7 @@ async function handleDeleteClick(rows) {
   try {
     // 执行删除操作
     const ids = rowsToDelete.map(item => item.id);
-    const deleteResp = await listAPI.delOneOrManyNodes('RelStuInternship', ids);
+    const deleteResp = await listAPI.delOneOrManyNodes('RelStuInternshipPost', ids);
     
     if (deleteResp && deleteResp.message === 'successful') {
       ElMessage.success('删除成功！');
@@ -439,7 +439,7 @@ async function reorderStudentRecords(studentId) {
     
     // 查询该学生的所有剩余记录
     const resp = await listAPI.getSomeRecords({
-      keyWords: 'RelStuInternship',
+      keyWords: 'RelStuInternshipPost',
       pageInfo: { page: 1, size: 1000 },
       searchKey: { studentId: studentId },
       reg: { studentId: '=' }
@@ -478,7 +478,7 @@ async function reorderStudentRecords(studentId) {
           };
           
           try {
-            await listAPI.editOneNode('RelStuInternship', updateData);
+            await listAPI.editOneNode('RelStuInternshipPost', updateData);
             console.log(`记录 ID: ${record.id} 的排序值从 ${oldSort} 更新为 ${newSort}`);
           } catch (updateError) {
             console.error(`更新记录 ID: ${record.id} 的排序值失败:`, updateError);
