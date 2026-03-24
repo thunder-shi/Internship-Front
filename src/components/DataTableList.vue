@@ -87,7 +87,7 @@
               </el-button>
               <el-button v-if="button?.update?.show && isButtonVisible('update', scope.row)" :type="button.update.type"
                 size="small" :title="button.update.name" @click="editClick(scope.row)"><el-icon>
-                  <Edit />
+                  <component :is="updateButtonIcon" />
                 </el-icon></el-button>
               <el-button v-if="button?.audit?.show && isButtonVisible('audit', scope.row)" :type="button.audit.type"
                 size="small" :title="button.audit.name" @click="auditClick(scope.row)">
@@ -136,7 +136,7 @@ import {
   nextTick,
   getCurrentInstance,
 } from 'vue';
-import { Edit, Delete, Top, Bottom, Position } from '@element-plus/icons-vue';
+import { Edit, Delete, Top, Bottom, Position, InfoFilled } from '@element-plus/icons-vue';
 import DataTableHeader from '@/components/DataTableHeader.vue';
 import listAPI from '@/api/list';
 import BtnSearch from '@/components/BtnSearch.vue';
@@ -459,6 +459,11 @@ const hasCardTitle = computed(() => {
 
 const button = computed(() => {
   return dataTBLMother.value?.button;
+});
+
+// update 按钮图标：支持通过 buttonProps.update.icon 自定义，默认为 Edit（铅笔）
+const updateButtonIcon = computed(() => {
+  return props.defaultProps?.defaultDTHProps?.buttonProps?.update?.icon || Edit;
 });
 
 // 将 buttonCondition 合并到 defaultDTHProps 中

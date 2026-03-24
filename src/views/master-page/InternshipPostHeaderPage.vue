@@ -12,7 +12,11 @@
       @audit-command="handleAuditCommand"
       @submit-click="handleSubmitClick"
       @more2-click="handleMore2Click"
-    />
+    >
+      <template v-if="$slots.rightOperate" #rightOperate="slotProps">
+        <slot name="rightOperate" v-bind="slotProps" />
+      </template>
+    </BaseList>
     <!-- 实习项目选择对话框 -->
     <SimpleDialog
       ref="projectSelectDialog"
@@ -392,6 +396,7 @@ async function initInternshipList() {
         const item = uniqueList[0];
         currentInternship.value = _.cloneDeep({
           ...item,
+          realId: item.id,
           internshipId: item.internshipId || item.id,
           processId: item.id,
         });

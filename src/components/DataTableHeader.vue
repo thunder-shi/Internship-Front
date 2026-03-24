@@ -209,7 +209,7 @@ const button = computed(() => {
     visible: { show: false, name: '查看详情', type: 'info' },
     create: { show: false, name: '新增', type: 'primary' },
     batchCreate: { show: false, name: '批量导入', type: 'primary' },
-    update: { show: false, name: '修改', type: 'info' },
+    update: { show: false, name: '修改', type: 'info', icon: null },
     delete: { show: false, name: '删除', type: 'danger' },
     search: { show: false, name: '查询' },
     up: { show: false, name: '上移', type: 'warning' },

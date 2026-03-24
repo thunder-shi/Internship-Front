@@ -117,7 +117,7 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-row>
+        <el-row v-if="!isReadOnlyMode">
           <el-col :span="24">
             <el-form-item label="预计需要人数：" prop="allPersonNum">
               <el-input
@@ -129,7 +129,7 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-row>
+        <el-row v-if="!isReadOnlyMode">
           <el-col :span="24">
             <el-form-item label="已经报名人数：">
               <span>{{ form.nowPersonNum ?? '--' }}</span>
@@ -137,6 +137,11 @@
           </el-col>
         </el-row>
       </el-form>
+    </template>
+    <template v-if="showCustomFootButton" #otherBtn>
+      <el-button :type="customFootButton.type || 'warning'" @click="handleCustomFootButton">
+        {{ customFootButton.name || '操作' }}
+      </el-button>
     </template>
   </DlgBasic>
 </template>
@@ -161,6 +166,11 @@ defineOptions({
 const props = defineProps({
   // 当前选中的实习项目对象
   currentInternship: {
+    type: Object,
+    default: null,
+  },
+  // 自定义底部按钮：{ show: (rowData) => boolean, name: string, type: string, action: (rowData) => Promise }
+  customFootButton: {
     type: Object,
     default: null,
   },
@@ -642,6 +652,25 @@ watch(
 
 // 是否为只读模式
 const isReadOnlyMode = ref(false);
+
+// 自定义底部按钮：根据当前行数据判断是否显示
+const showCustomFootButton = computed(() => {
+  if (!props.customFootButton || !isReadOnlyMode.value) return false;
+  if (typeof props.customFootButton.show === 'function') {
+    return props.customFootButton.show(currentRowData.value);
+  }
+  return true;
+});
+
+async function handleCustomFootButton() {
+  if (props.customFootButton?.action) {
+    const result = await props.customFootButton.action(currentRowData.value);
+    if (result) {
+      dlgBasicRef.value?.beforeCloseDlg?.();
+      emit('success');
+    }
+  }
+}
 
 // 判断是否可以编辑：只有待提交(SAVE=-1)或审核退回(BACK=3)状态可以编辑，且不是只读模式
 const canEdit = computed(() => {
