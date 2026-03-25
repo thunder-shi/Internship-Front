@@ -180,6 +180,14 @@ async function runSystemAssign() {
       ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
       : CONSTANT.VERIFY_LEVEL.ONE_VERIFY;
 
+  if (!internshipId || Number.isNaN(internshipId)) {
+    ElMessage.warning('请先选择实习项目后再进行系统分配');
+    return;
+  }
+  if (!processId || Number.isNaN(processId)) {
+    ElMessage.warning('当前实习项目缺少流程信息，无法系统分配');
+    return;
+  }
   if (assigning.value) return;
   assigning.value = true;
 
@@ -225,6 +233,9 @@ async function handleListAfterInit(dataList) {
   if (props.systemAssignMode !== 'autoOnEmpty') return;
   if (!Array.isArray(dataList) || dataList.length > 0) return;
   if (autoAssignLocked.value) return;
+  const cur = unref(headerPageRef.value?.currentInternship);
+  const internshipId = Number(cur?.internshipId ?? cur?.id);
+  if (!internshipId || Number.isNaN(internshipId)) return;
   autoAssignLocked.value = true;
   await runSystemAssign();
 }
