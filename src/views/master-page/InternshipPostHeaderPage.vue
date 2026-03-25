@@ -12,6 +12,7 @@
       @audit-command="handleAuditCommand"
       @submit-click="handleSubmitClick"
       @more2-click="handleMore2Click"
+      @more3-click="handleMore3Click"
       @after-init-data="handleAfterInitData"
     >
       <template v-if="$slots.rightOperate" #rightOperate="slotProps">
@@ -100,6 +101,7 @@ const emit = defineEmits([
   'audit-click',
   'audit-command',
   'more2-click',
+  'more3-click',
   'post-detail-close',
   'post-detail-success',
   'project-selected',
@@ -313,6 +315,10 @@ function handleSubmitClick(row) {
 // 处理 more2 按钮点击（转发给父组件，用于批量操作）
 function handleMore2Click(rows) {
   emit('more2-click', rows);
+}
+
+function handleMore3Click(rows) {
+  emit('more3-click', rows);
 }
 
 // 查看进度按钮点击（转发给父组件）
