@@ -14,18 +14,27 @@
     @append-click="handleBatchSubmitClick"
     @submit-click="handleRowSubmitClick"
     @after-init-data="handleListAfterInit"
+    @view-click="handleViewClick"
   >
     <template #rightOperate="{ row }">
       <el-button
         type="primary"
         size="small"
+        circle
         title="分配企业导师"
         @click="openAssignEnterpriseTutor(row)"
+        :disabled="row.isAudit != CONSTANT.AUDIT_STATUS.SAVE"
       >
-        分配企业导师
+        <el-avatar size="small"> </el-avatar>
       </el-button>
     </template>
     <template #dialogs>
+      <DlgVerifyProgress
+        v-model="showProgressDialog"
+        :main-internship-id="currentRow.internshipId"
+        :process-info="currentRow"
+        key-words="ViewVerifyProcessRelTeacherStudent"
+      />
       <SimpleDialog
         ref="assignDlgRef"
         :default-props="assignDialogProps"
@@ -41,10 +50,12 @@ import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
+import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
 import { useAssignmentPageConfig } from '@/utils/useAssignmentPageConfig';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
 
 defineOptions({
   name: 'EnterpriseTutorAssignment',
@@ -71,6 +82,9 @@ const {
 const assigning = ref(false);
 /** 每个实习项目仅自动触发一次系统分配，避免空列表时反复请求 */
 const autoAssignLocked = ref(false);
+const { getVerifyRoleName } = useVerifyFilter();
+const showProgressDialog = ref(false);
+const currentRow = ref({});
 
 const assignDlgRef = ref(null);
 const assignTargetRow = ref(null);
@@ -98,14 +112,16 @@ const assignDialogProps = reactive({
 
 const defaultDTLProps = computed(() => ({
   title: titleObj,
+  enableAuditStatusCustom: true,
+  getVerifyRoleName,
   someFlags: {
     autoInit: false,
     checkFlag: true,
   },
-  // 列表：jobId 不等于 3（与「分配校内导师」中 jobId=3 区分开）
+  // 服务端筛选：teacherId = null（未分配企业导师）
   initSearchWords: {
-    searchKey: { jobId: 3 },
-    regKey: { jobId: CONSTANT.SEARCH_OPERATOR.NE },
+    searchKey: { jobId: '0,4' },
+    regKey: { jobId: CONSTANT.SEARCH_OPERATOR.IN },
   },
   defaultDTHProps: {
     keyWord: {
@@ -116,14 +132,17 @@ const defaultDTLProps = computed(() => ({
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
       create: { show: true, name: '批量提交', type: 'primary' },
       submit: { show: true, name: '提交', type: 'warning' },
+      visible: { show: true, type: 'primary', name: '查看进度' },
       more2: { show: false },
     },
     buttonCondition: {
-      submit: (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE,
+      // 当前行 teacherId 为空时禁止提交
+      submit: (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE && !!row.teacherId,
     },
     allTableColumns: [
       { id: 1, showName: '教师名称', tableColumnName: 'teacherName', sortable: true },
-      { id: 2, showName: '实习岗位', tableColumnName: 'relInternshipName', sortable: true },
+      { id: 1, showName: '学生名称', tableColumnName: 'studentName', sortable: true },
+      { id: 2, showName: '实习岗位', tableColumnName: 'internshipPostName', sortable: true },
       { id: 3, showName: '实习项目', tableColumnName: 'internshipName', sortable: true },
       { id: 4, showName: '状态', tableColumnName: 'customize-status', sortable: true },
     ],
@@ -198,6 +217,12 @@ function handleBatchSubmitClick(rows) {
     return;
   }
   void updateVerifyProcessStatus(rowsArray, true);
+}
+
+function handleViewClick(rowOrArray) {
+  const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
+  currentRow.value = row ? { ...row } : {};
+  showProgressDialog.value = true;
 }
 
 /** 与「分配校内导师」页中系统分配逻辑一致，用于无数据时自动生成师生关系 */

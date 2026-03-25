@@ -14,7 +14,17 @@
     @append-click="handleBatchSubmitClick"
     @submit-click="handleRowSubmitClick"
     @more2-click="handleSystemAssign"
-  />
+    @view-click="handleViewClick"
+  >
+    <template #dialogs>
+      <DlgVerifyProgress
+        v-model="showProgressDialog"
+        :main-internship-id="currentRow.internshipId"
+        :process-info="currentRow"
+        key-words="ViewVerifyProcessRelTeacherStudent"
+      />
+    </template>
+  </InternshipPostHeaderPage>
 </template>
 
 <script setup>
@@ -22,10 +32,12 @@ import { computed, ref, unref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
+import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
 import { useAssignmentPageConfig } from '@/utils/useAssignmentPageConfig';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
 
 defineOptions({
   name: 'InternalTutorAssignment',
@@ -50,14 +62,19 @@ const {
 });
 
 const assigning = ref(false);
+const { getVerifyRoleName } = useVerifyFilter();
+const showProgressDialog = ref(false);
+const currentRow = ref({});
 
 const defaultDTLProps = computed(() => ({
   title: titleObj,
+  enableAuditStatusCustom: true,
+  getVerifyRoleName,
   someFlags: {
     autoInit: false,
     checkFlag: true,
   },
-  // 列表查表固定筛选：仅岗位 jobId = 3
+  // 列表查表固定筛选：仅岗位 jobId != 3
   initSearchWords: {
     searchKey: { jobId: 3 },
     regKey: { jobId: CONSTANT.SEARCH_OPERATOR.EQ },
@@ -71,6 +88,7 @@ const defaultDTLProps = computed(() => ({
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
       create: { show: true, name: '批量提交', type: 'primary' },
       submit: { show: true, name: '提交', type: 'warning' },
+      visible: { show: true, type: 'primary', name: '查看进度' },
       more2: {
         show: true,
         name: '系统分配',
@@ -83,7 +101,8 @@ const defaultDTLProps = computed(() => ({
     },
     allTableColumns: [
       { id: 1, showName: '教师名称', tableColumnName: 'teacherName', sortable: true },
-      { id: 2, showName: '实习岗位', tableColumnName: 'relInternshipName', sortable: true },
+      { id: 1, showName: '学生名称', tableColumnName: 'studentName', sortable: true },
+      { id: 2, showName: '实习岗位', tableColumnName: 'internshipPostName', sortable: true },
       { id: 3, showName: '实习项目', tableColumnName: 'internshipName', sortable: true },
       { id: 4, showName: '状态', tableColumnName: 'customize-status', sortable: true },
     ],
@@ -136,9 +155,7 @@ async function updateVerifyProcessStatus(rows, isBatch = false) {
   }
 
   if (successCount > 0) {
-    ElMessage.success(
-      isBatch ? `批量提交完成，共成功提交 ${successCount} 条记录` : '提交成功'
-    );
+    ElMessage.success(isBatch ? `批量提交完成，共成功提交 ${successCount} 条记录` : '提交成功');
     const baseListRef = unref(headerPageRef.value?.baseListRef);
     await baseListRef?.initDataList(true);
   }
@@ -155,6 +172,12 @@ function handleBatchSubmitClick(rows) {
     return;
   }
   void updateVerifyProcessStatus(rowsArray, true);
+}
+
+function handleViewClick(rowOrArray) {
+  const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
+  currentRow.value = row ? { ...row } : {};
+  showProgressDialog.value = true;
 }
 
 async function handleSystemAssign() {
