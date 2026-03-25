@@ -39,14 +39,10 @@ const { getVerifyRoleName } = useVerifyFilter();
 const listSomeFlags = { checkFlag: true };
 
 const store = useStore();
-const roles = computed(() => store.getters.roles || []);
+const userInfo = computed(() => store.getters.userInfo || {});
 
-const isCompanyUser = computed(() => {
-  return roles.value.some(
-    (role) =>
-      role === CONSTANT.ROLE_TABLE.COMPANY_ADMIN || role === CONSTANT.ROLE_TABLE.COMPANY_TUTOR
-  );
-});
+// 通过部门类型判断是否为企业用户（typeId=1 表示企业）
+const isCompanyUser = computed(() => userInfo.value.departmentTypeId === 1);
 
 /** 隐藏修改；行内提交 + 顶部批量提交 */
 function getButtonProps(currentInternship, isMore1Disabled) {

@@ -143,7 +143,7 @@ const defaultProps = reactive({
     validate: true,
     needVerifyUpdate: false,
     needMaxBtn: true,
-    autoMax: hasTabs,
+    autoMax: false,
   },
 });
 

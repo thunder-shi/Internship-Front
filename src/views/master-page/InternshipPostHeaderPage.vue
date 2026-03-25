@@ -189,9 +189,9 @@ async function updateSearchWordsAndRefresh() {
     internshipId: internshipId,
   };
 
-  // 如果是企业用户，添加 createUserId 条件
-  if (props.isCompanyUser && userInfo.value?.id) {
-    baseSearchKey.createUserId = userInfo.value.id;
+  // 如果是企业用户，按企业过滤，只看到自己企业的数据
+  if (props.isCompanyUser && userInfo.value?.departmentId) {
+    baseSearchKey.companyId = userInfo.value.departmentId;
   }
 
   // 使用传入的 buildSearchKey 函数构建最终查询条件
@@ -199,6 +199,10 @@ async function updateSearchWordsAndRefresh() {
 
   // 更新 nowSearchWords（直接重新赋值整个对象，确保响应式更新）
   nowSearchWords.searchKey = { ...searchKey };
+  // 为所有搜索字段设置精确匹配操作符
+  const regKey = {};
+  Object.keys(searchKey).forEach(key => { regKey[key] = '='; });
+  nowSearchWords.regKey = regKey;
 
   // 等待响应式更新完成（多等待几个 tick，确保 computed 能检测到变化）
   await nextTick();

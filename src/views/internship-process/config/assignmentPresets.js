@@ -11,11 +11,12 @@ export const ASSIGNMENT_KEY_WORD = {
 
 /** 安排页 - 学生：表格列 */
 export const ASSIGNMENT_STUDENT_COLUMNS = [
-  { id: 1, showName: '学生姓名', tableColumnName: 'userName', sortable: true },
-  { id: 2, showName: '联系电话', tableColumnName: 'phone', sortable: true },
-  { id: 3, showName: '开始时间', tableColumnName: 'startTime', sortable: true },
-  { id: 4, showName: '结束时间', tableColumnName: 'endTime', sortable: true },
-  { id: 5, showName: '当前状态', tableColumnName: 'customize-status', sortable: true },
+  { id: 1, showName: '学号', tableColumnName: 'account', sortable: true },
+  { id: 2, showName: '学生姓名', tableColumnName: 'userName', sortable: true },
+  { id: 3, showName: '联系电话', tableColumnName: 'phone', sortable: true },
+  { id: 4, showName: '开始时间', tableColumnName: 'startTime', sortable: true },
+  { id: 5, showName: '结束时间', tableColumnName: 'endTime', sortable: true },
+  { id: 6, showName: '当前状态', tableColumnName: 'customize-status', sortable: true },
 ];
 
 /** 安排页 - 老师：表格列 */
@@ -29,6 +30,7 @@ export const ASSIGNMENT_TEACHER_COLUMNS = [
 
 /** 审核页 - 学生：表格列 */
 export const VERIFY_STUDENT_COLUMNS = [
+  { id: 1, showName: '学号', theOrder: 1, tableColumnName: 'account' },
   { id: 2, showName: '实习项目名称', theOrder: 2, tableColumnName: 'internshipName' },
   { id: 3, showName: '学生姓名', theOrder: 3, tableColumnName: 'userName' },
   { id: 4, showName: '流程开始时间', theOrder: 4, tableColumnName: 'startTime' },

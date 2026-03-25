@@ -1,18 +1,29 @@
 <template>
-  <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" @tree-select-change="treeSelectChange" @edit-click="handleEditClick" ref="baseList" />
+  <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" @tree-select-change="treeSelectChange" @edit-click="handleEditClick" @append-click="handleAppendClick" ref="baseList" />
 </template>
 <script setup>
-import { reactive, onMounted, ref, nextTick } from 'vue';
+import { reactive, onMounted, ref, nextTick, computed } from 'vue';
 import { ElMessage } from 'element-plus';
+import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
 import listAPI from '@/api/list';
 import dlgAPI from '@/utils/forDialog';
 defineOptions({
   name: 'BasePostType',
 });
+
+const store = useStore();
+const userInfo = computed(() => store.getters.userInfo || {});
+
+// 通过部门类型判断是否为企业用户（typeId=1 表示企业）
+const isCompanyUser = computed(() => userInfo.value.departmentTypeId === 1);
 const defaultProps = reactive({
   defaultDTLProps: {
     title: { mainTitle: '' },
+    initSearchWords: isCompanyUser.value && userInfo.value.departmentId ? {
+      searchKey: { companyId: userInfo.value.departmentId },
+      regKey: { companyId: '=' }
+    } : {},
     defaultDTHProps: {
       buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true } },
       keyWord: { edit: 'BasePostType', view: 'ViewBasePostType' },
@@ -29,7 +40,7 @@ const defaultProps = reactive({
   defaultSDProps: {
     keyWord: 'BasePostType',
     formItems: [
-      { name: '所属企业', field: 'companyId', type: 'cascader', keyWords: 'BaseDepartment', searchKeys: { typeId: 1 } },
+      { name: '所属企业', field: 'companyId', type: 'cascader', keyWords: 'BaseDepartment', searchKeys: { typeId: 1 }, disabled: isCompanyUser.value },
       { name: '适合专业', field: 'majorIds', type: 'cascader', keyWords: 'BaseMajor', multiple: true },
       { name: '岗位编码', field: 'code', type: 'input' },
       { name: '岗位名称', field: 'name', type: 'input' },
@@ -70,6 +81,15 @@ function treeSelectChange(val, field, form, node) {
   } else if (field === 'majorIds') {
     // 专业选择变化时的处理（如果需要可以在这里添加逻辑）
   }
+}
+
+// 企业用户新增时自动填充所属企业
+function handleAppendClick() {
+  const row = {};
+  if (isCompanyUser.value && userInfo.value.departmentId) {
+    row.companyId = userInfo.value.departmentId;
+  }
+  baseList.value?.openDlg('append', row);
 }
 
 // 加载已选择的专业ID列表
