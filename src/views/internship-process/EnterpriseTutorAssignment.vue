@@ -1,8 +1,8 @@
 <template>
   <InternshipPostHeaderPage
     ref="headerPageRef"
-    page-title="分配校内导师"
-    no-project-message="当前没有可分配校内导师的实习项目"
+    page-title="分配企业导师"
+    no-project-message="当前没有可分配企业导师的实习项目"
     pending-select-message="当前实习项目：待选择"
     :project-select-search-key="projectSelectSearchKey"
     :project-select-reg-key="projectSelectRegKey"
@@ -10,28 +10,47 @@
     :build-search-key="buildSearchKey"
     :is-company-user="isCompanyUser"
     :process-type-code="processTypeCode"
-    @project-selected="handleProjectSelected"
+    @project-selected="handleProjectSelectedWrap"
     @append-click="handleBatchSubmitClick"
     @submit-click="handleRowSubmitClick"
-    @more2-click="handleSystemAssign"
-  />
+    @after-init-data="handleListAfterInit"
+  >
+    <template #rightOperate="{ row }">
+      <el-button
+        type="primary"
+        size="small"
+        title="分配企业导师"
+        @click="openAssignEnterpriseTutor(row)"
+      >
+        分配企业导师
+      </el-button>
+    </template>
+    <template #dialogs>
+      <SimpleDialog
+        ref="assignDlgRef"
+        :default-props="assignDialogProps"
+        :simpledialog-confirm="confirmAssignEnterpriseTutor"
+      />
+    </template>
+  </InternshipPostHeaderPage>
 </template>
 
 <script setup>
-import { computed, ref, unref } from 'vue';
+import { computed, reactive, ref, unref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
+import SimpleDialog from '@/components/SimpleDialog.vue';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
 import { useAssignmentPageConfig } from '@/utils/useAssignmentPageConfig';
 
 defineOptions({
-  name: 'InternalTutorAssignment',
+  name: 'EnterpriseTutorAssignment',
 });
 
-const processTypeCode = CONSTANT.PROCESS_TYPE.EXTERNAL_ASSIGN_INTERNAL_TUTOR;
+const processTypeCode = CONSTANT.PROCESS_TYPE.EXTERNAL_ENTERPRISE_ASSIGN_TUTOR;
 const store = useStore();
 
 const {
@@ -45,11 +64,37 @@ const {
   buildSearchKey: baseBuildSearchKey,
 } = useAssignmentPageConfig({
   processTypeCode,
-  mainTitle: '分配校内导师',
+  mainTitle: '分配企业导师',
   withMajorFilter: false,
 });
 
 const assigning = ref(false);
+/** 每个实习项目仅自动触发一次系统分配，避免空列表时反复请求 */
+const autoAssignLocked = ref(false);
+
+const assignDlgRef = ref(null);
+const assignTargetRow = ref(null);
+
+const assignDialogProps = reactive({
+  dlgTitle: '分配企业导师',
+  keyWord: ' ',
+  formItems: [
+    {
+      name: '企业导师',
+      field: 'teacherId',
+      type: 'select_noremote',
+      options: [],
+    },
+  ],
+  formRules: {
+    teacherId: [{ required: true, message: '请选择企业导师', trigger: 'change' }],
+  },
+  defaultDBProps: {
+    footButtons: {
+      repeatAdd: { show: false },
+    },
+  },
+});
 
 const defaultDTLProps = computed(() => ({
   title: titleObj,
@@ -57,10 +102,10 @@ const defaultDTLProps = computed(() => ({
     autoInit: false,
     checkFlag: true,
   },
-  // 列表查表固定筛选：仅岗位 jobId = 3
+  // 列表：jobId 不等于 3（与「分配校内导师」中 jobId=3 区分开）
   initSearchWords: {
     searchKey: { jobId: 3 },
-    regKey: { jobId: CONSTANT.SEARCH_OPERATOR.EQ },
+    regKey: { jobId: CONSTANT.SEARCH_OPERATOR.NE },
   },
   defaultDTHProps: {
     keyWord: {
@@ -71,12 +116,7 @@ const defaultDTLProps = computed(() => ({
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
       create: { show: true, name: '批量提交', type: 'primary' },
       submit: { show: true, name: '提交', type: 'warning' },
-      more2: {
-        show: true,
-        name: '系统分配',
-        type: 'warning',
-        disabled: assigning.value,
-      },
+      more2: { show: false },
     },
     buttonCondition: {
       submit: (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE,
@@ -97,6 +137,11 @@ function buildSearchKey(baseSearchKey) {
     internshipId: baseSearchKey?.internshipId,
     tableName: 'RelTeacherStudent',
   };
+}
+
+function handleProjectSelectedWrap(internship, title) {
+  autoAssignLocked.value = false;
+  handleProjectSelected(internship, title);
 }
 
 function getSubmitStatus(row) {
@@ -136,9 +181,7 @@ async function updateVerifyProcessStatus(rows, isBatch = false) {
   }
 
   if (successCount > 0) {
-    ElMessage.success(
-      isBatch ? `批量提交完成，共成功提交 ${successCount} 条记录` : '提交成功'
-    );
+    ElMessage.success(isBatch ? `批量提交完成，共成功提交 ${successCount} 条记录` : '提交成功');
     const baseListRef = unref(headerPageRef.value?.baseListRef);
     await baseListRef?.initDataList(true);
   }
@@ -157,7 +200,8 @@ function handleBatchSubmitClick(rows) {
   void updateVerifyProcessStatus(rowsArray, true);
 }
 
-async function handleSystemAssign() {
+/** 与「分配校内导师」页中系统分配逻辑一致，用于无数据时自动生成师生关系 */
+async function runSystemAssign() {
   const currentInternship = unref(headerPageRef.value?.currentInternship);
   const internshipId = Number(currentInternship?.internshipId ?? currentInternship?.id);
   const processId = Number(
@@ -180,19 +224,99 @@ async function handleSystemAssign() {
       processId,
       createUserId,
       verifyUserId,
+      tutorAssignKind: 2,
     });
     if (!res || res.message !== 'successful') {
-      ElMessage.warning(res?.message || '系统分配失败');
+      ElMessage.warning(res?.message || '自动系统分配失败');
       return;
     }
-    ElMessage.success('系统分配成功');
+    ElMessage.success('已自动系统分配，正在刷新列表');
     const baseListRef = unref(headerPageRef.value?.baseListRef);
     await baseListRef?.initDataList(true);
   } catch (error) {
-    console.error('系统分配失败:', error);
-    ElMessage.error('系统分配失败');
+    console.error('自动系统分配失败:', error);
+    ElMessage.error('自动系统分配失败');
   } finally {
     assigning.value = false;
+  }
+}
+
+async function handleListAfterInit(dataList) {
+  if (!Array.isArray(dataList) || dataList.length > 0) return;
+  const cur = unref(headerPageRef.value?.currentInternship);
+  if (!cur?.internshipId) return;
+  if (autoAssignLocked.value) return;
+  autoAssignLocked.value = true;
+  await runSystemAssign();
+}
+
+async function openAssignEnterpriseTutor(row) {
+  assignTargetRow.value = row;
+  const schoolId = store.getters.userInfo?.schoolId;
+  if (schoolId === undefined || schoolId === null || schoolId === '') {
+    ElMessage.warning('当前账号缺少 schoolId，无法筛选企业导师');
+    return;
+  }
+  const relId = row?.relationId;
+  if (!relId) {
+    ElMessage.warning('当前行缺少 relationId，无法更新师生关系');
+    return;
+  }
+
+  try {
+    const resp = await listAPI.getSomeRecords({
+      keyWords: 'ViewBaseUser',
+      searchKey: { jobId: 4, schoolId },
+      reg: {
+        jobId: CONSTANT.SEARCH_OPERATOR.EQ,
+        schoolId: CONSTANT.SEARCH_OPERATOR.EQ,
+      },
+    });
+    const list = resp?.data?.content || [];
+    if (!list.length) {
+      ElMessage.warning('未找到符合条件的用户（岗位 jobId=4 且 schoolId 与当前操作人一致）');
+      return;
+    }
+    assignDialogProps.formItems[0].options = list.map((u) => ({
+      id: u.id,
+      name: u.name || u.account || String(u.id),
+    }));
+    assignDlgRef.value?.showDialog(true, {}, true);
+  } catch (error) {
+    console.error('加载企业导师列表失败:', error);
+    ElMessage.error('加载企业导师列表失败');
+  }
+}
+
+async function confirmAssignEnterpriseTutor(_option, _type, form) {
+  const row = assignTargetRow.value;
+  const relId = row?.relationId;
+  if (!relId) {
+    ElMessage.warning('缺少 relationId');
+    return false;
+  }
+  const teacherId = form?.teacherId;
+  if (teacherId === undefined || teacherId === null || teacherId === '') {
+    ElMessage.warning('请选择企业导师');
+    return false;
+  }
+
+  try {
+    const res = await listAPI.editOneNode('RelTeacherStudent', {
+      id: relId,
+      teacherId,
+    });
+    if (!res || res.message !== 'successful') {
+      ElMessage.warning(res?.message || '保存失败');
+      return false;
+    }
+    ElMessage.success('分配成功');
+    const baseListRef = unref(headerPageRef.value?.baseListRef);
+    await baseListRef?.initDataList(true);
+    return true;
+  } catch (error) {
+    console.error('保存企业导师失败:', error);
+    return false;
   }
 }
 </script>

@@ -12,6 +12,7 @@
       @audit-command="handleAuditCommand"
       @submit-click="handleSubmitClick"
       @more2-click="handleMore2Click"
+      @after-init-data="handleAfterInitData"
     >
       <template v-if="$slots.rightOperate" #rightOperate="slotProps">
         <slot name="rightOperate" v-bind="slotProps" />
@@ -103,6 +104,7 @@ const emit = defineEmits([
   'post-detail-success',
   'project-selected',
   'submit-click',
+  'after-init-data',
 ]);
 
 const baseListRef = ref(null);
@@ -312,6 +314,10 @@ function handleMore2Click(rows) {
 // 查看进度按钮点击（转发给父组件）
 function handleViewClick(rowOrArray) {
   emit('view-click', rowOrArray);
+}
+
+function handleAfterInitData(dataList) {
+  emit('after-init-data', dataList);
 }
 
 // 处理 more1 按钮点击事件（实习项目选择）
