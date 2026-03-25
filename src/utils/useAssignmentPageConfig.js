@@ -14,7 +14,13 @@ import CONSTANT from '@/utils/constant';
  * @param {boolean} [options.withMajorFilter=true] - 是否按专业过滤项目（安排页 true，审核页 false）
  */
 export function useAssignmentPageConfig(options) {
-  const { processTypeCode, mainTitle, withMajorFilter = true } = options;
+  const {
+    processTypeCode,
+    mainTitle,
+    withMajorFilter = true,
+    /** 列表 nowSearchWords 中与流程关联的业务表名（默认师生安排表） */
+    assignmentTableName = 'RelIntershipUser',
+  } = options;
 
   const store = useStore();
   const headerPageRef = ref(null);
@@ -62,7 +68,7 @@ export function useAssignmentPageConfig(options) {
     return {
       processTypeCode,
       internshipId: baseSearchKey.internshipId,
-      tableName: 'RelIntershipUser',
+      tableName: assignmentTableName,
     };
   }
 
