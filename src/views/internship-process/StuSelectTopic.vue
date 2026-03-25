@@ -82,7 +82,7 @@ const projectSelectRegKey = computed(() => {
     endTime: CONSTANT.SEARCH_OPERATOR.GE,
   };
   if (userInfo.value?.majorId) {
-    regKey.majorIds = CONSTANT.SEARCH_OPERATOR.IN;
+    regKey.majorIds = 'fi()';
   }
   return regKey;
 });

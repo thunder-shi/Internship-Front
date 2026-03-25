@@ -10,6 +10,7 @@
     :init-search-words="initSearchWords"
     :get-verify-role-name="getVerifyRoleName"
     @audit-click="handleAuditClick"
+    @audit-command="handleBatchAuditCommand"
     @edit-click="handleEditClick"
     @post-detail-close="handlePostDetailClose"
     @post-detail-success="handlePostDetailSuccess"
@@ -22,8 +23,10 @@
 
 <script setup>
 import { ref, unref } from 'vue';
+import { ElMessage } from 'element-plus';
 import InternshipPostPage from '@/views/master-page/InternshipPostPage.vue';
 import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
+import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { buildVerifySearchWords } from '@/utils/verify';
 
@@ -52,9 +55,28 @@ function buildSearchKey(baseSearchKey) {
   return baseSearchKey;
 }
 
+/** 下拉选择的批量审核类型 */
+const lastBatchAuditCommand = ref(null);
+
 function handleAuditClick(row) {
-  const selectedRow = Array.isArray(row) ? row[0] : row;
-  if (selectedRow) dlgVerifyRef.value?.showDialog(true, selectedRow);
+  const rows = Array.isArray(row) ? row : row ? [row] : [];
+  if (rows.length === 0) return;
+  if (rows.length === 1) {
+    dlgVerifyRef.value?.showDialog(true, rows[0]);
+  } else {
+    const pending = rows.filter((r) => r && r.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT);
+    if (!pending.length) {
+      ElMessage.warning('选中的记录中没有待审核的数据');
+      return;
+    }
+    const preSelected = lastBatchAuditCommand.value;
+    dlgVerifyRef.value?.showDialog(true, pending[0], pending, preSelected);
+    lastBatchAuditCommand.value = null;
+  }
+}
+
+function handleBatchAuditCommand(command, _rows) {
+  lastBatchAuditCommand.value = command;
 }
 
 function handleEditClick(row) {

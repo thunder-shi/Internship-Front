@@ -1,6 +1,6 @@
 <template>
   <div class="internship-verify-container">
-    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @audit-click="handleAuditClick" @edit-click="handleEditClick" />
+    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @audit-click="handleAuditClick" @audit-command="handleBatchAuditCommand" @edit-click="handleEditClick" />
     <!-- 审核对话框 -->
     <DlgVerify
       ref="dlgVerifyRef"
@@ -24,9 +24,11 @@
  */
 import { reactive, ref, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
+import { ElMessage } from 'element-plus';
 import BaseList from '@/views/master-page/BaseList.vue';
 import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
 import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
+import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { buildVerifySearchWords } from '@/utils/verify';
 
@@ -56,11 +58,28 @@ const handleVerifySuccess = () => {
   baseList.value?.initDataList();
 };
 
+/** 下拉选择的批量审核类型 */
+const lastBatchAuditCommand = ref(null);
+
 const handleAuditClick = (row) => {
-  const selectedRow = Array.isArray(row) ? row[0] : row;
-  if (selectedRow) {
-    dlgVerifyRef.value?.showDialog(true, selectedRow);
+  const rows = Array.isArray(row) ? row : row ? [row] : [];
+  if (rows.length === 0) return;
+  if (rows.length === 1) {
+    dlgVerifyRef.value?.showDialog(true, rows[0]);
+  } else {
+    const pending = rows.filter((r) => r && r.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT);
+    if (!pending.length) {
+      ElMessage.warning('选中的记录中没有待审核的数据');
+      return;
+    }
+    const preSelected = lastBatchAuditCommand.value;
+    dlgVerifyRef.value?.showDialog(true, pending[0], pending, preSelected);
+    lastBatchAuditCommand.value = null;
   }
+};
+
+const handleBatchAuditCommand = (command, _rows) => {
+  lastBatchAuditCommand.value = command;
 };
 
 const handleEditClick = (row) => {
