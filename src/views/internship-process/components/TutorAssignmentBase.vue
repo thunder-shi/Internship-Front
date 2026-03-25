@@ -180,6 +180,8 @@ async function runSystemAssign() {
     const verifyResp = await internshipProcessAPI.getVerifyUserIds({
       verifyRoleId,
       createUserId,
+      // 部分业务（如企业导师分配）需要基于当前实习项目获取审核人
+      internshipId,
     });
     const verifyUserId = verifyResp?.data ?? verifyResp;
 
