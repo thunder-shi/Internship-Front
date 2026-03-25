@@ -117,6 +117,9 @@ function getSubmitStatus(row) {
 async function updateVerifyProcessStatus(rows, isBatch = false) {
   const rowsArray = Array.isArray(rows) ? rows : [rows].filter(Boolean);
   const pendingRows = rowsArray.filter((row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE);
+  const allowedRows = props.submitRowCondition
+    ? pendingRows.filter((row) => props.submitRowCondition(row))
+    : pendingRows;
 
   if (!pendingRows.length) {
     ElMessage.warning(
@@ -126,9 +129,13 @@ async function updateVerifyProcessStatus(rows, isBatch = false) {
     );
     return;
   }
+  if (pendingRows.length > 0 && allowedRows.length === 0) {
+    ElMessage.warning(isBatch ? '选中的记录不满足提交条件' : '当前记录不满足提交条件');
+    return;
+  }
 
   let successCount = 0;
-  for (const row of pendingRows) {
+  for (const row of allowedRows) {
     try {
       const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
         id: row.id,
