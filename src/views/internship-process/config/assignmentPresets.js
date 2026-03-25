@@ -57,22 +57,18 @@ export const VERIFY_TEACHER_COLUMNS = [
 
 /** 审核页 - 分配校内导师（ViewVerifyProcessRelTeacherStudentMerge） */
 export const VERIFY_INTERNAL_TUTOR_ASSIGNMENT_COLUMNS = [
-  { id: 2, showName: '实习项目', theOrder: 2, tableColumnName: 'internshipName' },
-  { id: 3, showName: '教师名称', theOrder: 3, tableColumnName: 'teacherName' },
-  { id: 4, showName: '实习岗位', theOrder: 4, tableColumnName: 'relInternshipName' },
-  { id: 5, showName: '流程开始时间', theOrder: 5, tableColumnName: 'startTime' },
-  { id: 6, showName: '流程结束时间', theOrder: 6, tableColumnName: 'endTime' },
-  { id: 7, showName: '当前状态', theOrder: 7, tableColumnName: 'customize-status' },
-  { id: 8, showName: '审核理由', theOrder: 8, tableColumnName: 'reason' },
+  { id: 1, showName: '实习项目', theOrder: 1, tableColumnName: 'internshipName' },
+  { id: 2, showName: '教师名称', theOrder: 2, tableColumnName: 'teacherName' },
+  { id: 3, showName: '实习岗位', theOrder: 3, tableColumnName: 'internshipPostName' },
+  { id: 4, showName: '学生名称', theOrder: 4, tableColumnName: 'studentName' },
+  { id: 5, showName: '当前状态', theOrder: 5, tableColumnName: 'customize-status' },
 ];
 
 /** 审核页 - 分配企业导师：同视图，列表筛选 jobId=4，列头文案区分 */
 export const VERIFY_ENTERPRISE_TUTOR_ASSIGNMENT_COLUMNS = [
-  { id: 2, showName: '实习项目', theOrder: 2, tableColumnName: 'internshipName' },
-  { id: 3, showName: '企业导师', theOrder: 3, tableColumnName: 'teacherName' },
-  { id: 4, showName: '实习岗位', theOrder: 4, tableColumnName: 'relInternshipName' },
-  { id: 5, showName: '流程开始时间', theOrder: 5, tableColumnName: 'startTime' },
-  { id: 6, showName: '流程结束时间', theOrder: 6, tableColumnName: 'endTime' },
-  { id: 7, showName: '当前状态', theOrder: 7, tableColumnName: 'customize-status' },
-  { id: 8, showName: '审核理由', theOrder: 8, tableColumnName: 'reason' },
+  { id: 1, showName: '实习项目', theOrder: 1, tableColumnName: 'internshipName' },
+  { id: 2, showName: '企业导师', theOrder: 2, tableColumnName: 'teacherName' },
+  { id: 3, showName: '实习岗位', theOrder: 3, tableColumnName: 'internshipPostName' },
+  { id: 4, showName: '学生名称', theOrder: 4, tableColumnName: 'studentName' },
+  { id: 5, showName: '当前状态', theOrder: 5, tableColumnName: 'customize-status' },
 ];

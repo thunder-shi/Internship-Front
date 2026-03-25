@@ -129,7 +129,12 @@ const defaultDTLProps = computed(() => ({
 }));
 
 function handleVerifySuccess() {
-  headerPageRef.value?.updateSearchWordsAndRefresh();
+  // 审核完成后强制刷新列表：
+  // 1) 优先直接刷新 DataTableList（不依赖 currentInternship.internshipId）
+  // 2) 再兜底调用 updateSearchWordsAndRefresh（保持原有刷新路径）
+  const baseList = headerPageRef.value?.baseListRef;
+  baseList?.initDataList?.(true);
+  headerPageRef.value?.updateSearchWordsAndRefresh?.();
 }
 
 function handleAuditClick(row) {

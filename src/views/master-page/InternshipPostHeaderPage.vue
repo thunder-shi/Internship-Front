@@ -12,6 +12,7 @@
       @audit-command="handleAuditCommand"
       @submit-click="handleSubmitClick"
       @more2-click="handleMore2Click"
+      @more3-click="handleMore3Click"
       @after-init-data="handleAfterInitData"
     >
       <template v-if="$slots.rightOperate" #rightOperate="slotProps">
@@ -91,6 +92,11 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  /** 选择项目保存后、拉表格数据前的钩子（可选，需返回 Promise） */
+  beforeRefreshOnProjectSelected: {
+    type: Function,
+    default: null,
+  },
 });
 
 const emit = defineEmits([
@@ -100,6 +106,7 @@ const emit = defineEmits([
   'audit-click',
   'audit-command',
   'more2-click',
+  'more3-click',
   'post-detail-close',
   'post-detail-success',
   'project-selected',
@@ -273,6 +280,15 @@ async function handleProjectSelectConfirm(option, type, form) {
     await nextTick();
   }
 
+  // 在刷新列表前允许外部先做初始化逻辑（如：企业导师分配页先 init 再查表）
+  if (currentInternship.value && typeof props.beforeRefreshOnProjectSelected === 'function') {
+    try {
+      await props.beforeRefreshOnProjectSelected(currentInternship.value);
+    } catch (error) {
+      console.error('beforeRefreshOnProjectSelected 调用失败', error);
+    }
+  }
+
   // 更新查询条件并刷新列表（等待刷新完成）
   await updateSearchWordsAndRefresh();
 
@@ -313,6 +329,10 @@ function handleSubmitClick(row) {
 // 处理 more2 按钮点击（转发给父组件，用于批量操作）
 function handleMore2Click(rows) {
   emit('more2-click', rows);
+}
+
+function handleMore3Click(rows) {
+  emit('more3-click', rows);
 }
 
 // 查看进度按钮点击（转发给父组件）
