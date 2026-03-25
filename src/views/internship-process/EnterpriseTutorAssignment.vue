@@ -9,6 +9,7 @@
     system-assign-mode="autoOnEmpty"
     :tutor-assign-kind="2"
     :submit-row-condition="submitRowCondition"
+    :before-refresh-on-project-selected="beforeRefreshOnProjectSelected"
   >
     <template #rightOperate="{ row }">
       <el-button
@@ -41,6 +42,7 @@ import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
+import internshipProcessAPI from '@/api/internshipProcess';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import { Avatar } from '@element-plus/icons-vue';
 import TutorAssignmentBase from './components/TutorAssignmentBase.vue';
@@ -61,6 +63,43 @@ const initSearchWords = {
 };
 
 const submitRowCondition = (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE && !!row.teacherId;
+
+async function beforeRefreshOnProjectSelected(internship) {
+  const internshipId = Number(internship?.internshipId ?? internship?.id);
+  const processId = Number(internship?.processId ?? internship?.realId ?? internship?.id);
+  const createUserId = Number(store.getters.userInfo?.id);
+  const verifyRoleId = internship?.verifyFirstRoleId;
+  const currentVerifyTypeId =
+    internship?.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      : CONSTANT.VERIFY_LEVEL.ONE_VERIFY;
+
+  if (!internshipId || Number.isNaN(internshipId)) return;
+  if (!processId || Number.isNaN(processId)) return;
+
+  try {
+    const verifyResp = await internshipProcessAPI.getVerifyUserIds({
+      verifyRoleId,
+      createUserId,
+      internshipId,
+    });
+    const verifyUserId = verifyResp?.data ?? verifyResp;
+
+    const res = await internshipProcessAPI.initEnterpriseTutorByInternshipId({
+      internshipId,
+      processId,
+      createUserId,
+      verifyUserId,
+      currentVerifyTypeId,
+    });
+    if (!res || res.message !== 'successful') {
+      ElMessage.warning(res?.message || '初始化失败');
+    }
+  } catch (error) {
+    console.error('initEnterpriseTutorByInternshipId 调用失败:', error);
+    ElMessage.error('初始化失败');
+  }
+}
 
 const assignDlgRef = ref(null);
 const assignTargetRow = ref(null);

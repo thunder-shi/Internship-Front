@@ -44,6 +44,17 @@ async function initTeacherStudentByInternshipId(params) {
   });
 }
 
+// 选择实习项目后初始化校内导师相关数据
+async function initEnterpriseTutorByInternshipId(params) {
+  return request({
+    url: '/internshipProcess/initEnterpriseTutorByInternshipId',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+  });
+}
+
 // 获取满足当前要求的实习项目
 // async function getNowInternship(processTypeCode) {
 //   return request({
@@ -60,5 +71,6 @@ export default {
   activateProcess,
   getVerifyUserIds,
   initTeacherStudentByInternshipId,
+  initEnterpriseTutorByInternshipId,
   // getNowInternship
 };

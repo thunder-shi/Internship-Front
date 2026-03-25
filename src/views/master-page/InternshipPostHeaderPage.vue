@@ -92,6 +92,11 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  /** 选择项目保存后、拉表格数据前的钩子（可选，需返回 Promise） */
+  beforeRefreshOnProjectSelected: {
+    type: Function,
+    default: null,
+  },
 });
 
 const emit = defineEmits([
@@ -273,6 +278,15 @@ async function handleProjectSelectConfirm(option, type, form) {
     // 通知子组件更新标题
     emit('project-selected', currentInternship.value, newTitle);
     await nextTick();
+  }
+
+  // 在刷新列表前允许外部先做初始化逻辑（如：企业导师分配页先 init 再查表）
+  if (currentInternship.value && typeof props.beforeRefreshOnProjectSelected === 'function') {
+    try {
+      await props.beforeRefreshOnProjectSelected(currentInternship.value);
+    } catch (error) {
+      console.error('beforeRefreshOnProjectSelected 调用失败', error);
+    }
   }
 
   // 更新查询条件并刷新列表（等待刷新完成）

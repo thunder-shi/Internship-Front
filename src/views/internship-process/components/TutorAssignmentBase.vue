@@ -10,6 +10,7 @@
     :build-search-key="buildSearchKey"
     :is-company-user="isCompanyUser"
     :process-type-code="processTypeCode"
+    :before-refresh-on-project-selected="beforeRefreshOnProjectSelected"
     @project-selected="handleProjectSelectedWrap"
     @append-click="handleBatchSubmitClick"
     @submit-click="handleRowSubmitClick"
@@ -63,6 +64,9 @@ const props = defineProps({
 
   // submit 按钮行条件，满足则可提交
   submitRowCondition: { type: Function, default: null },
+
+  /** 选择项目后、刷新表格前的初始化逻辑（可选） */
+  beforeRefreshOnProjectSelected: { type: Function, default: null },
 });
 
 defineOptions({
