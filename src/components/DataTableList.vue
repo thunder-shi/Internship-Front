@@ -1045,10 +1045,20 @@ const searchClick = (searchInfo) => {
     searchKey[searchName.value] = searchInfo;
     regKey[searchName.value] = CONSTANT.SEARCH_OPERATOR.LIKE;
   }
-  // 注意：nowSearchWords 是 computed，不能直接修改，需要通过 props 修改
-  // 这里需要根据实际需求调整
+  if (!props.defaultProps.nowSearchWords) {
+    props.defaultProps.nowSearchWords = { searchKey: {}, regKey: {}, andor: {} };
+  }
+  props.defaultProps.nowSearchWords.searchKey = {
+    ...(props.defaultProps.nowSearchWords.searchKey || {}),
+    ...searchKey,
+  };
+  props.defaultProps.nowSearchWords.regKey = {
+    ...(props.defaultProps.nowSearchWords.regKey || {}),
+    ...regKey,
+  };
+  pageInfo.page = 1;
   setTimeout(() => {
-    initDataList();
+    initDataList(true);
   }, 500);
 };
 
@@ -1070,9 +1080,20 @@ const advancedSearchClick = (searchInfo) => {
       }
     }
   }
-  // 注意：nowSearchWords 是 computed，不能直接修改
+  if (!props.defaultProps.nowSearchWords) {
+    props.defaultProps.nowSearchWords = { searchKey: {}, regKey: {}, andor: {} };
+  }
+  props.defaultProps.nowSearchWords.searchKey = {
+    ...(props.defaultProps.nowSearchWords.searchKey || {}),
+    ...searchKey,
+  };
+  props.defaultProps.nowSearchWords.regKey = {
+    ...(props.defaultProps.nowSearchWords.regKey || {}),
+    ...regKey,
+  };
+  pageInfo.page = 1;
   setTimeout(() => {
-    initDataList();
+    initDataList(true);
   }, 500);
 };
 

@@ -2,10 +2,10 @@
   <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-confirm="handleConfirm" @close-dialog="handleCloseDialog">
     <template #mainForm>
       <el-form ref="formPanelRef" :model="form" :rules="formRules" label-width="120px">
-        <el-row>
+        <el-row v-if="hasStudentInfo">
           <el-col :span="24">
-            <el-form-item label="实习项目：">
-              <span>{{ internshipName || '--' }}</span>
+            <el-form-item label="学生姓名：">
+              <span>{{ studentNameText }}</span>
             </el-form-item>
           </el-col>
         </el-row>
@@ -34,6 +34,16 @@
                 maxlength="1000"
                 show-word-limit
               />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row>
+          <el-col :span="24">
+            <el-form-item label="是否限选：" prop="isLimit">
+              <el-radio-group v-model="form.isLimit" :disabled="!canEdit">
+                <el-radio :label="0">否（学生可选）</el-radio>
+                <el-radio :label="1">是（限选/指定）</el-radio>
+              </el-radio-group>
             </el-form-item>
           </el-col>
         </el-row>
@@ -67,7 +77,7 @@ const emit = defineEmits(['close-dialog', 'success']);
 const store = useStore();
 const dlgBasicRef = ref(null);
 const formPanelRef = ref(null);
-const form = reactive({ name: '', topicDetail: '' });
+const form = reactive({ name: '', topicDetail: '', isLimit: 0 });
 
 const isEditMode = ref(false);
 const currentRowId = ref(null);
@@ -79,12 +89,22 @@ const currentRowData = ref(null);
 
 const userInfo = computed(() => store.getters.userInfo || {});
 
-const internshipName = computed(() => {
-  const src = currentInternshipLocal.value || props.currentInternship;
-  return src?.internshipName || src?.name || '--';
+const canEdit = computed(() => !isReadOnly.value);
+
+const studentNameText = computed(() => {
+  const raw =
+    currentRowData.value?.student_name ??
+    currentRowData.value?.studentName ??
+    null;
+  return raw != null && raw !== '' ? String(raw) : '--';
 });
 
-const canEdit = computed(() => !isReadOnly.value);
+const hasStudentInfo = computed(() => {
+  return (
+    currentRowData.value?.student_name != null ||
+    currentRowData.value?.studentName != null
+  );
+});
 
 const formRules = {
   name: [
@@ -94,6 +114,7 @@ const formRules = {
   topicDetail: [
     { max: 1000, message: '题目详情不能超过1000个字符', trigger: 'blur' },
   ],
+  isLimit: [{ required: true, message: '请选择是否限选', trigger: 'change' }],
 };
 
 const defaultProps = computed(() => ({
@@ -112,6 +133,7 @@ const defaultProps = computed(() => ({
 function resetForm() {
   form.name = '';
   form.topicDetail = '';
+  form.isLimit = 0;
   isEditMode.value = false;
   currentRowId.value = null;
   isReadOnly.value = false;
@@ -131,12 +153,30 @@ function showDialog(isAppend, initialForm, row, internship, readOnly = false) {
     form.name = row.name ?? row.topicName ?? '';
     // 后端使用 remarks 存储题目详情，这里做前端字段映射
     form.topicDetail = row.topicDetail ?? row.detail ?? row.remarks ?? '';
+    form.isLimit = Number(
+      row.isLimit ??
+        row.is_limit ??
+        row.titleIsLimit ??
+        row.title_is_limit ??
+        row.relTitleIsLimit ??
+        row.rel_title_is_limit ??
+        0
+    );
   } else {
     isEditMode.value = false;
     if (initialForm && typeof initialForm === 'object') {
       form.name = initialForm.name ?? '';
       // 同样从 remarks 等字段映射到本地 topicDetail
       form.topicDetail = initialForm.topicDetail ?? initialForm.detail ?? initialForm.remarks ?? '';
+      form.isLimit = Number(
+        initialForm.isLimit ??
+          initialForm.is_limit ??
+          initialForm.titleIsLimit ??
+          initialForm.title_is_limit ??
+          initialForm.relTitleIsLimit ??
+          initialForm.rel_title_is_limit ??
+          0
+      );
     }
   }
   dlgBasicRef.value?.showDialog?.(true, { ...form }, isEditMode.value ? 'edit' : 'append');
@@ -173,6 +213,9 @@ async function handleConfirm() {
     name: (form.name || '').trim(),
     // 后端表 RelTitleTeacher 使用 remarks 字段保存题目详情
     remarks: (form.topicDetail || '').trim(),
+    // 0=非限选（学生可选），1=限选（仅指定）
+    isLimit: Number(form.isLimit ?? 0),
+    is_limit: Number(form.isLimit ?? 0),
   };
 
   if (isEditMode.value && currentRowId.value != null) {

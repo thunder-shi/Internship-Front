@@ -1,0 +1,200 @@
+<template>
+  <InternshipPostHeaderPage
+    ref="headerPageRef"
+    :page-title="'老师审核学生自主选题'"
+    :no-project-message="'当前没有可审核的学生自主选题记录'"
+    :default-d-t-l-props="defaultDTLProps"
+    :build-search-key="buildSearchKey"
+    :is-company-user="false"
+    :process-type-code="CONSTANT.PROCESS_TYPE.INTERNAL_STUDENT_TEACHER_MATCH"
+    @audit-click="handleAuditClick"
+    @edit-click="handleEditClick"
+    @view-click="handleViewClick"
+    @project-selected="handleProjectSelected"
+  >
+    <template #dialogs>
+      <DlgVerify
+        ref="dlgVerifyRef"
+        dlg-title="学生自主选题审核"
+        recall-title="退回已通过的学生自主选题"
+        @success="handleVerifySuccess"
+      />
+      <DlgTopicDetail ref="dlgTopicDetailRef" :current-internship="currentInternship" />
+      <DlgVerifyProgress
+        v-model="showProgressDialog"
+        :main-internship-id="currentRow.internshipId"
+        :process-info="currentRow"
+        key-words="ViewVerifyProcessRelTitleStudent"
+      />
+    </template>
+  </InternshipPostHeaderPage>
+</template>
+
+<script setup>
+import { reactive, ref, computed, unref } from 'vue';
+import { useStore } from 'vuex';
+import { ElMessage } from 'element-plus';
+import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
+import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
+import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
+import DlgTopicDetail from '@/views/internship-process/components/DlgTopicDetail.vue';
+import CONSTANT from '@/utils/constant';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
+import { buildVerifySearchWords, isUserIdInVerifyUserId } from '@/utils/verify';
+import listAPI from '@/api/list';
+
+defineOptions({ name: 'TeacherVerifyStuSelectTopic' });
+
+const store = useStore();
+const headerPageRef = ref(null);
+const dlgVerifyRef = ref(null);
+const dlgTopicDetailRef = ref(null);
+
+const showProgressDialog = ref(false);
+const currentRow = ref({});
+
+const { getVerifyRoleName } = useVerifyFilter();
+
+/** 与题目申报审核一致：校/院系管理员等可看到全部待审（不必出现在 verifyUserId 里） */
+const PRIVILEGED_AUDIT_ROLES = [
+  CONSTANT.ROLE_TABLE.SUPER_ADMIN,
+  CONSTANT.ROLE_TABLE.SCHOOL_ADMIN,
+  CONSTANT.ROLE_TABLE.ACADEMIC_AFFAIRS_ADMIN,
+  CONSTANT.ROLE_TABLE.DEPARTMENT_ADMIN,
+  CONSTANT.ROLE_TABLE.SCHOOL_TEACHER,
+];
+
+function canBypassVerifyUserIdForSubmit() {
+  const roles = store.getters.roles || [];
+  return roles.some((r) => PRIVILEGED_AUDIT_ROLES.includes(r));
+}
+
+function rowAuditStatus(row) {
+  const raw = row?.isAudit ?? row?.is_audit;
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function clientFilterFn(dataList) {
+  if (!Array.isArray(dataList)) return dataList;
+  const uid = store.getters.userInfo?.id;
+  if (!uid) return dataList;
+  const bypassSubmit = canBypassVerifyUserIdForSubmit();
+
+  return dataList.filter((row) => {
+    if (row.reason && row.reason.includes('系统自动通过')) return false;
+
+    const isAudit = rowAuditStatus(row);
+    if (isAudit === CONSTANT.AUDIT_STATUS.SUBMIT) {
+      return bypassSubmit || isUserIdInVerifyUserId(row.verifyUserId, uid);
+    }
+    if (isAudit === CONSTANT.AUDIT_STATUS.PASS && row.isAllVerified) {
+      return isUserIdInVerifyUserId(row.verifyUserId, uid);
+    }
+    if (isAudit === CONSTANT.AUDIT_STATUS.BACK) {
+      return String(row.createUserId) === String(uid);
+    }
+    return false;
+  });
+}
+
+const titleObj = reactive({ mainTitle: '老师审核学生自主选题' });
+
+const currentInternship = computed(() => unref(headerPageRef.value?.currentInternship) ?? null);
+const isMore1Disabled = computed(() => unref(headerPageRef.value?.isMore1Disabled) ?? false);
+
+function handleProjectSelected(_internship, title) {
+  if (title) titleObj.mainTitle = title;
+}
+
+function buildSearchKey(baseSearchKey) {
+  return baseSearchKey;
+}
+
+const defaultDTLProps = computed(() => ({
+  title: titleObj,
+  someFlags: { autoInit: false },
+  clientFilterFn,
+  enableAuditStatusCustom: true,
+  getVerifyRoleName,
+  initSearchWords: buildVerifySearchWords(),
+  defaultDTHProps: {
+    buttonProps: {
+      audit: { show: true, showPass: true, showNotPass: true, showBack: true },
+      update: { show: true, type: 'primary', name: '查看题目详情' },
+      visible: { show: true, type: 'primary', name: '查看审核进度' },
+      more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
+    },
+    keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelTitleStudentMerge' },
+    allTableColumns: [
+      { id: 1, showName: '学生姓名', tableColumnName: 'studentName', sortable: true },
+      { id: 2, showName: '题目名称', tableColumnName: 'name', sortable: true },
+      { id: 3, showName: '申报教师', tableColumnName: 'teacherName', sortable: true },
+      { id: 4, showName: '当前状态', tableColumnName: 'customize-status' },
+      { id: 5, showName: '审核理由', tableColumnName: 'reason', sortable: false },
+    ],
+  },
+  defaultDBIProps: {},
+}));
+
+function handleAuditClick(row) {
+  const selectedRow = Array.isArray(row) ? row[0] : row;
+  if (!selectedRow) return;
+  dlgVerifyRef.value?.showDialog(true, selectedRow);
+}
+
+function resolveTopicIdFromRow(row) {
+  return (
+    Number(
+      row?.titleId ??
+        row?.title_id ??
+        row?.relationId ??
+        row?.relation_id ??
+        row?.topicId ??
+        row?.topic_id ??
+        0
+    ) || 0
+  );
+}
+
+async function loadTopicRow(topicId) {
+  if (!topicId) return null;
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelTitleTeacher',
+      pageInfo: { page: 1, size: 1 },
+      searchKey: { id: topicId },
+    });
+    return res?.data?.content?.[0] ?? null;
+  } catch (e) {
+    console.error('加载题目详情失败:', e);
+    return null;
+  }
+}
+
+async function handleEditClick(row) {
+  const selectedRow = Array.isArray(row) ? row[0] : row;
+  if (!selectedRow) return;
+
+  const topicId = resolveTopicIdFromRow(selectedRow);
+  if (!topicId) {
+    ElMessage.warning('缺少题目ID，无法打开详情');
+    return;
+  }
+
+  const topicRow = (await loadTopicRow(topicId)) || { id: topicId, name: selectedRow?.name, remarks: selectedRow?.remarks };
+  dlgTopicDetailRef.value?.showDialog(true, {}, topicRow, currentInternship.value, true);
+}
+
+function handleViewClick(rowOrArray) {
+  const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
+  currentRow.value = row ? { ...row } : {};
+  showProgressDialog.value = true;
+}
+
+function handleVerifySuccess() {
+  headerPageRef.value?.baseListRef?.initDataList?.(true);
+}
+</script>
+

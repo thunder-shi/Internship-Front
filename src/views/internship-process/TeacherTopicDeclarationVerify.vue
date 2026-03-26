@@ -59,7 +59,48 @@ const titleObj = reactive({ mainTitle: '题目申报审核' });
 const currentInternship = computed(() => headerPageRef.value?.currentInternship?.value ?? null);
 const isMore1Disabled = computed(() => headerPageRef.value?.isMore1Disabled?.value ?? false);
 
-const { clientFilterFn, getVerifyRoleName } = useVerifyFilter();
+const { clientFilterFn: verifyClientFilterFn, getVerifyRoleName } = useVerifyFilter();
+
+function resolveIsLimitValue(row) {
+  const rawList = [
+    row?.is_limit,
+    row?.isLimit,
+    row?.title_is_limit,
+    row?.titleIsLimit,
+    row?.rel_title_is_limit,
+    row?.relTitleIsLimit,
+    row?.limit_flag,
+    row?.limitFlag,
+  ];
+
+  const normalized = rawList
+    .filter((v) => v !== null && v !== undefined && v !== '')
+    .map((v) => {
+      if (v === '是') return 1;
+      if (v === '否') return 0;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    })
+    .filter((v) => v !== null);
+
+  if (normalized.includes(1)) return 1;
+  if (normalized.includes(0)) return 0;
+  return null;
+}
+
+function clientFilterFn(dataList) {
+  const filtered = verifyClientFilterFn(dataList);
+  if (!Array.isArray(filtered)) return filtered || [];
+  return filtered.map((row) => {
+    const isLimitValue = resolveIsLimitValue(row);
+    return {
+      ...row,
+      isLimit: isLimitValue,
+      is_limit: isLimitValue,
+      isLimitText: isLimitValue === 1 ? '是' : (isLimitValue === 0 ? '否' : '--'),
+    };
+  });
+}
 
 function handleProjectSelected(internship, title) {
   if (title) titleObj.mainTitle = title;
@@ -89,7 +130,8 @@ const defaultDTLProps = computed(() => ({
       { id: 2, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
       { id: 3, showName: '题目名称', tableColumnName: 'name', sortable: true },
       { id: 4, showName: '题目详情', tableColumnName: 'remarks', sortable: true },
-      { id: 5, showName: '状态', tableColumnName: 'customize-status' },
+      { id: 5, showName: '是否限选', tableColumnName: 'isLimitText', sortable: false },
+      { id: 6, showName: '状态', tableColumnName: 'customize-status' },
     ],
   },
   defaultDBIProps: {},

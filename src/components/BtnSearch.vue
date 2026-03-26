@@ -121,7 +121,8 @@ const searchClick = (type) => {
 
 const reset = () => {
   Object.assign(waitSearch, resetForm(waitSearch))
-  // emit('search-click', waitSearch)
+  // 重置后主动触发一次高级查询，确保列表恢复为全量数据
+  emit('advanced-search-click', _.cloneDeep(waitSearch))
 }
 </script>
 

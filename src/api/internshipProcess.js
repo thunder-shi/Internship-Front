@@ -15,7 +15,7 @@ async function auditProcess(node) {
 
 async function activateProcess(params) {
   return request({
-    url: 'internshipProcess/activateProcess',
+    url: '/internshipProcess/activateProcess',
     method: 'post',
     data: {
       node: JSON.stringify(params),
@@ -25,7 +25,7 @@ async function activateProcess(params) {
 
 async function getVerifyUserIds(params) {
   return request({
-    url: 'internshipProcess/getVerifyUserIds',
+    url: '/internshipProcess/getVerifyUserIds',
     method: 'post',
     data: {
       node: JSON.stringify(params),

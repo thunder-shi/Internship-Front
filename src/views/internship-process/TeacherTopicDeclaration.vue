@@ -62,11 +62,53 @@ function buildSearchKey(baseSearchKey) {
   };
 }
 
+function resolveIsLimitValue(row) {
+  const rawList = [
+    row?.is_limit,
+    row?.isLimit,
+    row?.title_is_limit,
+    row?.titleIsLimit,
+    row?.rel_title_is_limit,
+    row?.relTitleIsLimit,
+    row?.limit_flag,
+    row?.limitFlag,
+  ];
+
+  const normalized = rawList
+    .filter((v) => v !== null && v !== undefined && v !== '')
+    .map((v) => {
+      if (v === '是') return 1;
+      if (v === '否') return 0;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    })
+    .filter((v) => v !== null);
+
+  // 兼容 Merge 视图字段冲突：只要任一来源为 1，就认为是限选
+  if (normalized.includes(1)) return 1;
+  if (normalized.includes(0)) return 0;
+  return null;
+}
+
+function clientFilterFn(list) {
+  if (!Array.isArray(list)) return list || [];
+  return list.map((row) => {
+    const isLimitValue = resolveIsLimitValue(row);
+    return {
+      ...row,
+      isLimit: isLimitValue,
+      is_limit: isLimitValue,
+      isLimitText: isLimitValue === 1 ? '是' : (isLimitValue === 0 ? '否' : '--'),
+    };
+  });
+}
+
 const defaultDTLProps = computed(() => ({
   title: titleObj,
   someFlags: {
     autoInit: false,
   },
+  clientFilterFn,
   enableAuditStatusCustom: true,
   getVerifyRoleName,
   defaultDTHProps: {
@@ -90,10 +132,11 @@ const defaultDTLProps = computed(() => ({
       { id: 1, showName: '创建时间', tableColumnName: 'createTime', sortable: true },
       { id: 2, showName: '题目名称', tableColumnName: 'name', sortable: true },
       { id: 3, showName: '题目详情', tableColumnName: 'remarks', sortable:true},
+      { id: 4, showName: '是否限选', tableColumnName: 'isLimitText', sortable: false },
       //{ id: 2, showName: '实习项目', tableColumnName: 'internshipName', sortable: true },
       //{ id: 3, showName: '创建人', tableColumnName: 'teacherName', sortable: true },
       
-      { id: 3, showName: '状态', tableColumnName: 'customize-status' },
+      { id: 5, showName: '状态', tableColumnName: 'customize-status' },
     ],
   },
   defaultDBIProps: {},
