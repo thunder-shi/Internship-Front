@@ -1155,9 +1155,11 @@ function upload() {
   emit('batch-import-click');
 }
 
-// 暴露方法给父组件
+// 暴露方法给父组件（弹窗跨页勾选需同步当前页 dataList / table 实例）
 defineExpose({
   initDataList,
   _deleteClick,
+  dataList,
+  table,
 });
 </script>

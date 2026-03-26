@@ -149,12 +149,12 @@ async function updateVerifyProcessStatus(rows, isBatch = false) {
     }));
     const resInfo = await listAPI.editManyNodes('MainVerifyProcess', nodes);
     if (resInfo && resInfo.message === 'successful') {
-      ElMessage.success(
-        isBatch ? `批量提交完成，共成功提交 ${nodes.length} 条记录` : '提交成功'
-      );
+      ElMessage.success(isBatch ? `批量提交完成，共成功提交 ${nodes.length} 条记录` : '提交成功');
       await headerPageRef.value?.baseListRef?.initDataList(true);
     } else {
-      ElMessage.warning(resInfo?.message || (isBatch ? '批量更新审核状态失败' : '更新审核状态失败'));
+      ElMessage.warning(
+        resInfo?.message || (isBatch ? '批量更新审核状态失败' : '更新审核状态失败')
+      );
     }
   } catch (error) {
     console.error(isBatch ? '批量提交失败:' : '提交失败:', error);
