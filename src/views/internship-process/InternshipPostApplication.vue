@@ -39,14 +39,10 @@ const { getVerifyRoleName } = useVerifyFilter();
 const listSomeFlags = { checkFlag: true };
 
 const store = useStore();
-const roles = computed(() => store.getters.roles || []);
+const userInfo = computed(() => store.getters.userInfo || {});
 
-const isCompanyUser = computed(() => {
-  return roles.value.some(
-    (role) =>
-      role === CONSTANT.ROLE_TABLE.COMPANY_ADMIN || role === CONSTANT.ROLE_TABLE.COMPANY_TUTOR
-  );
-});
+// 通过部门类型判断是否为企业用户（typeId=1 表示企业）
+const isCompanyUser = computed(() => userInfo.value.departmentTypeId === 1);
 
 /** 隐藏修改；行内提交 + 顶部批量提交 */
 function getButtonProps(currentInternship, isMore1Disabled) {
@@ -78,31 +74,30 @@ function refreshList() {
 }
 
 /**
- * 仅更新 MainVerifyProcess，不调业务保存；返回成功条数
+ * 仅更新 MainVerifyProcess，不调业务保存；批量 editManyNodes，返回成功条数（失败为 0）
  * @param {Array} pendingRows 已确认为待提交的行
  */
 async function submitMainVerifyRows(pendingRows) {
-  let successCount = 0;
-  for (const row of pendingRows) {
-    const status =
+  if (!pendingRows?.length) return 0;
+  const nodes = pendingRows.map((row) => ({
+    id: row.id,
+    isAudit:
       row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
         ? CONSTANT.AUDIT_STATUS.PASS
-        : CONSTANT.AUDIT_STATUS.SUBMIT;
-    try {
-      const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
-        id: row.id,
-        isAudit: status,
-      });
-      if (resInfo && resInfo.message === 'successful') {
-        successCount += 1;
-      } else {
-        ElMessage.warning(resInfo?.message || '更新审核状态失败');
-      }
-    } catch (error) {
-      console.error('提交失败:', error);
+        : CONSTANT.AUDIT_STATUS.SUBMIT,
+  }));
+  try {
+    const resInfo = await listAPI.editManyNodes('MainVerifyProcess', nodes);
+    if (resInfo && resInfo.message === 'successful') {
+      return nodes.length;
     }
+    ElMessage.warning(resInfo?.message || '更新审核状态失败');
+    return 0;
+  } catch (error) {
+    console.error('提交失败:', error);
+    ElMessage.error('提交失败');
+    return 0;
   }
-  return successCount;
 }
 
 function handleAppendClick(currentInternship) {

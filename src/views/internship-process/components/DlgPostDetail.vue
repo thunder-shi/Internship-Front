@@ -240,13 +240,8 @@ const formRules = computed(() => ({
 const userInfo = computed(() => store.getters.userInfo || {});
 const roles = computed(() => store.getters.roles || []);
 
-// 判断是否是企业导师或企业管理员
-const isCompanyUser = computed(() => {
-  return roles.value.some(
-    (role) =>
-      role === CONSTANT.ROLE_TABLE.COMPANY_ADMIN || role === CONSTANT.ROLE_TABLE.COMPANY_TUTOR
-  );
-});
+// 通过部门类型判断是否为企业用户（typeId=1 表示企业）
+const isCompanyUser = computed(() => userInfo.value.departmentTypeId === 1);
 
 // 获取用户单位名称
 const userDepartmentName = computed(() => {
@@ -266,23 +261,146 @@ const hasValidSchoolId = computed(() => {
   }
 });
 
+// 缓存的项目专业ID（从 MainInternship 补充获取）
+const cachedInternshipMajorIds = ref('');
+
 // 获取项目的专业ID数组
 function getInternshipMajorIds() {
-  const majorIds = props.currentInternship?.majorIds || '';
+  const majorIds = props.currentInternship?.majorIds || cachedInternshipMajorIds.value || '';
   if (!majorIds) return [];
   // 将 "1|2|3" 格式的字符串拆分成数组，过滤空值
   return majorIds.split('|').filter((id) => id && id.trim() !== '');
 }
 
-// 判断两个专业ID集合是否有交集
+// 从 MainInternship 加载项目的专业ID（当 currentInternship 没有 majorIds 时）
+async function loadInternshipMajorIds() {
+  const internshipId = props.currentInternship?.internshipId || props.currentInternship?.id;
+  if (!internshipId) return;
+  // 如果 currentInternship 已有 majorIds，无需额外查询
+  if (props.currentInternship?.majorIds) {
+    cachedInternshipMajorIds.value = props.currentInternship.majorIds;
+    return;
+  }
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewMainInternship',
+      searchKey: { id: internshipId },
+      reg: { id: '=' },
+      pageInfo: { page: 1, size: 1 },
+    });
+    const records = res?.data?.content || res?.data?.records || [];
+    if (records.length > 0 && records[0].majorIds) {
+      cachedInternshipMajorIds.value = records[0].majorIds;
+    }
+  } catch (error) {
+    console.error('加载项目专业信息失败:', error);
+  }
+}
+
+// 专业树缓存（用于多层级匹配）
+const majorTreeCache = ref(null);
+
+// 递归展开嵌套树为扁平数组（树接口返回嵌套结构）
+function flattenTree(nodes, parentId = null) {
+  const result = [];
+  if (!nodes || !Array.isArray(nodes)) return result;
+  nodes.forEach((node) => {
+    result.push({ id: node.id, parentId: parentId });
+    if (node.children && node.children.length > 0) {
+      result.push(...flattenTree(node.children, node.id));
+    }
+  });
+  return result;
+}
+
+// 加载专业树数据并构建父子关系映射
+async function loadMajorTree() {
+  if (majorTreeCache.value) return majorTreeCache.value;
+  try {
+    const response = await treeAPI.getAllNodes({ keyWords: 'BaseMajor' });
+    if (!response || !response.data) return null;
+    // getAllNodes 返回嵌套树结构（含 children），需要递归展开为扁平数组
+    const flatNodes = flattenTree(response.data);
+    const parentMap = new Map();
+    const childrenMap = new Map();
+    flatNodes.forEach((node) => {
+      const id = String(node.id);
+      const parentId = node.parentId != null ? String(node.parentId) : null;
+      parentMap.set(id, parentId);
+      if (!childrenMap.has(id)) childrenMap.set(id, new Set());
+      if (parentId != null) {
+        if (!childrenMap.has(parentId)) childrenMap.set(parentId, new Set());
+        childrenMap.get(parentId).add(id);
+      }
+    });
+    majorTreeCache.value = { parentMap, childrenMap };
+    return majorTreeCache.value;
+  } catch (error) {
+    console.error('加载专业树失败:', error);
+    return null;
+  }
+}
+
+// 获取一个专业ID的所有祖先ID（向上遍历）
+function getAllAncestors(id, parentMap) {
+  const ancestors = new Set();
+  let current = String(id);
+  while (parentMap.has(current)) {
+    const parent = parentMap.get(current);
+    if (!parent || parent === '-1' || parent === '0' || ancestors.has(parent)) break;
+    ancestors.add(parent);
+    current = parent;
+  }
+  return ancestors;
+}
+
+// 获取一个专业ID的所有后代ID（向下遍历）
+function getAllDescendants(id, childrenMap) {
+  const descendants = new Set();
+  const queue = [String(id)];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const children = childrenMap.get(current);
+    if (children) {
+      children.forEach((child) => {
+        if (!descendants.has(child)) {
+          descendants.add(child);
+          queue.push(child);
+        }
+      });
+    }
+  }
+  return descendants;
+}
+
+// 扩展专业ID集合：包含自身、所有祖先和所有后代
+function expandMajorIds(majorIds, treeData) {
+  if (!treeData) return new Set(majorIds.map(String));
+  const { parentMap, childrenMap } = treeData;
+  const expanded = new Set();
+  majorIds.forEach((id) => {
+    const strId = String(id);
+    expanded.add(strId);
+    getAllAncestors(strId, parentMap).forEach((a) => expanded.add(a));
+    getAllDescendants(strId, childrenMap).forEach((d) => expanded.add(d));
+  });
+  return expanded;
+}
+
+// 判断两个专业ID集合是否有交集（支持多层级匹配）
 function hasMajorIntersection(internshipMajorIds, postTypeMajorIds) {
   if (!internshipMajorIds || internshipMajorIds.length === 0) return false;
   if (!postTypeMajorIds || postTypeMajorIds === '') return false;
 
-  // 将岗位类型的 majorIds 字符串拆分成数组
   const postTypeIds = postTypeMajorIds.split('|').filter((id) => id && id.trim() !== '');
 
-  // 检查是否有交集
+  // 如果专业树已加载，使用层级匹配：扩展项目专业ID到所有祖先和后代
+  if (majorTreeCache.value) {
+    const expandedInternshipIds = expandMajorIds(internshipMajorIds, majorTreeCache.value);
+    return postTypeIds.some((id) => expandedInternshipIds.has(String(id)));
+  }
+
+  // 降级：精确匹配
   return internshipMajorIds.some((id) => postTypeIds.includes(String(id)));
 }
 
@@ -728,6 +846,7 @@ async function ensureMainVerifyProcessForNewPost(relationId) {
     verifyResp = await internshipProcessAPI.getVerifyUserIds({
       verifyRoleId,
       createUserId,
+      internshipId: props.currentInternship?.internshipId,
     });
   } catch (e) {
     console.error('查询审核人失败:', e);
@@ -961,6 +1080,9 @@ async function showDialog(val, formData = {}, rowData = null, readOnly = false) 
   Object.keys(form).forEach((key) => {
     delete form[key];
   });
+
+  // 加载专业树和项目专业ID（用于多层级匹配）
+  await Promise.all([loadMajorTree(), loadInternshipMajorIds()]);
 
   // 如果是编辑模式或审核模式，从当前行数据加载岗位信息
   if (isEditMode.value && rowData) {

@@ -8,6 +8,7 @@
     :is-company-user="false"
     :process-type-code="CONSTANT.PROCESS_TYPE.EXTERNAL_STUDENT_SELECT_POST"
     @audit-click="handleAuditClick"
+    @audit-command="handleBatchAuditCommand"
     @edit-click="handleEditClick"
     @view-click="handleViewClick"
     @project-selected="handleProjectSelected"
@@ -22,6 +23,7 @@
 
 <script setup>
 import { reactive, ref, computed, unref } from 'vue';
+import { ElMessage } from 'element-plus';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgPostDetail from '@/views/internship-process/components/DlgPostDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
@@ -81,20 +83,40 @@ const defaultDTLProps = computed(() => ({
     },
     keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelStuInternshipPostMerge' },
     allTableColumns: [
-      { id: 1, showName: '学生姓名', tableColumnName: 'studentName', sortable: true },
-      { id: 2, showName: '企业名称', tableColumnName: 'companyName', sortable: true },
-      { id: 3, showName: '岗位名称', tableColumnName: 'internshipPostName', sortable: true },
-      { id: 4, showName: '当前状态', tableColumnName: 'customize-status' },
-      { id: 5, showName: '审核理由', tableColumnName: 'reason' },
+      { id: 1, showName: '学号', tableColumnName: 'account', sortable: true },
+      { id: 2, showName: '学生姓名', tableColumnName: 'studentName', sortable: true },
+      { id: 3, showName: '企业名称', tableColumnName: 'companyName', sortable: true },
+      { id: 4, showName: '岗位名称', tableColumnName: 'internshipPostName', sortable: true },
+      { id: 5, showName: '当前状态', tableColumnName: 'customize-status' },
+      { id: 6, showName: '审核理由', tableColumnName: 'reason' },
     ],
   },
   initSearchWords: buildVerifySearchWords(),
   defaultDBIProps: {},
 }));
 
+/** 下拉选择的批量审核类型 */
+const lastBatchAuditCommand = ref(null);
+
 function handleAuditClick(row) {
-  const selectedRow = Array.isArray(row) ? row[0] : row;
-  if (selectedRow) dlgVerifyRef.value?.showDialog(true, selectedRow);
+  const rows = Array.isArray(row) ? row : row ? [row] : [];
+  if (rows.length === 0) return;
+  if (rows.length === 1) {
+    dlgVerifyRef.value?.showDialog(true, rows[0]);
+  } else {
+    const pending = rows.filter((r) => r && r.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT);
+    if (!pending.length) {
+      ElMessage.warning('选中的记录中没有待审核的数据');
+      return;
+    }
+    const preSelected = lastBatchAuditCommand.value;
+    dlgVerifyRef.value?.showDialog(true, pending[0], pending, preSelected);
+    lastBatchAuditCommand.value = null;
+  }
+}
+
+function handleBatchAuditCommand(command, _rows) {
+  lastBatchAuditCommand.value = command;
 }
 
 function handleEditClick(row) {

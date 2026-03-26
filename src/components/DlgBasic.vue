@@ -1,6 +1,6 @@
 <template>
-  <div class="dlg-drag-wrapper" v-dialogDrag="dialogRef">
-    <el-dialog ref="dialogRef" append-to-body v-model="dialogShow" :close-on-click-modal="false" :close-on-press-escape="false" :modal-append-to-body="false" :class="autoMax ? 'view-dialog' : ''" :fullscreen="autoMax" :before-close="beforeCloseDlg" :width="width" :height="height" @opened="openFun" @close="closeDlg">
+  <div class="dlg-drag-wrapper" v-dialogDrag="{ ref: dialogRef, uid: dlgUid }">
+    <el-dialog ref="dialogRef" append-to-body v-model="dialogShow" :close-on-click-modal="false" :close-on-press-escape="false" :modal-append-to-body="false" :class="[autoMax ? 'view-dialog' : '', `dlg-uid-${dlgUid}`]" :fullscreen="autoMax" :before-close="beforeCloseDlg" :width="width" :height="height" @opened="openFun" @close="closeDlg">
       <template #title>
         <span>{{ dlgTitle + dlgSuffix }}</span>
         <svg-icon v-if="needMaxBtn" class="fullscreen" icon-class="fullscreen" @click="clickFull" />
@@ -23,11 +23,14 @@
   </div>
 </template>
 <script setup>
-import { computed, reactive, ref, h } from 'vue'
+import { computed, reactive, ref, h, getCurrentInstance } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { WarningFilled } from '@element-plus/icons-vue'
 import { arrangeButton } from '@/utils/common'
 import _ from 'lodash'
+
+// 每个 DlgBasic 实例的唯一标识，用于 v-dialogDrag 精确定位对话框 DOM
+const dlgUid = getCurrentInstance()?.uid ?? Math.random().toString(36).slice(2)
 
 const props = defineProps({
   defaultProps: {

@@ -3,7 +3,7 @@
     v-if="ready"
     ref="headerPageRef"
     :page-title="'学生岗位报名'"
-    :no-project-message="'当前没有可报名岗位的实习项目'"
+    :no-project-message="'未安排实习项目'"
     :project-select-search-key="projectSelectSearchKey"
     :project-select-reg-key="projectSelectRegKey"
     :default-d-t-l-props="defaultDTLProps"
@@ -43,6 +43,7 @@ import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import listAPI from '@/api/list';
 import otherAPI from '@/api/other';
+import treeAPI from '@/api/tree';
 
 defineOptions({ name: 'StuApplyPost' });
 
@@ -57,6 +58,8 @@ const titleObj = reactive({ mainTitle: '学生岗位报名' });
 
 // 学生已分配的实习项目 ID 列表（从 RelIntershipUser 查询）
 const studentInternshipIds = ref([]);
+// 学生专业及所有祖先专业 ID（用于匹配项目允许的专业，支持层级匹配）
+const expandedMajorIds = ref([]);
 const ready = ref(false);
 
 async function loadStudentAssignment() {
@@ -72,10 +75,30 @@ async function loadStudentAssignment() {
   } catch (e) {
     console.error('查询学生分配记录失败:', e);
   }
-  ready.value = true;
 }
 
-onMounted(() => { loadStudentAssignment(); });
+// 加载学生专业的所有祖先 ID（含自身），实现层级专业匹配
+// 例如：学生是"软件工程"(id=15)，其父节点"计算机类"(id=10) → expandedMajorIds = [15, 10, ...]
+async function loadExpandedMajorIds() {
+  const majorId = userInfo.value?.majorId;
+  if (!majorId) return;
+  try {
+    const res = await treeAPI.getAllParentIndex('BaseMajor', majorId);
+    if (res.data && res.data.length > 0) {
+      expandedMajorIds.value = res.data.map(item => item.id).filter(Boolean);
+    } else {
+      expandedMajorIds.value = [majorId];
+    }
+  } catch (e) {
+    console.error('加载专业层级失败:', e);
+    expandedMajorIds.value = [majorId];
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([loadStudentAssignment(), loadExpandedMajorIds()]);
+  ready.value = true;
+});
 
 // 当前已报名的岗位信息
 const currentSelectedPost = ref(null);
@@ -99,8 +122,8 @@ const projectSelectSearchKey = computed(() => {
   if (studentInternshipIds.value.length > 0) {
     searchKey.internshipId = studentInternshipIds.value.join(',');
   }
-  if (userInfo.value?.majorId) {
-    searchKey.majorIds = userInfo.value.majorId;
+  if (expandedMajorIds.value.length > 0) {
+    searchKey.majorIds = expandedMajorIds.value.join(',');
   }
   return searchKey;
 });
@@ -113,8 +136,8 @@ const projectSelectRegKey = computed(() => {
   if (studentInternshipIds.value.length > 0) {
     regKey.internshipId = CONSTANT.SEARCH_OPERATOR.IN;
   }
-  if (userInfo.value?.majorId) {
-    regKey.majorIds = CONSTANT.SEARCH_OPERATOR.IN;
+  if (expandedMajorIds.value.length > 0) {
+    regKey.majorIds = 'fi()';
   }
   return regKey;
 });

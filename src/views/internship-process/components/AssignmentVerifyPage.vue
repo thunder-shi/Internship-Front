@@ -9,6 +9,7 @@
       :default-d-t-l-props="defaultDTLProps"
       :build-search-key="buildSearchKey"
       :is-company-user="isCompanyUser"
+      :process-type-code="processTypeCode"
       @audit-click="handleAuditClick"
       @audit-command="handleBatchAuditCommand"
       @edit-click="handleEditClick"
@@ -56,6 +57,21 @@ const props = defineProps({
   recallTitle: { type: String, required: true },
   /** 表格列配置，来自 assignmentPresets 的 VERIFY_*_COLUMNS */
   tableColumns: { type: Array, required: true },
+  /** 列表 keyWord，默认 RelIntershipUser 审核视图；分配校内导师等场景可覆写 */
+  listKeyWord: {
+    type: Object,
+    default: null,
+  },
+  /** 与 buildVerifySearchWords 合并的额外查询（如 jobId） */
+  initSearchWordsExtra: {
+    type: Object,
+    default: null,
+  },
+  /** buildSearchKey 中的 tableName，需与列表视图业务表一致 */
+  assignmentTableName: {
+    type: String,
+    default: 'RelIntershipUser',
+  },
 });
 
 const {
@@ -71,6 +87,7 @@ const {
   processTypeCode: props.processTypeCode,
   mainTitle: props.pageTitle,
   withMajorFilter: false,
+  assignmentTableName: props.assignmentTableName,
 });
 
 const dlgVerifyRef = ref(null);
@@ -86,22 +103,38 @@ const buttonPropsComputed = computed(() => ({
   update: { show: true, name: '查看详情' },
 }));
 
+function mergedInitSearchWords() {
+  const base = buildVerifySearchWords();
+  const extra = props.initSearchWordsExtra;
+  if (!extra) return base;
+  return {
+    searchKey: { ...base.searchKey, ...(extra.searchKey || {}) },
+    regKey: { ...base.regKey, ...(extra.regKey || {}) },
+    andor: { ...base.andor, ...(extra.andor || {}) },
+  };
+}
+
 const defaultDTLProps = computed(() => ({
   title: titleObj,
   someFlags: { autoInit: false },
   clientFilterFn,
   enableAuditStatusCustom: true,
   getVerifyRoleName,
-  initSearchWords: buildVerifySearchWords(),
+  initSearchWords: mergedInitSearchWords(),
   defaultDTHProps: {
     buttonProps: buttonPropsComputed.value,
-    keyWord: ASSIGNMENT_KEY_WORD,
+    keyWord: props.listKeyWord || ASSIGNMENT_KEY_WORD,
     allTableColumns: props.tableColumns,
   },
 }));
 
 function handleVerifySuccess() {
-  headerPageRef.value?.updateSearchWordsAndRefresh();
+  // 审核完成后强制刷新列表：
+  // 1) 优先直接刷新 DataTableList（不依赖 currentInternship.internshipId）
+  // 2) 再兜底调用 updateSearchWordsAndRefresh（保持原有刷新路径）
+  const baseList = headerPageRef.value?.baseListRef;
+  baseList?.initDataList?.(true);
+  headerPageRef.value?.updateSearchWordsAndRefresh?.();
 }
 
 function handleAuditClick(row) {

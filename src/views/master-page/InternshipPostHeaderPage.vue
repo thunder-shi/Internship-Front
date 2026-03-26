@@ -12,6 +12,8 @@
       @audit-command="handleAuditCommand"
       @submit-click="handleSubmitClick"
       @more2-click="handleMore2Click"
+      @more3-click="handleMore3Click"
+      @after-init-data="handleAfterInitData"
     >
       <template v-if="$slots.rightOperate" #rightOperate="slotProps">
         <slot name="rightOperate" v-bind="slotProps" />
@@ -90,6 +92,11 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  /** 选择项目保存后、拉表格数据前的钩子（可选，需返回 Promise） */
+  beforeRefreshOnProjectSelected: {
+    type: Function,
+    default: null,
+  },
 });
 
 const emit = defineEmits([
@@ -99,10 +106,12 @@ const emit = defineEmits([
   'audit-click',
   'audit-command',
   'more2-click',
+  'more3-click',
   'post-detail-close',
   'post-detail-success',
   'project-selected',
   'submit-click',
+  'after-init-data',
 ]);
 
 const baseListRef = ref(null);
@@ -189,9 +198,9 @@ async function updateSearchWordsAndRefresh() {
     internshipId: internshipId,
   };
 
-  // 如果是企业用户，添加 createUserId 条件
-  if (props.isCompanyUser && userInfo.value?.id) {
-    baseSearchKey.createUserId = userInfo.value.id;
+  // 如果是企业用户，按企业过滤，只看到自己企业的数据
+  if (props.isCompanyUser && userInfo.value?.departmentId) {
+    baseSearchKey.companyId = userInfo.value.departmentId;
   }
 
   // 使用传入的 buildSearchKey 函数构建最终查询条件
@@ -199,6 +208,10 @@ async function updateSearchWordsAndRefresh() {
 
   // 更新 nowSearchWords（直接重新赋值整个对象，确保响应式更新）
   nowSearchWords.searchKey = { ...searchKey };
+  // 为所有搜索字段设置精确匹配操作符
+  const regKey = {};
+  Object.keys(searchKey).forEach(key => { regKey[key] = '='; });
+  nowSearchWords.regKey = regKey;
 
   // 等待响应式更新完成（多等待几个 tick，确保 computed 能检测到变化）
   await nextTick();
@@ -267,6 +280,15 @@ async function handleProjectSelectConfirm(option, type, form) {
     await nextTick();
   }
 
+  // 在刷新列表前允许外部先做初始化逻辑（如：企业导师分配页先 init 再查表）
+  if (currentInternship.value && typeof props.beforeRefreshOnProjectSelected === 'function') {
+    try {
+      await props.beforeRefreshOnProjectSelected(currentInternship.value);
+    } catch (error) {
+      console.error('beforeRefreshOnProjectSelected 调用失败', error);
+    }
+  }
+
   // 更新查询条件并刷新列表（等待刷新完成）
   await updateSearchWordsAndRefresh();
 
@@ -309,9 +331,17 @@ function handleMore2Click(rows) {
   emit('more2-click', rows);
 }
 
+function handleMore3Click(rows) {
+  emit('more3-click', rows);
+}
+
 // 查看进度按钮点击（转发给父组件）
 function handleViewClick(rowOrArray) {
   emit('view-click', rowOrArray);
+}
+
+function handleAfterInitData(dataList) {
+  emit('after-init-data', dataList);
 }
 
 // 处理 more1 按钮点击事件（实习项目选择）

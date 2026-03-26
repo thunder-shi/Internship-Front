@@ -128,49 +128,73 @@ const resolveInstance = (value) => {
   return value
 }
 
-const getDialogElements = (dialogInstance) => {
-  // 解析实例（可能是 ref）
+// 从 binding.value 中提取 ref 和 uid（兼容旧格式和新格式）
+const parseBindingValue = (bindingValue) => {
+  if (!bindingValue) return { instance: null, uid: null }
+  // 新格式: { ref, uid }（有 ref 和 uid 两个字段）
+  if (typeof bindingValue === 'object' && 'ref' in bindingValue && 'uid' in bindingValue) {
+    return { instance: resolveInstance(bindingValue.ref), uid: bindingValue.uid }
+  }
+  // 旧格式: 直接是 ref
+  return { instance: resolveInstance(bindingValue), uid: null }
+}
+
+const getDialogElements = (dialogInstance, uid) => {
   const instance = resolveInstance(dialogInstance)
   if (!instance) return {}
-  
+
   let dragDom = null
-  
-  // Vue3 + Element Plus 的 el-dialog 组件实例获取方式
-  // 方法1: 在 Vue3 中，组件实例没有 $el，需要通过 ref 获取 DOM
-  // Element Plus 的 dialog 组件会通过 ref 暴露 DOM 元素
-  // 尝试通过组件实例的 ref 属性获取（如果直接传入的是 ref）
-  if (instance && typeof instance === 'object') {
-    // 如果实例本身就是一个 DOM 元素（直接传入 ref 的情况）
-    if (instance instanceof HTMLElement) {
+
+  // 最优先：通过 uid class 精确查找（每个 DlgBasic 实例有唯一标识）
+  if (uid) {
+    dragDom = document.querySelector(`.dlg-uid-${uid}`)
+  }
+
+  // 方法1: Element Plus el-dialog 暴露 dialogContentRef
+  if (!dragDom && instance && typeof instance === 'object') {
+    const contentRef = resolveInstance(instance.dialogContentRef)
+    if (contentRef?.$el) {
+      const contentEl = contentRef.$el
+      if (contentEl.classList?.contains('el-dialog')) {
+        dragDom = contentEl
+      } else {
+        dragDom = contentEl.closest?.('.el-dialog') || contentEl.querySelector?.('.el-dialog')
+      }
+    }
+
+    if (!dragDom && instance instanceof HTMLElement) {
       if (instance.classList?.contains('el-dialog')) {
         dragDom = instance
       } else {
         dragDom = instance.querySelector?.('.el-dialog')
       }
     }
-    // 尝试通过组件实例的内部属性获取（Element Plus 可能暴露的 ref）
-    else if (instance.$el) {
-      // Vue3 中某些情况下可能还有 $el（兼容处理）
+    if (!dragDom && instance.$el) {
       const wrapper = instance.$el
-      if (wrapper.classList?.contains('el-dialog')) {
-        dragDom = wrapper
-      } else {
-        dragDom = wrapper.querySelector?.('.el-dialog')
+      if (wrapper instanceof HTMLElement) {
+        if (wrapper.classList?.contains('el-dialog')) {
+          dragDom = wrapper
+        } else {
+          dragDom = wrapper.querySelector?.('.el-dialog')
+        }
       }
     }
   }
-  
-  // 方法2: 在 body 中查找所有 .el-dialog，尝试找到对应的
-  // 由于 append-to-body，对话框会被渲染到 body 下
+
+  // 方法2: 通过 overlay wrapper 查找
+  if (!dragDom && instance && typeof instance === 'object') {
+    const overlayRef = resolveInstance(instance.dialogRef)
+    if (overlayRef instanceof HTMLElement) {
+      dragDom = overlayRef.querySelector?.('.el-dialog')
+    }
+  }
+
+  // 方法3: 在 body 中查找（最后手段）
   if (!dragDom) {
     const dialogs = document.querySelectorAll('.el-dialog')
-    // 如果只有一个对话框，直接使用
     if (dialogs.length === 1) {
       dragDom = dialogs[0]
-    } 
-    // 如果有多个，尝试找到可见的那个（通常是最后打开的）
-    else if (dialogs.length > 1) {
-      // 查找可见的对话框
+    } else if (dialogs.length > 1) {
       for (let i = dialogs.length - 1; i >= 0; i--) {
         const dialog = dialogs[i]
         const style = window.getComputedStyle(dialog)
@@ -179,27 +203,26 @@ const getDialogElements = (dialogInstance) => {
           break
         }
       }
-      // 如果没找到可见的，使用最后一个
       if (!dragDom) {
         dragDom = dialogs[dialogs.length - 1]
       }
     }
   }
-  
+
   if (!dragDom) {
     return {}
   }
-  
+
   const headerEl = dragDom.querySelector('.el-dialog__header')
   if (!headerEl) {
     return {}
   }
-  
+
   return { dragDom, headerEl }
 }
 
-const attachDrag = (dialogInstance) => {
-  const { dragDom, headerEl } = getDialogElements(dialogInstance)
+const attachDrag = (dialogInstance, uid) => {
+  const { dragDom, headerEl } = getDialogElements(dialogInstance, uid)
   if (!dragDom || !headerEl) return null
 
   // 确保对话框使用 fixed 定位，这样才能拖拽
@@ -228,8 +251,8 @@ const attachDrag = (dialogInstance) => {
   }
 
   // 非全屏对话框始终居中，避免继承前一个对话框的位置
-  const centerLeft = (windowWidth - rect.width) / 2
-  const centerTop = (windowHeight - rect.height) / 2
+  const centerLeft = Math.max(0, (windowWidth - rect.width) / 2)
+  const centerTop = Math.max(0, (windowHeight - rect.height) / 2)
 
   dragDom.style.left = `${centerLeft}px`
   dragDom.style.top = `${centerTop}px`
@@ -254,12 +277,14 @@ const attachDrag = (dialogInstance) => {
       const newLeft = moveEvent.clientX - disX
       const newTop = moveEvent.clientY - disY
       
-      // 限制在视口范围内（防止拖出屏幕）
-      const maxLeft = document.documentElement.clientWidth - dragRect.width
-      const maxTop = document.documentElement.clientHeight - dragRect.height
-      
-      const finalLeft = Math.max(0, Math.min(newLeft, maxLeft))
-      const finalTop = Math.max(0, Math.min(newTop, maxTop))
+      // 限制拖拽范围：至少保留 40px header 可见，防止拖丢
+      const minLeft = -(dragRect.width - 100)
+      const maxLeft = document.documentElement.clientWidth - 100
+      const minTop = 0
+      const maxTop = document.documentElement.clientHeight - 40
+
+      const finalLeft = Math.max(minLeft, Math.min(newLeft, maxLeft))
+      const finalTop = Math.max(minTop, Math.min(newTop, maxTop))
       
       dragDom.style.left = `${finalLeft}px`
       dragDom.style.top = `${finalTop}px`
@@ -283,75 +308,64 @@ const attachDrag = (dialogInstance) => {
 }
 
 const mountDirective = (el, binding) => {
-  const instance = resolveInstance(binding.value)
+  const { instance, uid } = parseBindingValue(binding.value)
   if (!instance) return
-  
-  // Vue3 + Element Plus: el-dialog 使用 v-model，对应 modelValue
-  // 尝试获取对话框可见性状态
+
+  // 保存 uid 到 el 上，供 getVisible 使用
+  el.__dialogDragUid__ = uid
+
   const getVisible = () => {
-    // Vue3 中，组件实例可能通过 props 或 setup 暴露属性
-    // Element Plus 的 dialog 使用 v-model，对应 modelValue
     if (instance && typeof instance === 'object') {
-      // 如果实例有 modelValue 属性（Vue3 的 v-model）
       if ('modelValue' in instance) {
         const modelValue = resolveInstance(instance.modelValue)
         return modelValue === true
       }
-      // 兼容处理：某些情况下可能使用 visible
       if ('visible' in instance) {
         const visible = resolveInstance(instance.visible)
         return visible === true
       }
     }
-    
-    // 尝试通过 DOM 判断
-    const { dragDom } = getDialogElements(instance)
+
+    const { dragDom } = getDialogElements(instance, uid)
     if (dragDom) {
       const style = window.getComputedStyle(dragDom)
       return style.display !== 'none' && style.visibility !== 'hidden'
     }
     return false
   }
-  
+
   const setup = () => {
-    // 使用轮询方式等待对话框出现（最多尝试 10 次，每次 100ms）
     let attempts = 0
     const maxAttempts = 10
-    
+
     const trySetup = () => {
       attempts++
       cleanupEvents(el)
-      const cleanup = attachDrag(instance)
+      const cleanup = attachDrag(instance, uid)
       if (cleanup) {
         el.__dialogDragCleanup__ = cleanup
       } else if (attempts < maxAttempts) {
-        // 如果失败且未达到最大尝试次数，继续尝试
         setTimeout(trySetup, 100)
       }
     }
-    
-    // 立即尝试一次
+
     nextTick(() => {
       nextTick(() => {
         trySetup()
       })
     })
   }
-  
-  // Vue3 中监听可见性变化
-  // Element Plus 的 dialog 使用 v-model，对应 modelValue
+
   let visibleRef = null
   if (instance && typeof instance === 'object') {
     visibleRef = instance.modelValue || instance.visible
   }
-  
+
   if (visibleRef && typeof visibleRef === 'object' && 'value' in visibleRef) {
-    // 如果是响应式 ref，使用 watch 监听
     const stopWatch = watch(
       () => visibleRef.value,
       (visible) => {
         if (visible) {
-          // 对话框打开时，延迟一点再绑定拖拽
           setTimeout(() => { setup(); }, 150)
         } else {
           cleanupEvents(el)
@@ -361,10 +375,8 @@ const mountDirective = (el, binding) => {
     )
     el.__dialogDragStopWatch__ = stopWatch
   } else {
-    // 如果没有响应式的 visible，使用 MutationObserver 监听 DOM 变化
     const observer = new MutationObserver(() => {
       if (getVisible()) {
-        // 仅在拖拽尚未绑定时才初始化，避免表单交互等 DOM 变化导致对话框重新居中
         if (!el.__dialogDragCleanup__) {
           setup()
         }
@@ -372,15 +384,14 @@ const mountDirective = (el, binding) => {
         cleanupEvents(el)
       }
     })
-    
+
     observer.observe(document.body, {
       childList: true,
       subtree: true
     })
-    
+
     el.__dialogDragObserver__ = observer
-    
-    // 初始设置
+
     setTimeout(() => {
       if (getVisible()) {
         setup()
@@ -413,7 +424,10 @@ const dialogDragDirective = {
     mountDirective(el, binding)
   },
   updated(el, binding) {
-    if (binding.value !== binding.oldValue) {
+    // 比较实际的 ref 值，而不是外层对象引用（因为对象每次渲染都会新建）
+    const { instance: newInst, uid: newUid } = parseBindingValue(binding.value)
+    const { instance: oldInst, uid: oldUid } = parseBindingValue(binding.oldValue)
+    if (newInst !== oldInst || newUid !== oldUid) {
       cleanupDirective(el)
       mountDirective(el, binding)
     }

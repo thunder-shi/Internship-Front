@@ -52,8 +52,8 @@ const actions = {
         if (res.data.userInfo.themeColor == 'default' || res.data.userInfo.themeColor == '')
            res.data.userInfo.themeColor = '#009140'
       
-      // 如果用户信息中没有 schoolId，但有 departmentId，则查询部门信息获取 schoolId
-      if (!res.data.userInfo.schoolId && res.data.userInfo.departmentId) {
+      // 如果有 departmentId，查询部门信息获取 schoolId 和 departmentName
+      if (res.data.userInfo.departmentId) {
         try {
           const deptRes = await listAPI.getSomeRecords({
             keyWords: 'BaseDepartment',
@@ -62,13 +62,17 @@ const actions = {
           })
           if (deptRes && deptRes.data && deptRes.data.content && deptRes.data.content.length > 0) {
             const department = deptRes.data.content[0]
-            // 如果部门信息中有 schoolId，则添加到用户信息中
-            if (department.schoolId) {
+            if (!res.data.userInfo.schoolId && department.schoolId) {
               res.data.userInfo.schoolId = department.schoolId
+            }
+            res.data.userInfo.departmentName = department.name || ''
+            // 保存部门类型（typeId=1 表示企业），用于企业用户数据权限判断
+            if (department.typeId != null) {
+              res.data.userInfo.departmentTypeId = department.typeId
             }
           }
         } catch (error) {
-          console.warn('获取部门信息失败，无法获取 schoolId:', error)
+          console.warn('获取部门信息失败:', error)
         }
       }
       

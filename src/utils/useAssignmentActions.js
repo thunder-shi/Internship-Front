@@ -11,7 +11,7 @@ import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 
 /**
- * @param {Function} getRefreshFn - 返回刷新列表的回调，如 () => headerPageRef.value?.baseListRef?.initDataList(true)
+ * @param {Function} getRefreshFn - 刷新列表的无参函数，如 () => headerPageRef.value?.baseListRef?.initDataList(true)
  */
 export function useAssignmentActions(getRefreshFn) {
   const currentRow = ref({});
@@ -31,9 +31,7 @@ export function useAssignmentActions(getRefreshFn) {
       return;
     }
 
-    const invalidRows = rowsToDelete.filter(
-      (row) => row.isAudit !== CONSTANT.AUDIT_STATUS.SAVE
-    );
+    const invalidRows = rowsToDelete.filter((row) => row.isAudit !== CONSTANT.AUDIT_STATUS.SAVE);
     if (invalidRows.length > 0) {
       ElMessage.warning(`只能删除"${CONSTANT.AUDIT_STATUS.SAVENAME}"状态的记录`);
       return;
@@ -65,7 +63,7 @@ export function useAssignmentActions(getRefreshFn) {
       }
 
       ElMessage.success('删除成功');
-      getRefreshFn()?.();
+      getRefreshFn?.();
     } catch (error) {
       console.error('删除失败:', error);
     }
@@ -73,13 +71,19 @@ export function useAssignmentActions(getRefreshFn) {
 
   async function handleSubmitClick(row) {
     // 自动通过的记录：提供退回选项
-    if (row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
-        row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+    if (
+      row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
+      row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
+    ) {
       try {
         await ElMessageBox.confirm('该记录为自动通过，是否退回以重新编辑？', '提示', {
-          confirmButtonText: '退回', cancelButtonText: '取消', type: 'warning',
+          confirmButtonText: '退回',
+          cancelButtonText: '取消',
+          type: 'warning',
         });
-      } catch { return; }
+      } catch {
+        return;
+      }
       await rollbackVerifyProcess(row.id);
       return;
     }
@@ -105,7 +109,7 @@ export function useAssignmentActions(getRefreshFn) {
       });
       if (resInfo && resInfo.message === 'successful') {
         ElMessage.success('退回成功，可以修改后重新提交');
-        getRefreshFn()?.();
+        getRefreshFn?.();
         return true;
       }
       ElMessage.error(resInfo?.message || '退回失败');
@@ -128,24 +132,29 @@ export function useAssignmentActions(getRefreshFn) {
       (row) => row && row.isAudit === CONSTANT.AUDIT_STATUS.SAVE
     );
     if (!pendingRows.length) {
-      ElMessage.warning(
-        `选中的记录中没有"${CONSTANT.AUDIT_STATUS.SAVENAME}"状态可以提交的记录`
-      );
+      ElMessage.warning(`选中的记录中没有"${CONSTANT.AUDIT_STATUS.SAVENAME}"状态可以提交的记录`);
       return;
     }
 
-    let successCount = 0;
-    for (const row of pendingRows) {
-      const STATUS =
+    const nodes = pendingRows.map((row) => ({
+      id: row.id,
+      isAudit:
         row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
           ? CONSTANT.AUDIT_STATUS.PASS
-          : CONSTANT.AUDIT_STATUS.SUBMIT;
-      const ok = await updateVerifyProcess(row.id, STATUS, false);
-      if (ok) successCount += 1;
-    }
+          : CONSTANT.AUDIT_STATUS.SUBMIT,
+    }));
 
-    if (successCount > 0) {
-      ElMessage.success(`批量提交完成，共成功提交 ${successCount} 条记录`);
+    try {
+      const resInfo = await listAPI.editManyNodes('MainVerifyProcess', nodes);
+      if (resInfo && resInfo.message === 'successful') {
+        ElMessage.success(`批量提交完成，共成功提交 ${nodes.length} 条记录`);
+        getRefreshFn?.();
+      } else {
+        ElMessage.warning(resInfo?.message || '批量更新审核状态失败');
+      }
+    } catch (error) {
+      console.error('批量提交失败:', error);
+      ElMessage.error('批量提交失败');
     }
   }
 
@@ -154,7 +163,7 @@ export function useAssignmentActions(getRefreshFn) {
       const resInfo = await listAPI.editOneNode('MainVerifyProcess', { id, isAudit });
       if (resInfo && resInfo.message === 'successful') {
         if (messageVisible) ElMessage.success('提交成功');
-        getRefreshFn()?.();
+        getRefreshFn?.();
         return true;
       } else {
         ElMessage.warning(resInfo?.message || '更新审核状态失败');

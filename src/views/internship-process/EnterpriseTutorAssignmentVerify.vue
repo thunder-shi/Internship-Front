@@ -1,5 +1,5 @@
 <template>
-  <TutorAssignmentVerifyPage :variant="TUTOR_ASSIGNMENT_VERIFY_VARIANT.INTERNAL" />
+  <TutorAssignmentVerifyPage :variant="TUTOR_ASSIGNMENT_VERIFY_VARIANT.ENTERPRISE" />
 </template>
 
 <script setup>
@@ -7,6 +7,6 @@ import TutorAssignmentVerifyPage from './components/TutorAssignmentVerifyPage.vu
 import { TUTOR_ASSIGNMENT_VERIFY_VARIANT } from './config/tutorAssignmentVerifyPresets';
 
 defineOptions({
-  name: 'InternalTutorAssignmentVerify',
+  name: 'EnterpriseTutorAssignmentVerify',
 });
 </script>

@@ -13,6 +13,7 @@
     @edit-click="handleEditClick"
     @delete-click="handleDeleteClick"
     @audit-click="handleAuditClick"
+    @audit-command="handleAuditCommand"
     @view-click="handleViewClick"
     @project-selected="handleProjectSelected"
     @submit-click="handleSubmitClick"
@@ -132,6 +133,7 @@ const emit = defineEmits([
   'edit-click',
   'delete-click',
   'audit-click',
+  'audit-command',
   'post-detail-close',
   'post-detail-success',
   'submit-click',
@@ -215,6 +217,11 @@ function handleDeleteClick(rows) {
 // 处理审核按钮点击（转发给父组件）
 function handleAuditClick(row) {
   emit('audit-click', row);
+}
+
+// 处理批量审核命令（转发给父组件）
+function handleAuditCommand(command, rows) {
+  emit('audit-command', command, rows);
 }
 
 // 查看进度按钮点击

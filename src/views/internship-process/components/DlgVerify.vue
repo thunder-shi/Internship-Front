@@ -143,7 +143,7 @@ const defaultProps = reactive({
     validate: true,
     needVerifyUpdate: false,
     needMaxBtn: true,
-    autoMax: hasTabs,
+    autoMax: false,
   },
 });
 
@@ -416,21 +416,22 @@ async function confirm(_option, type) {
   const verifyUserIdInt = parseInt(verifyUserId, 10);
 
   try {
-    let successCount = 0;
-    for (const row of rowsToSubmit) {
-      const saveData = {
-        id: row.id,
-        isAudit,
-        reason,
-        verifyUserId: verifyUserIdInt,
-      };
-      const resInfo = await internshipProcessAPI.auditProcess(saveData);
-      if (resInfo && resInfo.message === 'successful') successCount += 1;
+    const items = rowsToSubmit.map((row) => ({
+      id: row.id,
+      isAudit,
+      reason,
+      verifyUserId: verifyUserIdInt,
+    }));
+    const payload = items.length === 1 ? items[0] : items;
+    const resInfo = await internshipProcessAPI.auditProcess(payload);
+    if (!resInfo || resInfo.message !== 'successful') {
+      ElMessage.warning(resInfo?.message || '审核保存失败');
+      return;
     }
 
     const resultText = auditResultTextMap[form.auditResult] || '未知';
     if (rowsToSubmit.length > 1) {
-      ElMessage.success(`批量审核完成：${resultText}，成功 ${successCount}/${rowsToSubmit.length} 条`);
+      ElMessage.success(`批量审核完成：${resultText}，共 ${rowsToSubmit.length} 条`);
     } else {
       ElMessage.success(`审核完成：${resultText}`);
     }
@@ -442,6 +443,7 @@ async function confirm(_option, type) {
     batchRows.value = [];
   } catch (error) {
     console.error('保存审核数据失败:', error);
+    ElMessage.error('保存审核数据失败');
   }
 }
 

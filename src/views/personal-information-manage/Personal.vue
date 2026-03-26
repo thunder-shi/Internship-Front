@@ -14,7 +14,7 @@
         </el-radio-group>
       </el-form-item>
       <el-form-item label="所在学校/单位">
-        <div>{{ form.departmentName || '--' }}</div>
+        <div>{{ fullDepartmentName || '--' }}</div>
       </el-form-item>
       <!-- <el-form-item label="所在院系/部门" prop="departmentId">
         <SimpleSelect v-model="form.departmentId" key-words="BaseDepartment" :search-key="searchKey" @update-value="onSimpleSelectChange"  />
@@ -47,10 +47,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage } from 'element-plus'
 import UserAPI from '@/api/user'
+import treeAPI from '@/api/tree'
 import SimpleSelect from '@/components/SimpleSelect.vue'
 
 const store = useStore()
@@ -66,6 +67,26 @@ const userId = computed(() => userInfo.value?.id)
 // 初始化表单数据
 const initialFormData = store.getters.userInfo || {}
 const form = reactive(JSON.parse(JSON.stringify(initialFormData)))
+
+// 完整部门路径（从根节点到当前节点）
+const fullDepartmentName = ref(form.departmentName || '')
+
+async function loadFullDepartmentPath() {
+  const deptId = form.departmentId
+  if (!deptId) return
+  try {
+    const res = await treeAPI.getAllParentIndex('BaseDepartment', deptId)
+    if (res.data && res.data.length > 0) {
+      // res.data 从当前节点到根节点排列，需要反转后拼接
+      const names = res.data.map(item => item.name).reverse()
+      fullDepartmentName.value = names.join(' / ')
+    }
+  } catch (e) {
+    console.error('加载部门完整路径失败:', e)
+  }
+}
+
+onMounted(() => { loadFullDepartmentPath() })
 
 const formRule = reactive({
   account: [{ required: true, trigger: 'blur', message: '请输入登录账号' }],

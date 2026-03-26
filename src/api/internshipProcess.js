@@ -2,7 +2,7 @@ import request from '@/utils/request';
 import { getEncryptKeyWord } from '@/utils/rsaEncrypt';
 import CONSTANT from '@/utils/constant';
 
-// 推进审核流程
+// 推进审核流程（单条传对象，批量传对象数组）
 async function auditProcess(node) {
   return request({
     url: '/internshipProcess/auditProcess',
@@ -44,6 +44,17 @@ async function initTeacherStudentByInternshipId(params) {
   });
 }
 
+// 选择实习项目后初始化校内导师相关数据
+async function initEnterpriseTutorByInternshipId(params) {
+  return request({
+    url: '/internshipProcess/initEnterpriseTutorByInternshipId',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+  });
+}
+
 // 获取满足当前要求的实习项目
 // async function getNowInternship(processTypeCode) {
 //   return request({
@@ -60,5 +71,6 @@ export default {
   activateProcess,
   getVerifyUserIds,
   initTeacherStudentByInternshipId,
+  initEnterpriseTutorByInternshipId,
   // getNowInternship
 };
