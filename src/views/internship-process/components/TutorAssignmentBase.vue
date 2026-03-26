@@ -138,23 +138,27 @@ async function updateVerifyProcessStatus(rows, isBatch = false) {
     return;
   }
 
-  let successCount = 0;
-  for (const row of allowedRows) {
-    try {
-      const resInfo = await listAPI.editOneNode('MainVerifyProcess', {
-        id: row.id,
-        isAudit: getSubmitStatus(row),
-      });
-      if (resInfo && resInfo.message === 'successful') successCount += 1;
-      else ElMessage.warning(resInfo?.message || '更新审核状态失败');
-    } catch (error) {
-      console.error('提交失败:', error);
-    }
+  if (isBatch && pendingRows.length > allowedRows.length) {
+    ElMessage.warning(`已跳过 ${pendingRows.length - allowedRows.length} 条不满足提交条件的记录`);
   }
 
-  if (successCount > 0) {
-    ElMessage.success(isBatch ? `批量提交完成，共成功提交 ${successCount} 条记录` : '提交成功');
-    await headerPageRef.value?.baseListRef?.initDataList(true);
+  try {
+    const nodes = allowedRows.map((row) => ({
+      id: row.id,
+      isAudit: getSubmitStatus(row),
+    }));
+    const resInfo = await listAPI.editManyNodes('MainVerifyProcess', nodes);
+    if (resInfo && resInfo.message === 'successful') {
+      ElMessage.success(
+        isBatch ? `批量提交完成，共成功提交 ${nodes.length} 条记录` : '提交成功'
+      );
+      await headerPageRef.value?.baseListRef?.initDataList(true);
+    } else {
+      ElMessage.warning(resInfo?.message || (isBatch ? '批量更新审核状态失败' : '更新审核状态失败'));
+    }
+  } catch (error) {
+    console.error(isBatch ? '批量提交失败:' : '提交失败:', error);
+    ElMessage.error(isBatch ? '批量提交失败' : '提交失败');
   }
 }
 
