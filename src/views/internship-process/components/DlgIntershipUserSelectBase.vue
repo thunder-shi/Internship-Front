@@ -55,8 +55,8 @@ const props = defineProps({
   currentInternship: { type: Object, default: null },
   showSearchBar: { type: Boolean, default: false },
   dlgTitle: { type: String, required: true },
-  /** BaseUser 岗位过滤：学生 '2'、教师 '3' */
-  jobId: { type: String, required: true },
+  /** BaseUser 岗位过滤：学生 STUDENT、校内导师 SCHOOL_TEACHER、企业导师 COMPANY_TUTOR */
+  jobCode: { type: String, required: true },
   emptySelectionWarning: { type: String, required: true },
   tableColumns: { type: Array, required: true },
 });
@@ -107,9 +107,11 @@ const selectedMap = ref(new Map());
 const existingUserIds = ref(new Set());
 
 const treeProps = computed(() => {
-  const searchKey = { typeCode: 'UNIVERSITY' };
+  const searchKey = {};
+  const regKey = {};
   if (userInfo.value.schoolId) {
     searchKey.schoolId = userInfo.value.schoolId;
+    regKey.schoolId = constant.SEARCH_OPERATOR.EQ;
   }
   return {
     title: { mainTitle: '单位部门列表' },
@@ -118,7 +120,7 @@ const treeProps = computed(() => {
     sort: { properties: 'theOrder', direction: 'ASC' },
     initSearchWords: {
       searchKey,
-      regKey: {},
+      regKey,
       andor: {},
     },
   };
@@ -131,7 +133,7 @@ const tableListProps = reactive({
   sortStr: { properties: 'id', direction: 'DESC' },
   pageInfo: { page: 1, size: 20 },
   initSearchWords: {
-    searchKey: { jobId: props.jobId },
+    searchKey: { jobCode: props.jobCode },
     regKey: {},
     andor: {},
   },
@@ -147,7 +149,7 @@ const tableListProps = reactive({
     autoInit: false,
   },
   defaultDTHProps: {
-    keyWord: { view: 'BaseUser' },
+    keyWord: { view: 'ViewBaseUser' },
     buttonProps: {
       search: { show: true },
     },
@@ -156,10 +158,10 @@ const tableListProps = reactive({
 });
 
 watch(
-  () => props.jobId,
-  (id) => {
-    if (id != null) {
-      tableListProps.initSearchWords.searchKey.jobId = id;
+  () => props.jobCode,
+  (code) => {
+    if (code != null) {
+      tableListProps.initSearchWords.searchKey.jobCode = code;
     }
   },
   { immediate: true }

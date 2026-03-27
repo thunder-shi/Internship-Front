@@ -178,6 +178,11 @@ function handleViewClick(rowOrArray) {
 }
 
 async function runSystemAssign() {
+  // 该接口仅用于“分配校内导师”，企业导师页面不执行系统分配接口
+  if (props.tutorAssignKind === 2) {
+    return;
+  }
+
   const cur = unref(headerPageRef.value?.currentInternship);
   const internshipId = Number(cur?.internshipId ?? cur?.id);
   const processId = Number(cur?.processId ?? cur?.realId ?? cur?.id);

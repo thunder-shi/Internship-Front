@@ -64,7 +64,7 @@ export const VERIFY_INTERNAL_TUTOR_ASSIGNMENT_COLUMNS = [
   { id: 5, showName: '当前状态', theOrder: 5, tableColumnName: 'customize-status' },
 ];
 
-/** 审核页 - 分配企业导师：同视图，列表筛选 jobId=4，列头文案区分 */
+/** 审核页 - 分配企业导师：同视图，列表筛选 jobCode=COMPANY_TUTOR，列头文案区分 */
 export const VERIFY_ENTERPRISE_TUTOR_ASSIGNMENT_COLUMNS = [
   { id: 1, showName: '实习项目', theOrder: 1, tableColumnName: 'internshipName' },
   { id: 2, showName: '企业导师', theOrder: 2, tableColumnName: 'teacherName' },

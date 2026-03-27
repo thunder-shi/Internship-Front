@@ -36,7 +36,7 @@ const defaultProps = reactive({
   defaultSDProps: {
     keyWord: 'RelTeacherStudent',
     formItems: [
-      { name: '教师名称', field: 'teacherId', type: 'select', keyWords: 'BaseUser', searchKeys: { jobId: '3' },
+      { name: '教师名称', field: 'teacherId', type: 'select', keyWords: 'BaseUser', searchKeys: { jobCode: 'SCHOOL_TEACHER' },
         sortJson: { properties: 'Id', direction: 'DESC' },
       },
       { name: '实习项目', field: 'internshipId', type: 'select', keyWords: 'MainInternship', sortJson: { properties: 'Id', direction: 'DESC' } },

@@ -109,7 +109,7 @@ const tableListProps = reactive({
   sortStr: { properties: 'id', direction: 'DESC' },
   pageInfo: { page: 1, size: 20 },
   initSearchWords: {
-    searchKey: { jobId: '2' },
+    searchKey: { jobCode: 'STUDENT' },
     regKey: {},
     andor: {},
   },

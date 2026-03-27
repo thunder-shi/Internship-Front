@@ -42,7 +42,7 @@ const defaultProps = reactive({
         field: 'studentId',
         type: 'select',
         keyWords: 'BaseUser',
-        searchKeys: { jobId: '3' },
+        searchKeys: { jobCode: 'STUDENT' },
         sortJson: { properties: 'Id', direction: 'DESC' },
       },
       { name: '实习岗位', field: 'postId', type: 'select', keyWords: 'MainInternshipPost', sortJson: { properties: 'Id', direction: 'DESC' } },
