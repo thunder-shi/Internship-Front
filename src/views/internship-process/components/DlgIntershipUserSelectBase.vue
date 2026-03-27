@@ -107,9 +107,11 @@ const selectedMap = ref(new Map());
 const existingUserIds = ref(new Set());
 
 const treeProps = computed(() => {
-  const searchKey = { typeCode: 'UNIVERSITY' };
+  const searchKey = {};
+  const regKey = {};
   if (userInfo.value.schoolId) {
     searchKey.schoolId = userInfo.value.schoolId;
+    regKey.schoolId = constant.SEARCH_OPERATOR.EQ;
   }
   return {
     title: { mainTitle: '单位部门列表' },
@@ -118,7 +120,7 @@ const treeProps = computed(() => {
     sort: { properties: 'theOrder', direction: 'ASC' },
     initSearchWords: {
       searchKey,
-      regKey: {},
+      regKey,
       andor: {},
     },
   };
