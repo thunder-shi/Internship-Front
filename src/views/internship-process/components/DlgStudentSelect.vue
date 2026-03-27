@@ -5,7 +5,7 @@
     :current-internship="currentInternship"
     :show-search-bar="showSearchBar"
     dlg-title="选择学生"
-    job-id="2"
+    job-code="STUDENT"
     empty-selection-warning="请至少勾选一名学生"
     :table-columns="studentTableColumns"
     @update:model-value="$emit('update:modelValue', $event)"

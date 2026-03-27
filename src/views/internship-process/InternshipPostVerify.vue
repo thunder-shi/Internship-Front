@@ -16,7 +16,12 @@
     @post-detail-success="handlePostDetailSuccess"
   >
     <template #audit-dialog>
-      <DlgVerify ref="dlgVerifyRef" dlg-title="企业岗位审核" recall-title="退回已通过的企业岗位" @success="handleVerifySuccess" />
+      <DlgVerify
+        ref="dlgVerifyRef"
+        dlg-title="企业岗位审核"
+        recall-title="退回已通过的企业岗位"
+        @success="handleVerifySuccess"
+      />
     </template>
   </InternshipPostPage>
 </template>
@@ -61,16 +66,27 @@ const lastBatchAuditCommand = ref(null);
 function handleAuditClick(row) {
   const rows = Array.isArray(row) ? row : row ? [row] : [];
   if (rows.length === 0) return;
+  // 单条：打开审核弹窗；多条：打开同一弹窗并传入多行，若有下拉预选的审核类型则带入弹窗
   if (rows.length === 1) {
     dlgVerifyRef.value?.showDialog(true, rows[0]);
   } else {
-    const pending = rows.filter((r) => r && r.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT);
-    if (!pending.length) {
-      ElMessage.warning('选中的记录中没有待审核的数据');
+    const preSelected = lastBatchAuditCommand.value;
+    const targetStatus =
+      preSelected === CONSTANT.AUDIT_STATUS.BACK
+        ? CONSTANT.AUDIT_STATUS.PASS
+        : CONSTANT.AUDIT_STATUS.SUBMIT;
+    const targetRows = rows.filter((r) => r && r.isAudit === targetStatus);
+
+    if (!targetRows.length) {
+      ElMessage.warning(
+        preSelected === CONSTANT.AUDIT_STATUS.BACK
+          ? '选中的记录中没有已通过的数据可退回'
+          : '选中的记录中没有待审核的数据'
+      );
       return;
     }
-    const preSelected = lastBatchAuditCommand.value;
-    dlgVerifyRef.value?.showDialog(true, pending[0], pending, preSelected);
+
+    dlgVerifyRef.value?.showDialog(true, targetRows[0], targetRows, preSelected);
     lastBatchAuditCommand.value = null;
   }
 }

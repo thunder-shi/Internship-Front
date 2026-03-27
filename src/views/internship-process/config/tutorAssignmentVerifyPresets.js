@@ -17,10 +17,10 @@ export const TUTOR_ASSIGNMENT_VERIFY_VARIANT = Object.freeze({
 
 const REL_TEACHER_STUDENT_TABLE = 'RelTeacherStudent';
 
-function buildJobIdSearchExtra(jobId) {
+function buildJobCodeSearchExtra(jobCode) {
   return {
-    searchKey: { jobId },
-    regKey: { jobId: CONSTANT.SEARCH_OPERATOR.EQ },
+    searchKey: { jobCode },
+    regKey: { jobCode: CONSTANT.SEARCH_OPERATOR.EQ },
   };
 }
 
@@ -31,7 +31,7 @@ const TUTOR_VERIFY_CONFIG = {
     noProjectMessage: '当前没有需要审核的校内导师分配数据',
     dlgTitle: '分配校内导师审核',
     recallTitle: '退回已通过的校内导师分配',
-    jobId: 3,
+    jobCode: 'SCHOOL_TEACHER',
     tableColumns: VERIFY_INTERNAL_TUTOR_ASSIGNMENT_COLUMNS,
   },
   [TUTOR_ASSIGNMENT_VERIFY_VARIANT.ENTERPRISE]: {
@@ -40,7 +40,7 @@ const TUTOR_VERIFY_CONFIG = {
     noProjectMessage: '当前没有需要审核的企业导师分配数据',
     dlgTitle: '分配企业导师审核',
     recallTitle: '退回已通过的企业导师分配',
-    jobId: 4,
+    jobCode: 'COMPANY_TUTOR',
     tableColumns: VERIFY_ENTERPRISE_TUTOR_ASSIGNMENT_COLUMNS,
   },
 };
@@ -64,7 +64,7 @@ export function getTutorAssignmentVerifyBindProps(variant) {
     recallTitle: c.recallTitle,
     assignmentTableName: REL_TEACHER_STUDENT_TABLE,
     listKeyWord: VERIFY_INTERNAL_TUTOR_ASSIGNMENT_KEY_WORD,
-    initSearchWordsExtra: buildJobIdSearchExtra(c.jobId),
+    initSearchWordsExtra: buildJobCodeSearchExtra(c.jobCode),
     tableColumns: c.tableColumns,
   };
 }

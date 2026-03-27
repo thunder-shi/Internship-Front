@@ -144,13 +144,22 @@ function handleAuditClick(row) {
   if (rows.length === 1) {
     dlgVerifyRef.value?.showDialog(true, rows[0]);
   } else {
-    const pending = rows.filter((r) => r && r.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT);
-    if (!pending.length) {
-      ElMessage.warning('选中的记录中没有待审核的数据');
+    const preSelected = lastBatchAuditCommand.value;
+    const targetStatus = preSelected === CONSTANT.AUDIT_STATUS.BACK
+      ? CONSTANT.AUDIT_STATUS.PASS
+      : CONSTANT.AUDIT_STATUS.SUBMIT;
+    const targetRows = rows.filter((r) => r && r.isAudit === targetStatus);
+
+    if (!targetRows.length) {
+      ElMessage.warning(
+        preSelected === CONSTANT.AUDIT_STATUS.BACK
+          ? '选中的记录中没有已通过的数据可退回'
+          : '选中的记录中没有待审核的数据'
+      );
       return;
     }
-    const preSelected = lastBatchAuditCommand.value;
-    dlgVerifyRef.value?.showDialog(true, pending[0], pending, preSelected);
+
+    dlgVerifyRef.value?.showDialog(true, targetRows[0], targetRows, preSelected);
     lastBatchAuditCommand.value = null;
   }
 }

@@ -1,13 +1,13 @@
 // 加密密钥
-const CRYPT = 'o7H8uIM2O5qv65l2'
+const CRYPT = 'o7H8uIM2O5qv65l2';
 
 // 文件大小限制
-const FILE_MAX_SIZE = 20 // 文件上传大小（MB）
-const IMAGE_MAX_SIZE = 5 // 图片上传大小（MB）
+const FILE_MAX_SIZE = 20; // 文件上传大小（MB）
+const IMAGE_MAX_SIZE = 5; // 图片上传大小（MB）
 
 // 输入框的最大长度设置
-const INFO_MAX_LENGTH = 50 // 名称、编码
-const REMARKS_MAX_LENGTH = 1000 // 备注、拒绝原因
+const INFO_MAX_LENGTH = 50; // 名称、编码
+const REMARKS_MAX_LENGTH = 1000; // 备注、拒绝原因
 
 // 搜索操作符
 const SEARCH_OPERATOR = Object.freeze({
@@ -23,27 +23,27 @@ const SEARCH_OPERATOR = Object.freeze({
   LIKE: '≈',
   IN: '()',
   NOT_IN: '!()',
-  RANGE: '<=>'
-})
+  RANGE: '<=>',
+});
 
 // 分割操作符
 const SPLIT_OPERATOR = Object.freeze({
   VERTICALLINE: '|',
   COMMA: ',',
-  DOT: '.'
-})
+  DOT: '.',
+});
 
 // 角色表
 const ROLE_TABLE = Object.freeze({
-  SUPER_ADMIN: 1,              // 超级管理员
-  SCHOOL_ADMIN: 2,            // 学校管理员
-  ACADEMIC_AFFAIRS_ADMIN: 3,   // 教务处管理员
-  DEPARTMENT_ADMIN: 4,         // 院系管理员
-  COMPANY_ADMIN: 5,            // 企业管理员
-  COMPANY_TUTOR: 6,            // 企业导师
-  SCHOOL_TEACHER: 7,           // 学校教师
-  STUDENT: 8                   // 学生
-})
+  SUPER_ADMIN: 1, // 超级管理员
+  SCHOOL_ADMIN: 2, // 学校管理员
+  ACADEMIC_AFFAIRS_ADMIN: 3, // 教务处管理员
+  DEPARTMENT_ADMIN: 4, // 院系管理员
+  COMPANY_ADMIN: 5, // 企业管理员
+  COMPANY_TUTOR: 6, // 企业导师
+  SCHOOL_TEACHER: 7, // 学校教师
+  STUDENT: 8, // 学生
+});
 
 // 实习流程类型
 const PROCESS_TYPE = Object.freeze({
@@ -58,34 +58,51 @@ const PROCESS_TYPE = Object.freeze({
   EXTERNAL_STUDENT_SELF_DECLARATION: 'EXTERNAL_STUDENT_SELF_DECLARATION', // 校外实习-学生自主申报
   EXTERNAL_STUDENT_ASSIGN_POST: 'EXTERNAL_STUDENT_ASSIGN_POST', // 校外实习-学生岗位安排
   EXTERNAL_ASSIGN_INTERNAL_TUTOR: 'EXTERNAL_ASSIGN_INTERNAL_TUTOR', // 校外实习-分配校内导师
-  EXTERNAL_ENTERPRISE_ASSIGN_TUTOR: 'EXTERNAL_ENTERPRISE_ASSIGN_TUTOR' // 校外实习-分配企业导师
-})
+  EXTERNAL_ENTERPRISE_ASSIGN_TUTOR: 'EXTERNAL_ENTERPRISE_ASSIGN_TUTOR', // 校外实习-分配企业导师
+});
 
 // 审核级别
 const VERIFY_LEVEL = Object.freeze({
-  NO_VERIFY: 1,      // 无需审核
-  ONE_VERIFY: 2,     // 一级审核
-  TWO_VERIFYS: 3,    // 二级审核
-  THREE_VERIFYS: 4,  // 三级审核
-  FOUR_VERIFYS: 5,   // 四级审核
-  FIVE_VERIFYS: 6    // 五级审核
-})
+  NO_VERIFY: 1, // 无需审核
+  ONE_VERIFY: 2, // 一级审核
+  TWO_VERIFYS: 3, // 二级审核
+  THREE_VERIFYS: 4, // 三级审核
+  FOUR_VERIFYS: 5, // 四级审核
+  FIVE_VERIFYS: 6, // 五级审核
+});
 
 // 文件类型
 const FILE_TYPE = Object.freeze({
   PDF: ['pdf'],
   DOC: ['doc', 'docx'],
-  IMG: ['png', 'jpg', 'jpeg', 'gif']
-})
+  IMG: ['png', 'jpg', 'jpeg', 'gif'],
+});
 
 // 审核状态
 const AUDIT_STATUS = Object.freeze({
-  SAVE: -1,  SAVENAME: '待提交',
-  SUBMIT: 0,  SUBMITNAME: '待审核',
-  PASS: 1,  PASSNAME: '审核通过',
-  NOTPASS: 2,  NOTPASSNAME: '审核不通过',
-  BACK: 3,  BACKNAME: '审核退回'
-})
+  SAVE: -1,
+  SAVENAME: '待提交',
+  SUBMIT: 0,
+  SUBMITNAME: '待审核',
+  PASS: 1,
+  PASSNAME: '审核通过',
+  NOTPASS: 2,
+  NOTPASSNAME: '审核不通过',
+  BACK: 3,
+  BACKNAME: '审核退回',
+});
+
+// 用户身份类型
+const USER_JOB_CODE = Object.freeze({
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  STUDENT: 'STUDENT',
+  COMPANY_TUTOR: 'COMPANY_TUTOR',
+  COMPANY_ADMIN: 'COMPANY_ADMIN',
+  SCHOOL_TEACHER: 'SCHOOL_TEACHER',
+  SCHOOL_ADMIN: 'SCHOOL_ADMIN',
+  DEPARTMENT_ADMIN: 'DEPARTMENT_ADMIN',
+  ACADEMIC_AFFAIRS_ADMIN: 'ACADEMIC_AFFAIRS_ADMIN',
+});
 
 export default Object.freeze({
   CRYPT,
@@ -99,5 +116,6 @@ export default Object.freeze({
   IMAGE_MAX_SIZE,
   REMARKS_MAX_LENGTH,
   INFO_MAX_LENGTH,
-  AUDIT_STATUS
-})
+  AUDIT_STATUS,
+  USER_JOB_CODE,
+});

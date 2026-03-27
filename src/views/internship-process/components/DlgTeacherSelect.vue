@@ -5,7 +5,7 @@
     :current-internship="currentInternship"
     :show-search-bar="showSearchBar"
     dlg-title="选择指导老师"
-    job-id="3"
+    job-code="SCHOOL_TEACHER"
     empty-selection-warning="请至少勾选一位指导老师"
     :table-columns="teacherTableColumns"
     @update:model-value="$emit('update:modelValue', $event)"

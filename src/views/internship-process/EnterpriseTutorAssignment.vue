@@ -58,8 +58,8 @@ const processTypeCode = CONSTANT.PROCESS_TYPE.EXTERNAL_ENTERPRISE_ASSIGN_TUTOR;
 
 // 复用当前页面的服务端筛选条件（用于查询候选行）
 const initSearchWords = {
-  searchKey: { jobId: '0,4' },
-  regKey: { jobId: CONSTANT.SEARCH_OPERATOR.IN },
+  searchKey: { jobCode: 'DEFAULT,COMPANY_TUTOR' },
+  regKey: { jobCode: CONSTANT.SEARCH_OPERATOR.IN },
 };
 
 const submitRowCondition = (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE && !!row.teacherId;
@@ -142,9 +142,9 @@ async function openAssignEnterpriseTutor(row) {
   try {
     const resp = await listAPI.getSomeRecords({
       keyWords: 'ViewBaseUser',
-      searchKey: { jobId: 4, schoolId },
+      searchKey: { jobCode: 'COMPANY_TUTOR', schoolId },
       reg: {
-        jobId: CONSTANT.SEARCH_OPERATOR.EQ,
+        jobCode: CONSTANT.SEARCH_OPERATOR.EQ,
         schoolId: CONSTANT.SEARCH_OPERATOR.EQ,
       },
     });

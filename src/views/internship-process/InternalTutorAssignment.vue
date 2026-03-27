@@ -26,8 +26,8 @@ const baseRef = ref(null);
 const processTypeCode = CONSTANT.PROCESS_TYPE.EXTERNAL_ASSIGN_INTERNAL_TUTOR;
 
 const initSearchWords = {
-  searchKey: { jobId: 3 },
-  regKey: { jobId: CONSTANT.SEARCH_OPERATOR.EQ },
+  searchKey: { jobCode: 'SCHOOL_TEACHER' },
+  regKey: { jobCode: CONSTANT.SEARCH_OPERATOR.EQ },
 };
 
 const submitRowCondition = (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE;
