@@ -42,7 +42,6 @@ import DataTree from '@/components/DataTree.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import DlgBasic from '@/components/DlgBasic.vue';
 import listAPI from '@/api/list';
-import otherAPI from '@/api/other';
 
 defineOptions({
   name: 'DlgTopicStudentAssign',
@@ -69,6 +68,8 @@ const visible = computed({
 const selectedDepartmentId = ref(null);
 const selectedRow = ref(null);
 const assignedStudentIds = ref(new Set());
+/** 已在「学生实习项目安排」中选过当前实习项目的学生用户 id（与 RelIntershipUser / ViewRelIntershipUser 一致） */
+const arrangedStudentIds = ref(new Set());
 const topicRowLocal = ref(null);
 
 const defaultProps = reactive({
@@ -149,15 +150,39 @@ async function fetchAvailableStudents(params) {
   const nameKeyword = String(rawSearchKey?.student_name ?? rawSearchKey?.name ?? '').trim();
   const stuIdKeyword = String(rawSearchKey?.stu_id ?? rawSearchKey?.workId ?? '').trim();
 
-  // 后端接口对 name/workId 的模糊查询兼容性不稳定，这里做前端兜底过滤。
-  const requestParams = {
-    ...params,
-    searchKey: {
-      ...rawSearchKey,
-    },
-  };
+  const idNums = [...arrangedStudentIds.value].filter(
+    (id) => id != null && !Number.isNaN(Number(id))
+  );
+  if (idNums.length === 0) {
+    return {
+      data: {
+        content: [],
+        totalElements: 0,
+        page: { ...(params?.pageInfo || {}), totalElements: 0 },
+      },
+    };
+  }
 
-  const response = await otherAPI.getAvailableUsersForInternship(requestParams);
+  const searchKey = {
+    jobId: String(rawSearchKey.jobId ?? tableListProps.initSearchWords.searchKey.jobId ?? '2'),
+    id: idNums.join(','),
+  };
+  if (rawSearchKey.departmentId != null) {
+    searchKey.departmentId = rawSearchKey.departmentId;
+  }
+
+  const reg = { ...(params?.reg || {}), id: '()' };
+
+  const response = await listAPI.getSomeRecords({
+    keyWords: 'BaseUser',
+    pageInfo: params?.pageInfo,
+    treeInfo: params?.treeInfo,
+    searchKey,
+    sort: params?.sort,
+    reg,
+    andor: params?.andor,
+  });
+
   const list = response?.data?.content ?? [];
   if (!nameKeyword && !stuIdKeyword) return response;
 
@@ -197,7 +222,7 @@ function updateSearchKey() {
   const internshipId = resolveInternshipId();
   const searchKey = { ...tableListProps.initSearchWords.searchKey };
   if (internshipId != null) {
-    // 后端 getAvailableUsersForInternship 强依赖 internshipId，放在主查询条件里最稳妥
+    // 与 fetch 内 loadArrangedStudentIds 一致；保留在 searchKey 便于列表刷新时上下文一致
     searchKey.internshipId = internshipId;
   } else {
     delete searchKey.internshipId;
@@ -216,6 +241,30 @@ function updateSearchKey() {
     ...(tableListProps.nowSearchWords.searchKey || {}),
     internshipId,
   };
+}
+
+async function loadArrangedStudentIds() {
+  const internshipId = resolveInternshipId();
+  arrangedStudentIds.value = new Set();
+  if (!internshipId) return;
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelIntershipUser',
+      searchKey: { internshipId },
+      pageInfo: { page: 1, size: 5000 },
+      sort: { properties: 'id', direction: 'DESC' },
+    });
+    const list = res?.data?.content ?? res?.data ?? [];
+    const ids = new Set();
+    for (const r of list) {
+      const uid = r.userId ?? r.user_id ?? r.stuId ?? r.stu_id;
+      if (uid != null) ids.add(Number(uid));
+    }
+    arrangedStudentIds.value = ids;
+  } catch (e) {
+    console.error('加载实习项目已安排学生失败:', e);
+    arrangedStudentIds.value = new Set();
+  }
 }
 
 async function loadAssignedStudentIds() {
@@ -298,6 +347,7 @@ function onClose() {
   selectedDepartmentId.value = null;
   selectedRow.value = null;
   assignedStudentIds.value = new Set();
+  arrangedStudentIds.value = new Set();
   topicRowLocal.value = null;
   dataTableListRef.value?.table?.clearSelection?.();
 }
@@ -310,7 +360,7 @@ function onOpenDialog() {
         ElMessage.warning('缺少 internshipId，无法加载学生列表');
         return;
       }
-      await loadAssignedStudentIds();
+      await Promise.all([loadAssignedStudentIds(), loadArrangedStudentIds()]);
       updateSearchKey();
       dataTreeRef.value?.initDataTree?.();
       dataTableListRef.value?.initDataList?.(true);
@@ -339,7 +389,7 @@ watch(
   async (newId, oldId) => {
     if (!visible.value) return;
     if (!newId || newId === oldId) return;
-    await loadAssignedStudentIds();
+    await Promise.all([loadAssignedStudentIds(), loadArrangedStudentIds()]);
     updateSearchKey();
     dataTableListRef.value?.initDataList?.(true);
   }
