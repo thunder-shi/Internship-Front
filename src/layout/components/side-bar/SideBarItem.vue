@@ -1,5 +1,5 @@
 <template>
-  <div v-if="!item.hidden" class="menu-wrapper">
+  <div v-if="!item.hidden && !isHiddenByInternshipType" class="menu-wrapper">
     <template v-if="hasOneShowingChild(item.children, item) && (!onlyOneChild.children || onlyOneChild.noShowingChildren) && !item.alwaysShow">
       <app-link v-if="onlyOneChild.meta" :to="resolvePath(onlyOneChild.path)">
         <el-menu-item :index="resolvePath(onlyOneChild.path)" :class="{'submenu-title-noDropdown':!isNest}">
@@ -17,7 +17,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import { isExternal } from '@/utils/validate'
 import Item from './Item.vue'
 import AppLink from './Link.vue'
@@ -34,6 +35,17 @@ const props = defineProps({
 // TODO: refactor with render function
 const onlyOneChild = ref(null)
 const subMenu = ref(null)
+
+const store = useStore()
+// 按学生实习类型隐藏无关菜单
+const isHiddenByInternshipType = computed(() => {
+  const type = store.getters.studentInternshipType
+  if (!type || type === 'both') return false
+  const path = props.basePath || props.item.path || ''
+  if (type === 'external' && path.includes('StuSelectTopic')) return true
+  if (type === 'internal' && path.includes('StuApplyPost')) return true
+  return false
+})
 
 const hasOneShowingChild = (children = [], parent) => {
   const showingChildren = children.filter(item => {

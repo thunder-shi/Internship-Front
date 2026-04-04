@@ -7,7 +7,9 @@ const state = {
   token: '',
   userInfo: {},
   roles: [],
-  contestTypes: []
+  contestTypes: [],
+  // 学生实习类型：null | 'external' | 'internal' | 'both'
+  studentInternshipType: null
 }
 
 const mutations = {
@@ -22,6 +24,9 @@ const mutations = {
   },
   SET_CONTESTTYPES: (state, types) => {
     state.contestTypes = types
+  },
+  SET_STUDENT_INTERNSHIP_TYPE: (state, type) => {
+    state.studentInternshipType = type
   }
 }
 
@@ -78,6 +83,7 @@ const actions = {
       
         commit('SET_USERINFO', res.data.userInfo)
         commit('SET_ROLES', res.data.roles)
+        commit('SET_STUDENT_INTERNSHIP_TYPE', res.data.userInfo.internshipType ?? null)
         // commit('SET_CONTESTTYPES', res.data.contestTypes)
       return Promise.resolve(res.data)
     } catch (error) {
@@ -95,6 +101,7 @@ const actions = {
     commit('SET_USERINFO', {})
     commit('SET_ROLES', [])
     commit('SET_CONTESTTYPES', [])
+    commit('SET_STUDENT_INTERNSHIP_TYPE', null)
     removeToken()
     resetRouter()
     await dispatch('tagsView/delAllViews', null, { root: true })

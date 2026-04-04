@@ -1,6 +1,11 @@
 <template>
+  <el-result
+    v-if="internshipType === null"
+    icon="info"
+    title="未到时间，请等候学校通知"
+  />
   <InternshipPostHeaderPage
-    v-if="ready"
+    v-else-if="ready"
     ref="headerPageRef"
     :page-title="'学生自主选择题目'"
     :no-project-message="'当前没有可选题目的实习项目'"
@@ -75,6 +80,7 @@ const showProgressDialog = ref(false);
 const currentRow = ref({});
 
 const userInfo = computed(() => store.getters.userInfo || {});
+const internshipType = computed(() => store.getters.studentInternshipType);
 const titleObj = reactive({ mainTitle: '学生自主选择题目' });
 
 // 学生已分配的实习项目 ID 列表（从 RelIntershipUser 查询）

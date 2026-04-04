@@ -9,6 +9,7 @@ const getters = {
   userInfo: state => state.user.userInfo,
   roles: state => state.user.roles,
   contestTypes: state => state.user.contestTypes,
+  studentInternshipType: state => state.user.studentInternshipType,
   permission_routes: state => state.permission.routes,
   // updateStore: state => state.webSite.isSave,
   // updateNav: state => state.webSite.routeList

@@ -22,6 +22,14 @@
       <el-form-item label="身份类型">
         <div>{{ form.jobName || '--' }}</div>
       </el-form-item>
+      <el-form-item label="角色">
+        <div v-if="roleNames.length === 0">--</div>
+        <div v-else class="role-tags">
+          <el-tag v-for="name in roleNames" :key="name" size="small" type="info" class="role-tag">
+            {{ name }}
+          </el-tag>
+        </div>
+      </el-form-item>
       <el-form-item label="身份证号">
         <el-input v-model="form.idCard" />
       </el-form-item>
@@ -63,6 +71,8 @@ const editable = ref(false)
 
 const userInfo = computed(() => store.getters.userInfo)
 const userId = computed(() => userInfo.value?.id)
+const roles = computed(() => store.getters.roles || [])
+const roleNames = computed(() => roles.value.map(r => r.name).filter(Boolean))
 
 // 初始化表单数据
 const initialFormData = store.getters.userInfo || {}
@@ -153,5 +163,13 @@ input {
 .button-group {
   margin-left: 36%;
   margin-bottom: 40px;
+}
+.role-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.role-tag {
+  cursor: default;
 }
 </style>

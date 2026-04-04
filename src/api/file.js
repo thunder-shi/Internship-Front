@@ -65,20 +65,18 @@ const deleteFile = (fileIds) => {
 }
 
 /**
- * 下载文件（文件流下载）
- * @param {string|number} id - 文件ID
- * @param {number} fileSize - 文件大小（字节）
+ * 下载文件
+ * @param {string|number} id - SysOssFile.id
  * @returns {Promise} 下载请求的Promise
  */
-const downloadFile = (id, fileSize) => {
+const downloadFile = (id) => {
   return request({
-    url: '/common/minio/downloadFile',
-    method: 'post',
-    data: { id },
+    url: `/common/minio/download/${id}`,
+    method: 'get',
     responseType: 'blob',
     onDownloadProgress: (progress) => {
-      if (fileSize) {
-        nowProgressPercent = Math.round((progress.loaded / fileSize) * 100)
+      if (progress.total) {
+        nowProgressPercent = Math.round((progress.loaded / progress.total) * 100)
       }
     }
   })
