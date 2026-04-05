@@ -66,11 +66,50 @@ async function initEnterpriseTutorByInternshipId(params) {
 //   })
 // }
 
+/** 本学院校外实习报名统计（仅 intTypeName=校外实习） */
+function listExternalInternshipCollegeStats(node) {
+  return request({
+    url: '/internshipProcess/listExternalInternshipCollegeStats',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
+/** 指定校外实习项目下已通过审核的岗位列表 */
+function listApprovedExternalInternshipPosts(node) {
+  return request({
+    url: '/internshipProcess/listApprovedExternalInternshipPosts',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
+/**
+ * 指定校外实习项目学生选岗明细（含分类统计）
+ * @param {Object} node — { internshipId, status: 'all'|'notSelected'|'selectedPendingAudit'|'postApproved', pageInfo }
+ */
+function getExternalInternshipStudentPostBreakdown(node) {
+  return request({
+    url: '/internshipProcess/getExternalInternshipStudentPostBreakdown',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
 export default {
   auditProcess,
   activateProcess,
   getVerifyUserIds,
   initTeacherStudentByInternshipId,
   initEnterpriseTutorByInternshipId,
+  listExternalInternshipCollegeStats,
+  listApprovedExternalInternshipPosts,
+  getExternalInternshipStudentPostBreakdown,
   // getNowInternship
 };
