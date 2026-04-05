@@ -65,21 +65,13 @@ const deleteFile = (fileIds) => {
 }
 
 /**
- * 下载文件
+ * 下载文件（presigned URL 直连 MinIO，速度最快）
+ * 后端生成 presigned URL 时须携带 response-content-disposition=attachment; filename="xxx"
  * @param {string|number} id - SysOssFile.id
- * @returns {Promise} 下载请求的Promise
  */
-const downloadFile = (id) => {
-  return request({
-    url: `/common/minio/download/${id}`,
-    method: 'get',
-    responseType: 'blob',
-    onDownloadProgress: (progress) => {
-      if (progress.total) {
-        nowProgressPercent = Math.round((progress.loaded / progress.total) * 100)
-      }
-    }
-  })
+const downloadFile = async (id) => {
+  const res = await request({ url: `/common/minio/download/${id}`, method: 'get' })
+  window.open(res.data, '_blank')
 }
 
 export default {

@@ -62,34 +62,55 @@
 
           <!-- 文件列表 -->
           <div v-if="totalFileCount > 0" class="file-grid">
-            <div
+            <!-- 已上传文件 -->
+            <el-tooltip
               v-for="file in existingFiles"
               :key="'e_' + file.id"
-              class="file-card"
-              :title="file.name"
-              @click="downloadExistingFile(file)"
+              :content="file.name"
+              placement="top"
+              :show-after="400"
             >
-              <el-icon class="file-card-icon" :style="{ color: fileColor(file.name) }"><Document /></el-icon>
-              <span class="file-card-name">{{ file.name }}</span>
-              <span
-                v-if="!readonly"
-                class="file-card-remove"
-                @click.stop="deleteExistingFile(file)"
-              ><el-icon><Close /></el-icon></span>
-            </div>
+              <div class="file-card">
+                <div
+                  class="file-badge"
+                  :style="{ background: fileBadge(file.name).bg, fontSize: badgeFontSize(fileBadge(file.name).text) }"
+                >{{ fileBadge(file.name).text }}</div>
+                <span class="file-card-name">{{ file.name }}</span>
+                <div class="file-card-actions">
+                  <el-icon
+                    class="action-icon"
+                    title="下载"
+                    @click.stop="triggerDownload(file)"
+                  ><Download /></el-icon>
+                </div>
+                <span
+                  v-if="!readonly"
+                  class="file-card-remove"
+                  @click.stop="deleteExistingFile(file)"
+                ><el-icon><Close /></el-icon></span>
+              </div>
+            </el-tooltip>
 
-            <div
+            <!-- 待上传文件 -->
+            <el-tooltip
               v-for="(file, idx) in newFileList"
               :key="'n_' + idx"
-              class="file-card file-card-new"
-              :title="file.name"
+              :content="file.name"
+              placement="top"
+              :show-after="400"
             >
-              <el-icon class="file-card-icon" :style="{ color: fileColor(file.name) }"><Document /></el-icon>
-              <span class="file-card-name">{{ file.name }}</span>
-              <span class="file-card-remove" @click.stop="removeNewFile(idx)">
-                <el-icon><Close /></el-icon>
-              </span>
-            </div>
+              <div class="file-card">
+                <div
+                  class="file-badge"
+                  :style="{ background: fileBadge(file.name).bg, fontSize: badgeFontSize(fileBadge(file.name).text) }"
+                >{{ fileBadge(file.name).text }}</div>
+                <span class="file-card-name">{{ file.name }}</span>
+                <div class="file-card-actions"></div>
+                <span class="file-card-remove" @click.stop="removeNewFile(idx)">
+                  <el-icon><Close /></el-icon>
+                </span>
+              </div>
+            </el-tooltip>
           </div>
         </el-form-item>
       </el-form>
@@ -107,12 +128,13 @@
       >提交</el-button>
     </template>
   </el-dialog>
+
 </template>
 
 <script setup>
 import { ref, computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Close, Upload } from '@element-plus/icons-vue'
+import { Close, Upload, Download } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import fileAPI from '@/api/file'
 import listAPI from '@/api/list'
@@ -132,23 +154,44 @@ const ALLOWED_EXTS = [
 
 const acceptStr = ALLOWED_EXTS.map(e => '.' + e).join(',')
 
-const FILE_COLORS = {
-  pdf: '#e74c3c',
-  doc: '#2980b9', docx: '#2980b9',
-  xls: '#27ae60', xlsx: '#27ae60',
-  ppt: '#e67e22', pptx: '#e67e22',
-  wps: '#2980b9', et: '#27ae60', dps: '#e67e22',
-  wpt: '#2980b9', ett: '#27ae60', dpt: '#e67e22',
-  zip: '#8e44ad', rar: '#8e44ad', '7z': '#8e44ad', tar: '#8e44ad', gz: '#8e44ad',
-  jpg: '#16a085', jpeg: '#16a085', png: '#16a085', gif: '#16a085',
-  bmp: '#16a085', webp: '#16a085', tiff: '#16a085', tif: '#16a085',
-  mp4: '#c0392b', avi: '#c0392b', mov: '#c0392b', mkv: '#c0392b',
-  wmv: '#c0392b', flv: '#c0392b', rmvb: '#c0392b', m4v: '#c0392b', webm: '#c0392b',
+const FILE_BADGES = {
+  // Word / WPS Writer — 蓝色 W
+  doc: { text: 'W', bg: '#2b579a' }, docx: { text: 'W', bg: '#2b579a' },
+  wps: { text: 'W', bg: '#2b579a' }, wpt:  { text: 'W', bg: '#2b579a' },
+  // Excel / WPS Spreadsheet — 绿色 X
+  xls:  { text: 'X', bg: '#217346' }, xlsx: { text: 'X', bg: '#217346' },
+  et:   { text: 'X', bg: '#217346' }, ett:  { text: 'X', bg: '#217346' },
+  // PowerPoint / WPS Presentation — 橙红 P
+  ppt:  { text: 'P', bg: '#d24726' }, pptx: { text: 'P', bg: '#d24726' },
+  dps:  { text: 'P', bg: '#d24726' }, dpt:  { text: 'P', bg: '#d24726' },
+  // PDF — 红色
+  pdf: { text: 'PDF', bg: '#f40f02' },
+  // 图片 — 青绿
+  jpg: { text: 'IMG', bg: '#0e9c75' }, jpeg: { text: 'IMG', bg: '#0e9c75' },
+  png: { text: 'PNG', bg: '#0e9c75' }, gif:  { text: 'GIF', bg: '#0e9c75' },
+  bmp: { text: 'IMG', bg: '#0e9c75' }, webp: { text: 'IMG', bg: '#0e9c75' },
+  tiff: { text: 'IMG', bg: '#0e9c75' }, tif: { text: 'IMG', bg: '#0e9c75' },
+  // 视频 — 深红
+  mp4: { text: 'MP4', bg: '#b03a2e' }, avi:  { text: 'AVI', bg: '#b03a2e' },
+  mov: { text: 'MOV', bg: '#b03a2e' }, mkv:  { text: 'MKV', bg: '#b03a2e' },
+  wmv: { text: 'WMV', bg: '#b03a2e' }, flv:  { text: 'FLV', bg: '#b03a2e' },
+  rmvb: { text: 'RMVB', bg: '#b03a2e' }, m4v: { text: 'M4V', bg: '#b03a2e' },
+  webm: { text: 'WEBM', bg: '#b03a2e' },
+  // 压缩包 — 紫色
+  zip: { text: 'ZIP', bg: '#7d3c98' }, rar: { text: 'RAR', bg: '#7d3c98' },
+  '7z': { text: '7Z', bg: '#7d3c98' }, tar: { text: 'TAR', bg: '#7d3c98' },
+  gz:  { text: 'GZ',  bg: '#7d3c98' },
 }
 
-function fileColor(name) {
-  const ext = name?.split('.').pop()?.toLowerCase()
-  return FILE_COLORS[ext] || '#409eff'
+function fileBadge(name) {
+  const ext = name?.split('.').pop()?.toLowerCase() || ''
+  return FILE_BADGES[ext] || { text: ext.slice(0, 4).toUpperCase() || '?', bg: '#909399' }
+}
+
+function badgeFontSize(text) {
+  if (text.length <= 1) return '20px'
+  if (text.length <= 3) return '13px'
+  return '10px'
 }
 
 const emit = defineEmits(['success'])
@@ -293,22 +336,18 @@ async function loadExistingFiles(diaryId) {
 }
 
 // ── 下载已有文件 ────────────────────────────────────────────
-async function downloadExistingFile(file) {
+// ── 预览 ────────────────────────────────────────────────────
+
+// ── 下载 ───────────────────────────────────────────────────
+async function triggerDownload(file) {
   try {
-    const content = await fileAPI.downloadFile(file.id)
-    const blob = new Blob([content])
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = file.name
-    link.click()
-    URL.revokeObjectURL(url)
+    await fileAPI.downloadFile(file.id)
   } catch {
-    ElMessage.error('文件下载失败')
+    ElMessage.error('下载失败')
   }
 }
 
-// ── 删除已有文件 ────────────────────────────────────────────
+// ── 删除 ────────────────────────────────────────────────────
 async function deleteExistingFile(file) {
   try {
     await ElMessageBox.confirm('删除后不可恢复，确定删除该文件吗？', '提示', {
@@ -423,9 +462,19 @@ defineExpose({ open })
   cursor: default;
 }
 
-.file-card-icon {
-  font-size: 28px;
+.file-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: -0.5px;
   margin-bottom: 6px;
+  flex-shrink: 0;
+  user-select: none;
 }
 
 .file-card-name {
@@ -461,4 +510,31 @@ defineExpose({ open })
   opacity: 1;
   background: rgba(245, 108, 108, 0.85);
 }
+
+.file-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.file-card:hover .file-card-actions {
+  opacity: 1;
+}
+
+.action-icon {
+  font-size: 14px;
+  color: #606266;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.action-icon:hover {
+  color: #409eff;
+  background: #ecf5ff;
+}
+
 </style>

@@ -33,16 +33,16 @@ const SPLIT_OPERATOR = Object.freeze({
   DOT: '.',
 });
 
-// 角色表
+// 角色表（对应 sys_role.id）
 const ROLE_TABLE = Object.freeze({
-  SUPER_ADMIN: 1, // 超级管理员
-  SCHOOL_ADMIN: 2, // 学校管理员
-  ACADEMIC_AFFAIRS_ADMIN: 3, // 教务处管理员
-  DEPARTMENT_ADMIN: 4, // 院系管理员
-  COMPANY_ADMIN: 5, // 企业管理员
-  COMPANY_TUTOR: 6, // 企业导师
-  SCHOOL_TEACHER: 7, // 学校教师
-  STUDENT: 8, // 学生
+  SUPER_ADMIN: 1,
+  SCHOOL_TEACHER: 2,
+  STUDENT: 3,
+  DEPARTMENT_ADMIN: 13,
+  ACADEMIC_AFFAIRS_ADMIN: 14,
+  SCHOOL_ADMIN: 15,
+  COMPANY_TUTOR: 18,
+  COMPANY_ADMIN: 19,
 });
 
 // 实习流程类型

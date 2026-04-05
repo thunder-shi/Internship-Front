@@ -40,7 +40,7 @@
           <div v-for="file in files" :key="file.id" class="file-item">
             <el-icon class="file-icon"><Document /></el-icon>
             <span class="file-name" :title="file.name">{{ file.name }}</span>
-            <el-button type="primary" link size="small" @click="downloadFile(file)">下载</el-button>
+            <el-button type="primary" link size="small" @click="triggerDownload(file)">下载</el-button>
           </div>
         </div>
       </el-form-item>
@@ -48,12 +48,24 @@
       <!-- 审核区 -->
       <el-divider />
 
+      <el-alert
+        v-if="isAlreadyPassed"
+        title="该日志已审核通过，仅可退回修改"
+        type="warning"
+        :closable="false"
+        class="mb-16"
+      />
+
       <el-form ref="formRef" :model="form" :rules="formRules" label-width="90px">
         <el-form-item label="审核结果" prop="isAudit">
           <el-radio-group v-model="form.isAudit">
-            <el-radio :label="AUDIT_STATUS.PASS">审核通过</el-radio>
+            <template v-if="!isAlreadyPassed">
+              <el-radio :label="AUDIT_STATUS.PASS">审核通过</el-radio>
+            </template>
             <el-radio :label="AUDIT_STATUS.BACK">退回修改</el-radio>
-            <el-radio :label="AUDIT_STATUS.NOTPASS">审核不通过</el-radio>
+            <template v-if="!isAlreadyPassed">
+              <el-radio :label="AUDIT_STATUS.NOTPASS">审核不通过</el-radio>
+            </template>
           </el-radio-group>
         </el-form-item>
 
@@ -75,11 +87,12 @@
       <el-button type="primary" :loading="submitting" @click="handleSubmit">确认审核</el-button>
     </template>
   </el-dialog>
+
 </template>
 
 <script setup>
 import { ref, computed, reactive, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import fileAPI from '@/api/file'
@@ -102,7 +115,9 @@ const AUDIT_STATUS = CONSTANT.AUDIT_STATUS
 const visible = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
-const student = ref(null) // period-students 中的单行数据
+const student = ref(null)
+
+const isAlreadyPassed = computed(() => student.value?.diary?.isAudit === AUDIT_STATUS.PASS)
 
 // ── 附件 ────────────────────────────────────────────────────
 const files = ref([])
@@ -191,16 +206,9 @@ async function loadFiles(diaryId) {
 }
 
 // ── 下载附件 ─────────────────────────────────────────────────
-async function downloadFile(file) {
+async function triggerDownload(file) {
   try {
-    const content = await fileAPI.downloadFile(file.id)
-    const blob = new Blob([content])
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = file.name
-    link.click()
-    URL.revokeObjectURL(url)
+    await fileAPI.downloadFile(file.id)
   } catch {
     ElMessage.error('文件下载失败')
   }
@@ -212,6 +220,17 @@ async function handleSubmit() {
     await formRef.value.validate()
   } catch {
     return
+  }
+
+  // 已通过时二次确认
+  if (isAlreadyPassed.value) {
+    try {
+      await ElMessageBox.confirm(
+        '当前日志已审核通过，确认要退回修改吗？',
+        '提示',
+        { confirmButtonText: '确认退回', cancelButtonText: '取消', type: 'warning' }
+      )
+    } catch { return }
   }
 
   // 审核的是 main_verify_process.id（Merge 视图中的 id 字段）

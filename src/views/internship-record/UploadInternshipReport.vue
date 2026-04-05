@@ -223,7 +223,7 @@ async function loadStudentPosts() {
     postsLoading.value = true
     const [extRes, intRes] = await Promise.allSettled([
       listAPI.getSomeRecords({
-        keyWords: 'ViewRelStuInternshipPost',
+        keyWords: 'ViewVerifyProcessRelStuInternshipPostMerge',
         searchKey: { studentId: userId },
         reg: { studentId: '=' },
       }),
@@ -243,11 +243,10 @@ async function loadStudentPosts() {
     studentPosts.value = [
       ...extList.map(item => ({
         ...item,
-        _key: `ext_${item.id}`,
+        _key: `ext_${item.relationId}`,
         _type: 'external',
-        _paramId: item.id,
-        // isAudit 为 null/undefined 时视为已通过（老数据兼容）
-        _approved: item.isAudit === PASS,
+        _paramId: item.relationId,
+        _approved: item.isAllVerified === true,
       })),
       ...intList.map(item => ({
         ...item,
