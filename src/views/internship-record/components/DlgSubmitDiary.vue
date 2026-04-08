@@ -392,7 +392,14 @@ async function handleSubmit() {
     visible.value = false
     emit('success')
   } catch (e) {
-    ElMessage.error('提交失败：' + (e?.message || ''))
+    // 拦截器已显示后端错误 message；仅对"尚未分配校内导师"追加操作提示
+    const backendMsg = e?.response?.data?.message || ''
+    if (backendMsg.includes('尚未分配校内导师')) {
+      ElMessage.warning('请联系管理员完成校内导师分配后再提交日志')
+    } else if (!e?.response) {
+      // 非 HTTP 错误（网络断开等），拦截器未处理，手动提示
+      ElMessage.error('提交失败：' + (e?.message || ''))
+    }
   } finally {
     submitting.value = false
   }
