@@ -19,6 +19,8 @@
     @edit-click="handleEditClick"
     @view-click="handleViewClick"
     @submit-click="handleSubmitClick"
+    @more2-click="handleToolbarAcknowledgeNotPass"
+    @after-init-data="handleAfterTopicListInit"
   >
     <template #rightOperate="{ row }">
       <el-button type="info" size="small" title="题目详情" @click="handleViewTopicDetail(row)">
@@ -117,6 +119,7 @@ const currentInternship = computed(() => internshipContext.value);
 
 // 当前已选择的题目（仅用于判断模式与取消）
 const currentSelectedTopic = ref(null);
+const latestRejectedSelection = ref(null);
 const hasSelection = computed(() => !!currentSelectedTopic.value);
 
 const canCancelSelection = computed(() => {
@@ -127,6 +130,81 @@ const canCancelSelection = computed(() => {
     audit === CONSTANT.AUDIT_STATUS.BACK
   );
 });
+
+/** 待确认的不通过行：优先接口「最近一条不通过」，与表头按钮、自动弹窗一致 */
+function resolveNotPassRejectRow() {
+  const latest = latestRejectedSelection.value;
+  const cur = currentSelectedTopic.value;
+  if (latest && rowAuditStatus(latest) === CONSTANT.AUDIT_STATUS.NOTPASS) return latest;
+  if (cur && rowAuditStatus(cur) === CONSTANT.AUDIT_STATUS.NOTPASS) return cur;
+  return null;
+}
+
+/** 表头「确认不通过并重选」：统一由此入口处理，不在表格操作列重复放按钮 */
+const showAcknowledgeToolbar = computed(() => {
+  if (!hasSelection.value) return false;
+  const row = resolveNotPassRejectRow();
+  if (!row) return false;
+  return (
+    resolveRelTitleStudentRelationId(row) > 0 ||
+    Number(row?.id ?? row?.verifyProcessId ?? 0) > 0
+  );
+});
+
+function resolveRelTitleStudentRelationId(row) {
+  if (!row || typeof row !== 'object') return 0;
+  const candidates = [
+    row.relTitleStudentId,
+    row.RELTitleStudentId,
+    row.titleStudentId,
+    row.title_student_id,
+    row.relationId,
+    row.relation_id,
+    row.rel_title_student_id,
+    row.RELATION_ID,
+  ];
+  for (const c of candidates) {
+    if (c === undefined || c === null || c === '') continue;
+    const n = Number(c);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+/** Merge 行可能不写 relationId，用 MainVerifyProcess 主键反查 relation_id */
+async function resolveRelTitleStudentIdForAck(row) {
+  let rid = resolveRelTitleStudentRelationId(row);
+  if (rid) return rid;
+  const mvpId = Number(
+    row?.mainVerifyProcessId ??
+      row?.main_verify_process_id ??
+      row?.mvpId ??
+      row?.mvp_id ??
+      row?.verifyProcessId ??
+      row?.verify_process_id ??
+      row?.id ??
+      0
+  );
+  if (!mvpId) return 0;
+  try {
+    const queryRes = await listAPI.getSomeRecords({
+      keyWords: 'MainVerifyProcess',
+      searchKey: { id: mvpId },
+      pageInfo: { page: 1, size: 1 },
+    });
+    const r = (queryRes?.data?.content ?? queryRes?.data?.records ?? queryRes?.data ?? [])[0];
+    if (!r) return 0;
+    const tn = String(r.tableName ?? r.table_name ?? '');
+    const normalized = tn.replace(/_/g, '').toLowerCase();
+    if (normalized.includes('reltitlestudent')) {
+      const rel = Number(r.relationId ?? r.relation_id ?? 0);
+      return Number.isFinite(rel) && rel > 0 ? rel : 0;
+    }
+  } catch (e) {
+    console.error('通过 MainVerifyProcess 解析 relationId 失败:', e);
+  }
+  return 0;
+}
 
 const progressMainInternshipId = computed(
   () =>
@@ -491,12 +569,71 @@ async function enrichSelectedTopicWithMerge(internshipId, stuId) {
     stuId,
     rel?.relTitleStudentId ?? rel?.id
   );
+  const topicReasons =
+    merge?.topicReasons ??
+    merge?.topic_reasons ??
+    rel?.topicReasons ??
+    rel?.topic_reasons ??
+    '';
   currentSelectedTopic.value = {
     ...rel,
     ...(merge || {}),
     topicId: rel.topicId,
     relTitleStudentId: rel.relTitleStudentId ?? rel.id,
+    topicReasons,
+    topic_reasons: topicReasons,
   };
+}
+
+function unwrapLatestRejectedRecord(res) {
+  const raw = res?.data;
+  if (raw == null || raw === '') return null;
+  const pickFirst = (v) => {
+    if (v == null) return null;
+    if (Array.isArray(v)) return v.length ? v[0] : null;
+    return v;
+  };
+  let cur = raw;
+  for (let i = 0; i < 4 && cur && typeof cur === 'object'; i += 1) {
+    if (cur === null || Array.isArray(cur)) break;
+    if (
+      cur.relationId != null ||
+      cur.relation_id != null ||
+      cur.relTitleStudentId != null ||
+      cur.isAudit != null ||
+      cur.is_audit != null
+    ) {
+      return cur;
+    }
+    const next =
+      pickFirst(cur.content) ??
+      pickFirst(cur.records) ??
+      pickFirst(cur.list) ??
+      pickFirst(cur.rows) ??
+      cur.data ??
+      cur.node ??
+      cur.result;
+    if (next === cur) break;
+    cur = next;
+  }
+  if (cur && typeof cur === 'object' && !Array.isArray(cur)) return cur;
+  return null;
+}
+
+async function queryLatestRejectedSelection(stuId) {
+  const sid = Number(stuId || 0);
+  if (!sid) return null;
+  try {
+    const res = await internshipProcessAPI.getLatestRejectedTitleSelection({ stuId: sid });
+    return unwrapLatestRejectedRecord(res);
+  } catch (e) {
+    console.error('查询最近不通过选题失败:', e);
+    return null;
+  }
+}
+
+async function refreshLatestRejectedSelection(stuId) {
+  latestRejectedSelection.value = await queryLatestRejectedSelection(stuId);
 }
 
 // 实习项目选择：与审核页相同不按时间筛（避免 ViewRelProcessInternship 无数据）；学生在有关联实习时限制为已分配项目
@@ -584,11 +721,14 @@ function clientFilterFn(list) {
     })
     .map((row) => {
       const isLimitValue = Number(row?.isLimit ?? row?.is_limit ?? 0);
+      const topicReasons = row?.topicReasons ?? row?.topic_reasons ?? '';
       return {
         ...row,
         isLimit: isLimitValue,
         is_limit: isLimitValue,
         isLimitText: isLimitValue === 1 ? '是' : '否',
+        topicReasons,
+        topic_reasons: topicReasons,
       };
     });
 }
@@ -611,9 +751,12 @@ async function handleProjectSelected(internship, title) {
   const internshipId = resolveInternshipId(resolved ?? internship);
   if (!internshipId) {
     currentSelectedTopic.value = null;
+    latestRejectedSelection.value = null;
     return;
   }
   await enrichSelectedTopicWithMerge(internshipId, userInfo.value?.id);
+  await refreshLatestRejectedSelection(userInfo.value?.id);
+  await tryShowAutoRejectDialog();
   await headerPageRef.value?.updateSearchWordsAndRefresh?.();
 }
 
@@ -635,6 +778,11 @@ const defaultDTLProps = computed(() => {
       defaultDTHProps: {
         buttonProps: {
           more1: { show: true, name: '实习项目选择', disabled: more1Disabled },
+          more2: {
+            show: showAcknowledgeToolbar.value,
+            name: '确认不通过并重选',
+            type: 'danger',
+          },
           update: { show: true, type: 'primary', name: '取消选择' },
           visible: { show: true, type: 'primary', name: '查看进度' },
           submit: { show: true, name: '提交', type: 'warning' },
@@ -660,6 +808,7 @@ const defaultDTLProps = computed(() => {
           { id: 2, showName: '题目详情', tableColumnName: 'remarks', sortable: true },
           { id: 3, showName: '申报教师', tableColumnName: 'teacherName', sortable: true },
           { id: 4, showName: '状态', tableColumnName: 'customize-status' },
+          { id: 5, showName: '不通过理由', tableColumnName: 'topicReasons', sortable: false },
         ],
       },
     };
@@ -860,6 +1009,7 @@ async function handleSelectTopic(row) {
     if (result.ok) {
       ElMessage.success('选择成功，请及时点击「提交」送审');
       await enrichSelectedTopicWithMerge(internshipId, stuId);
+      await refreshLatestRejectedSelection(stuId);
       await headerPageRef.value?.updateSearchWordsAndRefresh?.();
     } else {
       ElMessage.error(result.message || '选择失败');
@@ -938,6 +1088,7 @@ async function handleCancelSelection() {
       ElMessage.success('取消成功');
       currentSelectedTopic.value = null;
       currentRow.value = {};
+      await refreshLatestRejectedSelection(stuId);
       await headerPageRef.value?.updateSearchWordsAndRefresh?.();
     } else {
       ElMessage.error(result.message || '取消失败');
@@ -946,6 +1097,146 @@ async function handleCancelSelection() {
     console.error('取消选择失败:', e);
     ElMessage.error('取消失败');
   }
+}
+
+const AUTO_REJECT_PROMPT_PREFIX = 'stuSelectTopic.autoRejectPrompt.';
+
+/**
+ * 每条不通过 relationId 在本浏览器标签页仅自动弹一次；关闭或点「稍后处理」后仍可用表头按钮
+ */
+async function tryShowAutoRejectDialog() {
+  if (typeof sessionStorage === 'undefined') return;
+  const stuId = Number(userInfo.value?.id || 0);
+  if (!stuId) return;
+
+  const row = resolveNotPassRejectRow();
+  if (!row) return;
+
+  let relationId = resolveRelTitleStudentRelationId(row);
+  if (!relationId) {
+    relationId = await resolveRelTitleStudentIdForAck(row);
+  }
+  if (!relationId || rowAuditStatus(row) !== CONSTANT.AUDIT_STATUS.NOTPASS) return;
+
+  const key = `${AUTO_REJECT_PROMPT_PREFIX}${stuId}.${relationId}`;
+  if (sessionStorage.getItem(key)) return;
+  sessionStorage.setItem(key, '1');
+
+  const reason =
+    row?.topicReasons ?? row?.topic_reasons ?? row?.reason ?? '';
+
+  try {
+    await ElMessageBox.confirm(
+      `您的选题未通过审核。\n\n原因：${reason || '未填写'}\n\n确认后将清除本条选题记录，您可重新选择题目。也可稍后点击上方「确认不通过并重选」处理。`,
+      '选题审核不通过',
+      {
+        confirmButtonText: '确认并重新选题',
+        cancelButtonText: '稍后处理',
+        type: 'warning',
+        distinguishCancelAndClose: true,
+      }
+    );
+    await handleAcknowledgeNotPass(row, { skipConfirm: true });
+  } catch {
+    /* 稍后处理 / 关闭 */
+  }
+}
+
+async function handleAfterTopicListInit() {
+  const stuId = Number(userInfo.value?.id || 0);
+  if (!stuId) return;
+  if (!resolveInternshipId(getEffectiveInternship())) return;
+  await refreshLatestRejectedSelection(stuId);
+  await tryShowAutoRejectDialog();
+}
+
+async function handleAcknowledgeNotPass(rowFromTable, options = {}) {
+  const { skipConfirm = false } = options;
+  const stuId = Number(userInfo.value?.id || 0);
+  const tableRow =
+    rowFromTable && typeof rowFromTable === 'object' && !Array.isArray(rowFromTable)
+      ? rowFromTable
+      : null;
+
+  let candidate = null;
+  if (
+    tableRow &&
+    rowAuditStatus(tableRow) === CONSTANT.AUDIT_STATUS.NOTPASS
+  ) {
+    candidate = tableRow;
+  }
+
+  let latestRejected = await queryLatestRejectedSelection(stuId);
+  latestRejectedSelection.value = latestRejected;
+
+  if (!candidate && latestRejected && rowAuditStatus(latestRejected) === CONSTANT.AUDIT_STATUS.NOTPASS) {
+    candidate = latestRejected;
+  }
+
+  if (!candidate) {
+    const localRow = currentSelectedTopic.value;
+    if (localRow && rowAuditStatus(localRow) === CONSTANT.AUDIT_STATUS.NOTPASS) {
+      candidate = localRow;
+    }
+  }
+
+  if (!candidate) {
+    latestRejectedSelection.value = null;
+    ElMessage.warning('当前没有可确认的不通过记录，请刷新后重试');
+    return;
+  }
+
+  const relationId = await resolveRelTitleStudentIdForAck(candidate);
+  const audit = rowAuditStatus(candidate);
+  if (!relationId || audit !== CONSTANT.AUDIT_STATUS.NOTPASS) {
+    ElMessage.warning('无法解析选题记录编号或状态异常，请刷新后重试');
+    return;
+  }
+  const reason =
+    candidate?.topicReasons ??
+    candidate?.topic_reasons ??
+    candidate?.reason ??
+    '';
+
+  if (!skipConfirm) {
+    try {
+      await ElMessageBox.confirm(
+        `审核不通过原因：\n${reason || '未填写'}\n\n确认后将清理当前选题记录，你可以重新选择题目。`,
+        '审核不通过',
+        {
+          confirmButtonText: '确认并重新选题',
+          cancelButtonText: '取消',
+          type: 'warning',
+        }
+      );
+    } catch {
+      return;
+    }
+  }
+
+  try {
+    const res = await internshipProcessAPI.acknowledgeRejectedTitleSelection({
+      relationId,
+      stuId,
+    });
+    if (res?.message === 'successful') {
+      ElMessage.success('已确认不通过原因，可重新选择题目');
+      currentSelectedTopic.value = null;
+      currentRow.value = {};
+      await refreshLatestRejectedSelection(stuId);
+      await headerPageRef.value?.updateSearchWordsAndRefresh?.();
+    } else {
+      ElMessage.error(res?.message || '确认失败');
+    }
+  } catch (e) {
+    console.error('确认审核不通过失败:', e);
+    ElMessage.error('确认失败');
+  }
+}
+
+/** 表头「more2」：不依赖勾选行，与当前选题 / 最近不通过接口一致 */
+function handleToolbarAcknowledgeNotPass() {
+  handleAcknowledgeNotPass(resolveNotPassRejectRow() || currentSelectedTopic.value);
 }
 </script>
 

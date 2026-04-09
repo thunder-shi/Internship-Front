@@ -116,6 +116,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  /** 审核保存成功后的附加回调（可选） */
+  afterAuditSuccess: {
+    type: Function,
+    default: null,
+  },
 });
 
 const emit = defineEmits(['success', 'close-dialog']);
@@ -427,6 +432,19 @@ async function confirm(_option, type) {
     if (!resInfo || resInfo.message !== 'successful') {
       ElMessage.warning(resInfo?.message || '审核保存失败');
       return;
+    }
+    if (typeof props.afterAuditSuccess === 'function') {
+      try {
+        await props.afterAuditSuccess({
+          rows: rowsToSubmit,
+          isAudit,
+          reason,
+          verifyUserId: verifyUserIdInt,
+          isBatch: rowsToSubmit.length > 1,
+        });
+      } catch (callbackError) {
+        console.error('afterAuditSuccess 回调执行失败:', callbackError);
+      }
     }
 
     const resultText = auditResultTextMap[form.auditResult] || '未知';

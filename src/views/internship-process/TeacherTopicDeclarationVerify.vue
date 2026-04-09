@@ -4,6 +4,8 @@
     :page-title="'题目申报审核'"
     :no-project-message="'当前没有可审核题目的实习项目'"
     :pending-select-message="'当前实习项目：待选择'"
+    :project-select-search-key="projectSelectSearchKey"
+    :project-select-reg-key="projectSelectRegKey"
     :default-d-t-l-props="defaultDTLProps"
     :build-search-key="buildSearchKey"
     :is-company-user="false"
@@ -30,15 +32,16 @@
 <script setup>
 import { reactive, ref, computed } from 'vue';
 import { useStore } from 'vuex';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import DlgTopicDetail from './components/DlgTopicDetail.vue';
 import CONSTANT from '@/utils/constant';
+import { useProcessWindowProjectSelectKeys } from '@/utils/useProcessWindowProjectSelectKeys';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { buildVerifySearchWords } from '@/utils/verify';
-import internshipProcessAPI from '@/api/internshipProcess';
+import { useBatchVerifyAuditDialog } from '@/utils/useBatchVerifyAuditDialog';
 import listAPI from '@/api/list';
 
 defineOptions({
@@ -54,12 +57,19 @@ const showProgressDialog = ref(false);
 const currentRow = ref({});
 
 const userInfo = computed(() => store.getters.userInfo || {});
+/** 与实习安排审核页一致：仅按流程时间窗筛选，不按专业收窄 */
+const { projectSelectSearchKey, projectSelectRegKey } = useProcessWindowProjectSelectKeys(
+  userInfo,
+  false
+);
 const titleObj = reactive({ mainTitle: '题目申报审核' });
 
 const currentInternship = computed(() => headerPageRef.value?.currentInternship?.value ?? null);
 const isMore1Disabled = computed(() => headerPageRef.value?.isMore1Disabled?.value ?? false);
 
 const { clientFilterFn: verifyClientFilterFn, getVerifyRoleName } = useVerifyFilter();
+
+const { handleBatchAuditCommand, handleAuditClick } = useBatchVerifyAuditDialog(dlgVerifyRef);
 
 function resolveIsLimitValue(row) {
   const rawList = [
@@ -137,12 +147,6 @@ const defaultDTLProps = computed(() => ({
   defaultDBIProps: {},
 }));
 
-function handleAuditClick(row) {
-  const selectedRow = Array.isArray(row) ? row[0] : row;
-  if (!selectedRow) return;
-  dlgVerifyRef.value?.showDialog(true, selectedRow);
-}
-
 async function handleEditClick(row) {
   const selectedRow = Array.isArray(row) ? row[0] : row;
   if (!selectedRow) return;
@@ -182,77 +186,9 @@ function handleViewClick(rowOrArray) {
   showProgressDialog.value = true;
 }
 
-async function handleBatchAuditCommand(command, rows) {
-  const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
-  if (!list.length) {
-    ElMessage.warning('请先勾选要审核的记录');
-    return;
-  }
-
-  const targetList = list.filter((r) => r && r.isAudit === CONSTANT.AUDIT_STATUS.SUBMIT);
-  if (!targetList.length) {
-    ElMessage.warning('选中的记录中没有待审核的数据');
-    return;
-  }
-
-  const textMap = {
-    [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
-    [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
-    [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
-  };
-
-  let reason;
-  try {
-    const { value } = await ElMessageBox.prompt(
-      '请输入审核理由（将应用于所有选中记录）：',
-      '批量审核',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        inputType: 'textarea',
-        inputValue: textMap[command] || '',
-      }
-    );
-    reason = value != null ? String(value).trim() : '';
-  } catch {
-    return;
-  }
-
-  if (!reason) {
-    ElMessage.warning('审核理由不能为空');
-    return;
-  }
-
-  const uid = userInfo.value?.id;
-  if (!uid) {
-    ElMessage.error('无法获取当前用户信息，请重新登录');
-    return;
-  }
-
-  let successCount = 0;
-  for (const row of targetList) {
-    try {
-      const res = await internshipProcessAPI.auditProcess({
-        id: row.id,
-        isAudit: command,
-        reason,
-        verifyUserId: parseInt(uid, 10),
-      });
-      if (res && res.message === 'successful') successCount += 1;
-    } catch (e) {
-      console.error('批量审核失败记录:', row.id, e);
-    }
-  }
-
-  if (successCount > 0) {
-    ElMessage.success(`批量审核完成，成功 ${successCount} 条`);
-    headerPageRef.value?.baseListRef?.initDataList?.(true);
-  } else {
-    ElMessage.warning('批量审核未成功，请稍后重试');
-  }
-}
-
 function handleVerifySuccess() {
-  headerPageRef.value?.baseListRef?.initDataList?.(true);
+  const baseList = headerPageRef.value?.baseListRef;
+  baseList?.initDataList?.(true);
+  headerPageRef.value?.updateSearchWordsAndRefresh?.();
 }
 </script>

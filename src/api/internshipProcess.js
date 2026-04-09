@@ -102,6 +102,28 @@ function getExternalInternshipStudentPostBreakdown(node) {
   });
 }
 
+/** 学生查看最近一条选题不通过记录 */
+function getLatestRejectedTitleSelection(node) {
+  return request({
+    url: '/internshipProcess/getLatestRejectedTitleSelection',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
+/** 学生确认不通过后清理选题记录 */
+function acknowledgeRejectedTitleSelection(node) {
+  return request({
+    url: '/internshipProcess/acknowledgeRejectedTitleSelection',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
 export default {
   auditProcess,
   activateProcess,
@@ -111,5 +133,7 @@ export default {
   listExternalInternshipCollegeStats,
   listApprovedExternalInternshipPosts,
   getExternalInternshipStudentPostBreakdown,
+  getLatestRejectedTitleSelection,
+  acknowledgeRejectedTitleSelection,
   // getNowInternship
 };
