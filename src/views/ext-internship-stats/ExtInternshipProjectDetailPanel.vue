@@ -81,6 +81,8 @@ defineOptions({
 const props = defineProps({
   internshipId: { type: [Number, String], default: null },
   internshipName: { type: String, default: '' },
+  /** 学院/部门维度，与 listExternalInternshipCollegeStats 一致；学生选岗明细接口需传入 */
+  departmentId: { type: [Number, String], default: null },
 });
 
 const activeTab = ref('posts');
@@ -92,6 +94,13 @@ const normalizedId = computed(() => {
   if (v == null || v === '') return null;
   const n = Number(v);
   return Number.isNaN(n) ? v : n;
+});
+
+const normalizedDepartmentId = computed(() => {
+  const v = props.departmentId;
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
 });
 
 const studentStatus = ref('all');
@@ -273,11 +282,15 @@ async function fetchStudentsRecords(params) {
       data: { content: [], totalElements: 0, page: { totalElements: 0 } },
     };
   }
-  const res = await internshipProcessAPI.getExternalInternshipStudentPostBreakdown({
+  const node = {
     internshipId: Number(normalizedId.value),
     status: studentStatus.value,
     pageInfo: { page: params.pageInfo.page, size: params.pageInfo.size },
-  });
+  };
+  if (normalizedDepartmentId.value != null) {
+    node.departmentId = normalizedDepartmentId.value;
+  }
+  const res = await internshipProcessAPI.getExternalInternshipStudentPostBreakdown(node);
   const data = unwrapPayload(res);
   if (data.counts && typeof data.counts === 'object') {
     studentCounts.value = {
@@ -317,8 +330,8 @@ function reloadBothTables() {
 }
 
 watch(
-  () => normalizedId.value,
-  (id) => {
+  () => [normalizedId.value, normalizedDepartmentId.value],
+  ([id]) => {
     if (id == null || id === '') return;
     reloadBothTables();
   },

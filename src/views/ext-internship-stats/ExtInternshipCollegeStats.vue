@@ -62,7 +62,7 @@ const treeProps = computed(() => {
   }
   return {
     title: { mainTitle: '单位部门' },
-    keyWord: 'BaseDepartment',
+    keyWord: 'ViewBaseDepartment',
     checkFlag: false,
     sort: { properties: 'theOrder', direction: 'ASC' },
     initSearchWords: {
@@ -216,7 +216,12 @@ function goProjectDetail(row) {
     ElMessage.warning('缺少 internshipId');
     return;
   }
-  projectDetailDlgRef.value?.show(row);
+  const departmentId = selectedDepartmentId.value;
+  if (departmentId == null || departmentId === '') {
+    ElMessage.warning('请在左侧选择部门，或确认账号已绑定 departmentId');
+    return;
+  }
+  projectDetailDlgRef.value?.show(row, { departmentId: Number(departmentId) });
 }
 
 onMounted(() => {

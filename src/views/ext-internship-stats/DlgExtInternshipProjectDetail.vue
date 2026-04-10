@@ -4,9 +4,10 @@
       <div class="dlg-detail-body">
         <ExtInternshipProjectDetailPanel
           v-if="openedId != null && openedId !== ''"
-          :key="String(openedId)"
+          :key="`${openedId}-${openedDepartmentId ?? 'd'}`"
           :internship-id="openedId"
           :internship-name="openedName"
+          :department-id="openedDepartmentId"
         />
       </div>
     </template>
@@ -46,17 +47,27 @@ const defaultProps = reactive({
 
 const openedId = ref(null);
 const openedName = ref('');
+const openedDepartmentId = ref(null);
 
 /**
  * @param {Object} row — 列表行，需含 internshipId / internshipName
+ * @param {Object} [options]
+ * @param {number|string|null} [options.departmentId] — 当前统计部门，传给学生选岗明细接口
  */
-function show(row) {
+function show(row, options = {}) {
   const id = row?.internshipId ?? row?.id;
   if (id == null || id === '') {
     return;
   }
   openedId.value = id;
   openedName.value = row?.internshipName ?? '';
+  const dept = options.departmentId ?? row?.departmentId;
+  if (dept == null || dept === '') {
+    openedDepartmentId.value = null;
+  } else {
+    const n = Number(dept);
+    openedDepartmentId.value = Number.isNaN(n) ? dept : n;
+  }
   const title = openedName.value
     ? `校外实习项目详情 — ${openedName.value}`
     : '校外实习项目详情';
@@ -69,6 +80,7 @@ function show(row) {
 function onCloseDialog() {
   openedId.value = null;
   openedName.value = '';
+  openedDepartmentId.value = null;
 }
 
 defineExpose({

@@ -9,13 +9,18 @@
       </template>
     </el-page-header>
 
-    <ExtInternshipProjectDetailPanel :internship-id="internshipId" :internship-name="internshipNameFromQuery" />
+    <ExtInternshipProjectDetailPanel
+      :internship-id="internshipId"
+      :internship-name="internshipNameFromQuery"
+      :department-id="departmentIdForPanel"
+    />
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useStore } from 'vuex';
 import ExtInternshipProjectDetailPanel from '@/views/ext-internship-stats/ExtInternshipProjectDetailPanel.vue';
 
 defineOptions({
@@ -24,6 +29,9 @@ defineOptions({
 
 const route = useRoute();
 const router = useRouter();
+const store = useStore();
+
+const userInfo = computed(() => store.getters.userInfo || {});
 
 const internshipId = computed(() => {
   const q = route.query.internshipId;
@@ -33,6 +41,19 @@ const internshipId = computed(() => {
 });
 
 const internshipNameFromQuery = computed(() => String(route.query.internshipName || ''));
+
+/** 优先 URL ?departmentId=，否则与统计页一致用账号 departmentId */
+const departmentIdForPanel = computed(() => {
+  const q = route.query.departmentId;
+  if (q != null && q !== '') {
+    const n = Number(q);
+    return Number.isNaN(n) ? null : n;
+  }
+  const d = userInfo.value.departmentId;
+  if (d == null || d === '') return null;
+  const n = Number(d);
+  return Number.isNaN(n) ? null : n;
+});
 
 const displayTitle = computed(() => {
   if (internshipNameFromQuery.value) return internshipNameFromQuery.value;

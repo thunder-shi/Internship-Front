@@ -90,7 +90,7 @@ function listApprovedExternalInternshipPosts(node) {
 
 /**
  * 指定校外实习项目学生选岗明细（含分类统计）
- * @param {Object} node — { internshipId, status: 'all'|'notSelected'|'selectedPendingAudit'|'postApproved', pageInfo }
+ * @param {Object} node — { internshipId, departmentId?, status: 'all'|'notSelected'|'selectedPendingAudit'|'postApproved', pageInfo }
  */
 function getExternalInternshipStudentPostBreakdown(node) {
   return request({

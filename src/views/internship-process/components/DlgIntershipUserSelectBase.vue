@@ -131,7 +131,7 @@ const tableListProps = reactive({
   title: {},
   bottomOffset: 80,
   sortStr: { properties: 'id', direction: 'DESC' },
-  pageInfo: { page: 1, size: 20 },
+  pageInfo: { page: 1, size: 25 },
   initSearchWords: {
     searchKey: { jobCode: props.jobCode },
     regKey: {},
