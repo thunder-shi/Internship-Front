@@ -4,6 +4,8 @@
     :page-title="'老师指定学生选题'"
     :no-project-message="'当前没有可指定的审核通过题目'"
     :pending-select-message="'当前实习项目：待选择'"
+    :project-select-search-key="projectSelectSearchKey"
+    :project-select-reg-key="projectSelectRegKey"
     :default-d-t-l-props="defaultDTLProps"
     :build-search-key="buildSearchKey"
     :is-company-user="false"
@@ -36,6 +38,7 @@ import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPa
 import DlgTopicDetail from '@/views/internship-process/components/DlgTopicDetail.vue';
 import DlgTopicStudentAssign from '@/views/internship-process/components/DlgTopicStudentAssign.vue';
 import CONSTANT from '@/utils/constant';
+import { useProcessWindowProjectSelectKeys } from '@/utils/useProcessWindowProjectSelectKeys';
 import listAPI from '@/api/list';
 
 defineOptions({
@@ -49,6 +52,10 @@ const dlgTopicStudentAssignRef = ref(null);
 const pendingAssignTopicRow = ref(null);
 
 const userInfo = computed(() => store.getters.userInfo || {});
+const { projectSelectSearchKey, projectSelectRegKey } = useProcessWindowProjectSelectKeys(
+  userInfo,
+  true
+);
 
 const titleObj = reactive({
   mainTitle: '老师指定学生选题',
@@ -58,8 +65,6 @@ const titleObj = reactive({
 const currentInternship = computed(() => {
   return headerPageRef.value?.currentInternship?.value || null;
 });
-
-// 实习项目列表：与「老师申报题目」「学生选题审核」一致，仅按 process-type-code 查询，避免时间条件导致视图无数据
 
 // 与老师申报题目一致：当前实习项目 + 当前登录教师 + 审核通过（后端视图支持时生效）
 function buildSearchKey(baseSearchKey) {

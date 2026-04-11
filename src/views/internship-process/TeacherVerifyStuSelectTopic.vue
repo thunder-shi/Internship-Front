@@ -3,11 +3,14 @@
     ref="headerPageRef"
     :page-title="'老师审核学生自主选题'"
     :no-project-message="'当前没有可审核的学生自主选题记录'"
+    :project-select-search-key="projectSelectSearchKey"
+    :project-select-reg-key="projectSelectRegKey"
     :default-d-t-l-props="defaultDTLProps"
     :build-search-key="buildSearchKey"
     :is-company-user="false"
     :process-type-code="CONSTANT.PROCESS_TYPE.INTERNAL_STUDENT_TEACHER_MATCH"
     @audit-click="handleAuditClick"
+    @audit-command="handleBatchAuditCommand"
     @edit-click="handleEditClick"
     @view-click="handleViewClick"
     @project-selected="handleProjectSelected"
@@ -39,8 +42,10 @@ import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import DlgTopicDetail from '@/views/internship-process/components/DlgTopicDetail.vue';
 import CONSTANT from '@/utils/constant';
+import { useProcessWindowProjectSelectKeys } from '@/utils/useProcessWindowProjectSelectKeys';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { buildVerifySearchWords, isUserIdInVerifyUserId } from '@/utils/verify';
+import { useBatchVerifyAuditDialog } from '@/utils/useBatchVerifyAuditDialog';
 import listAPI from '@/api/list';
 
 defineOptions({ name: 'TeacherVerifyStuSelectTopic' });
@@ -53,7 +58,15 @@ const dlgTopicDetailRef = ref(null);
 const showProgressDialog = ref(false);
 const currentRow = ref({});
 
+const userInfo = computed(() => store.getters.userInfo || {});
+/** 与题目申报审核一致：流程时间窗内项目；审核页不按专业收窄 */
+const { projectSelectSearchKey, projectSelectRegKey } = useProcessWindowProjectSelectKeys(
+  userInfo,
+  false
+);
+
 const { getVerifyRoleName } = useVerifyFilter();
+const { handleBatchAuditCommand, handleAuditClick } = useBatchVerifyAuditDialog(dlgVerifyRef);
 
 /** 与题目申报审核一致：校/院系管理员等可看到全部待审（不必出现在 verifyUserId 里） */
 const PRIVILEGED_AUDIT_ROLES = [
@@ -138,12 +151,6 @@ const defaultDTLProps = computed(() => ({
   defaultDBIProps: {},
 }));
 
-function handleAuditClick(row) {
-  const selectedRow = Array.isArray(row) ? row[0] : row;
-  if (!selectedRow) return;
-  dlgVerifyRef.value?.showDialog(true, selectedRow);
-}
-
 function resolveTopicIdFromRow(row) {
   return (
     Number(
@@ -194,7 +201,9 @@ function handleViewClick(rowOrArray) {
 }
 
 function handleVerifySuccess() {
-  headerPageRef.value?.baseListRef?.initDataList?.(true);
+  const baseList = headerPageRef.value?.baseListRef;
+  baseList?.initDataList?.(true);
+  headerPageRef.value?.updateSearchWordsAndRefresh?.();
 }
 </script>
 

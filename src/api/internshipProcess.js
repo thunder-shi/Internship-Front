@@ -66,11 +66,74 @@ async function initEnterpriseTutorByInternshipId(params) {
 //   })
 // }
 
+/** 本学院校外实习报名统计（仅 intTypeName=校外实习） */
+function listExternalInternshipCollegeStats(node) {
+  return request({
+    url: '/internshipProcess/listExternalInternshipCollegeStats',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
+/** 指定校外实习项目下已通过审核的岗位列表 */
+function listApprovedExternalInternshipPosts(node) {
+  return request({
+    url: '/internshipProcess/listApprovedExternalInternshipPosts',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
+/**
+ * 指定校外实习项目学生选岗明细（含分类统计）
+ * @param {Object} node — { internshipId, departmentId?, status: 'all'|'notSelected'|'selectedPendingAudit'|'postApproved', pageInfo }
+ */
+function getExternalInternshipStudentPostBreakdown(node) {
+  return request({
+    url: '/internshipProcess/getExternalInternshipStudentPostBreakdown',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
+/** 学生查看最近一条选题不通过记录 */
+function getLatestRejectedTitleSelection(node) {
+  return request({
+    url: '/internshipProcess/getLatestRejectedTitleSelection',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
+/** 学生确认不通过后清理选题记录 */
+function acknowledgeRejectedTitleSelection(node) {
+  return request({
+    url: '/internshipProcess/acknowledgeRejectedTitleSelection',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
 export default {
   auditProcess,
   activateProcess,
   getVerifyUserIds,
   initTeacherStudentByInternshipId,
   initEnterpriseTutorByInternshipId,
+  listExternalInternshipCollegeStats,
+  listApprovedExternalInternshipPosts,
+  getExternalInternshipStudentPostBreakdown,
+  getLatestRejectedTitleSelection,
+  acknowledgeRejectedTitleSelection,
   // getNowInternship
 };

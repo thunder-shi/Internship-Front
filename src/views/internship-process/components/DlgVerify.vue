@@ -1,18 +1,8 @@
 <template>
-  <DlgBasic
-    ref="dlgBasicRef"
-    v-model:default-props="defaultProps"
-    :dlgbasic-confirm="confirm"
-    @close-dialog="onCloseDialog"
-  >
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm"
+    @close-dialog="onCloseDialog">
     <template #mainForm>
-      <el-form
-        ref="formPanelRef"
-        :rules="formRules"
-        :model="form"
-        label-suffix=":"
-        label-width="120px"
-      >
+      <el-form ref="formPanelRef" :rules="formRules" :model="form" label-suffix=":" label-width="120px">
         <div class="audit-section-top">
           <el-form-item label="审核结果" prop="auditResult">
             <el-radio-group v-model="form.auditResult">
@@ -28,14 +18,8 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item label="审核理由" prop="auditReason">
-            <el-input
-              v-model="form.auditReason"
-              type="textarea"
-              :rows="4"
-              placeholder="请输入审核理由"
-              :maxlength="500"
-              show-word-limit
-            />
+            <el-input v-model="form.auditReason" type="textarea" :rows="4" placeholder="请输入审核理由" :maxlength="500"
+              show-word-limit />
           </el-form-item>
         </div>
 
@@ -125,6 +109,11 @@ const props = defineProps({
   showPeriodInfo: {
     type: Boolean,
     default: false,
+  },
+  /** 审核保存成功后的附加回调（可选） */
+  afterAuditSuccess: {
+    type: Function,
+    default: null,
   },
 });
 
@@ -238,9 +227,9 @@ const periodTableProps = reactive({
     keyWord: { edit: 'MainDiaryPeriod', view: 'MainDiaryPeriod' },
     buttonProps: { buttonGroup: { show: false } },
     allTableColumns: [
-      { id: 1, showName: '期次',     theOrder: 1, tableColumnName: 'periodIndex', sortable: false },
-      { id: 2, showName: '开始时间', theOrder: 2, tableColumnName: 'beginTime',   sortable: false },
-      { id: 3, showName: '结束时间', theOrder: 3, tableColumnName: 'endTime',     sortable: false },
+      { id: 1, showName: '期次', theOrder: 1, tableColumnName: 'periodIndex', sortable: false },
+      { id: 2, showName: '开始时间', theOrder: 2, tableColumnName: 'beginTime', sortable: false },
+      { id: 3, showName: '结束时间', theOrder: 3, tableColumnName: 'endTime', sortable: false },
     ],
   },
 });
@@ -464,6 +453,19 @@ async function confirm(_option, type) {
     if (!resInfo || resInfo.message !== 'successful') {
       ElMessage.warning(resInfo?.message || '审核保存失败');
       return;
+    }
+    if (typeof props.afterAuditSuccess === 'function') {
+      try {
+        await props.afterAuditSuccess({
+          rows: rowsToSubmit,
+          isAudit,
+          reason,
+          verifyUserId: verifyUserIdInt,
+          isBatch: rowsToSubmit.length > 1,
+        });
+      } catch (callbackError) {
+        console.error('afterAuditSuccess 回调执行失败:', callbackError);
+      }
     }
 
     const resultText = getAuditStatusText(form.auditResult);

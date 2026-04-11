@@ -4,6 +4,8 @@
     :page-title="'老师申报题目'"
     :no-project-message="'当前没有可申报题目的实习项目'"
     :pending-select-message="'当前实习项目：待选择'"
+    :project-select-search-key="projectSelectSearchKey"
+    :project-select-reg-key="projectSelectRegKey"
     :default-d-t-l-props="defaultDTLProps"
     :build-search-key="buildSearchKey"
     :is-company-user="false"
@@ -12,6 +14,7 @@
     @edit-click="handleEditClick"
     @delete-click="handleDeleteClick"
     @submit-click="handleSubmitClick"
+    @more2-click="handleBatchSubmitClick"
     @view-click="handleViewClick"
     @project-selected="handleProjectSelected"
   >
@@ -32,6 +35,8 @@ import DlgTopicDetail from './components/DlgTopicDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
+import { useProcessWindowProjectSelectKeys } from '@/utils/useProcessWindowProjectSelectKeys';
+import { useAssignmentActions } from '@/utils/useAssignmentActions';
 import listAPI from '@/api/list';
 
 defineOptions({
@@ -45,7 +50,15 @@ const showProgressDialog = ref(false);
 const currentRow = ref({});
 
 const userInfo = computed(() => store.getters.userInfo || {});
+const { projectSelectSearchKey, projectSelectRegKey } = useProcessWindowProjectSelectKeys(
+  userInfo,
+  true
+);
 const { getVerifyRoleName } = useVerifyFilter();
+
+const { handleBatchSubmitClick } = useAssignmentActions(() =>
+  headerPageRef.value?.baseListRef?.initDataList?.(true)
+);
 
 const titleObj = reactive({
   mainTitle: '老师申报题目',
@@ -118,6 +131,7 @@ const defaultDTLProps = computed(() => ({
       delete: { show: true },
       visible: { show: true, type: 'primary', name: '查看进度' },
       submit: { show: true, name: '提交', type: 'warning' },
+      more2: { show: true, name: '批量提交', type: 'primary' },
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
     },
     buttonCondition: {
