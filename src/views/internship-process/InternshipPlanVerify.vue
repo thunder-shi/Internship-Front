@@ -7,6 +7,7 @@
       dlg-title="实习项目审核"
       recall-title="退回已通过的实习计划"
       show-project-info
+      show-period-info
       process-view-name="ViewRelProcessInternship"
       audit-records-view-name="ViewVerifyProcessInternship"
       @success="handleVerifySuccess"

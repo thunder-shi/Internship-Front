@@ -132,7 +132,7 @@ const saveInternshipData = async (form, successMessage) => {
  * - option === 'append': 新增模式，使用新增逻辑
  * - option === 'edit': 编辑模式，使用暂存逻辑
  */
-const handleConfirm = async (option, type, form) => {
+const handleConfirm = async (option, _type, form) => {
   // 编辑模式：使用暂存逻辑
   if (option === 'edit') {
     return await saveInternshipData(form, '暂存成功');
@@ -298,8 +298,7 @@ const defaultProps = computed(() => ({
       { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' }, searchKeys: templateSearchKey.value },
       { name: '项目编号', field: 'code', type: 'input' },
       { name: '实习名称', field: 'name', type: 'input' },
-      { name: '报告周期', field: 'cron', type: 'cron' },
-      { name: '备注', field: 'remarks', type: 'textarea' }
+      { name: '备注', field: 'remarks', type: 'textarea' },
     ],
     formRules: {
       name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],

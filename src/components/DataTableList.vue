@@ -4,6 +4,7 @@
     @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick"
     @more1-click="more1Click" @more2-click="more2Click" @more3-click="more3Click" @upload-finish="uploadFinish" @upload="upload"
     @audit-click="auditClick" @audit-command="auditCommand">
+    <template v-if="$slots.left" #left><slot name="left" /></template>
     <template #searchPanel>
       <!-- v-model="searchName" -->
       <slot name="searchPanel">

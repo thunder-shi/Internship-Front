@@ -1,9 +1,11 @@
 <template>
   <div class="build-internship-container">
-    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @append-click="appendClick" @edit-click="editClick" @delete-click="handleDeleteClick">
+    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @append-click="appendClick"
+      @edit-click="editClick" @delete-click="handleDeleteClick">
     </BaseList>
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
-    <DlgMainInternship ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin" @update-record="handleUpdateRecord" />
+    <DlgMainInternship ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin"
+      @update-record="handleUpdateRecord" />
   </div>
 </template>
 <script setup>
@@ -75,7 +77,7 @@ const templateSearchKey = computed(() => {
  * 新增项目确认函数
  * 创建项目后需要进入编辑页面配置流程列表
  */
-const handleConfirm = async (option, type, form) => {
+const handleConfirm = async (_option, _type, form) => {
   try {
     await ElMessageBox.confirm('新增后，实习模板将不能修改，确定新增吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
 
@@ -127,7 +129,6 @@ const handleDeleteClick = async (rows) => {
     }
   } catch (error) {
     // axios 拦截器已经处理了错误提示，这里不需要重复显示
-    // 如果拦截器没有显示（比如被 suppress），这里也不显示，避免重复
     console.error('删除失败:', error);
   }
 };
@@ -154,19 +155,16 @@ const defaultProps = computed(() => ({
         { id: 3, showName: '项目名称', theOrder: 3, tableColumnName: 'name' },
         { id: 4, showName: '实习类型', theOrder: 4, tableColumnName: 'intTypeName' },
         { id: 5, showName: '实习模板', theOrder: 5, tableColumnName: 'internshipTypeName' },
-        { id: 6, showName: '报告周期', theOrder: 6, tableColumnName: 'cron' },
-        // { id: 6, showName: '已选学生人数', theOrder: 6, tableColumnName: 'studentNum', sortable: true },
-        { id: 7, showName: '备注', theOrder: 7, tableColumnName: 'remarks' }
+        { id: 6, showName: '备注', theOrder: 6, tableColumnName: 'remarks' }
       ],
     },
   },
   defaultSDProps: {
     keyWord: 'MainInternship',
     formItems: [
-      { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: {properties: 'Id', direction: 'DESC'}, searchKeys: templateSearchKey.value },
+      { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' }, searchKeys: templateSearchKey.value },
       { name: '项目编号', field: 'code', type: 'input' },
       { name: '实习名称', field: 'name', type: 'input' },
-      { name: '报告周期', field: 'cron', type: 'cron' },
       { name: '备注', field: 'remarks', type: 'textarea' }
     ],
     formRules: {

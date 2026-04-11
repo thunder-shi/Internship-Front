@@ -16,8 +16,8 @@
         </el-descriptions-item>
         <el-descriptions-item label="第几期">第 {{ student?.diary?.periodIndex }} 期</el-descriptions-item>
         <el-descriptions-item label="当前状态">
-          <el-tag :type="auditTagType(student?.diary?.isAudit)">
-            {{ auditText(student?.diary?.isAudit) }}
+          <el-tag :type="getAuditTagType(student?.diary?.isAudit)">
+            {{ getAuditStatusText(student?.diary?.isAudit) }}
           </el-tag>
         </el-descriptions-item>
       </el-descriptions>
@@ -99,6 +99,7 @@ import fileAPI from '@/api/file'
 import listAPI from '@/api/list'
 import internshipProcessAPI from '@/api/internshipProcess'
 import CONSTANT from '@/utils/constant'
+import { getAuditStatusText, getAuditTagType } from '@/utils/verify'
 
 defineOptions({ name: 'DlgReviewDiary' })
 
@@ -117,7 +118,7 @@ const loading = ref(false)
 const submitting = ref(false)
 const student = ref(null)
 
-const isAlreadyPassed = computed(() => student.value?.diary?.isAudit === AUDIT_STATUS.PASS)
+const isAlreadyPassed = computed(() => student.value?.diary?.isAllVerified === true)
 
 // ── 附件 ────────────────────────────────────────────────────
 const files = ref([])
@@ -143,23 +144,6 @@ const reasonPlaceholder = computed(() => {
   if (form.isAudit === AUDIT_STATUS.NOTPASS) return '请说明不通过原因'
   return ''
 })
-
-// ── 审核状态辅助 ─────────────────────────────────────────────
-const AUDIT_STATUS_MAP = {
-  [AUDIT_STATUS.SAVE]:    { text: '退回，待重提', type: 'warning' },
-  [AUDIT_STATUS.SUBMIT]:  { text: '待审核',       type: '' },
-  [AUDIT_STATUS.PASS]:    { text: '审核通过',     type: 'success' },
-  [AUDIT_STATUS.NOTPASS]: { text: '审核不通过',   type: 'danger' },
-  [AUDIT_STATUS.BACK]:    { text: '已退回',       type: 'warning' },
-}
-
-function auditText(isAudit) {
-  return AUDIT_STATUS_MAP[isAudit]?.text ?? '未知'
-}
-
-function auditTagType(isAudit) {
-  return AUDIT_STATUS_MAP[isAudit]?.type ?? 'info'
-}
 
 // ── 对外暴露：open ──────────────────────────────────────────
 /**
@@ -189,7 +173,7 @@ async function loadFiles(diaryId) {
     loading.value = true
     const res = await listAPI.getSomeRecords({
       keyWords: 'SysOssFile',
-      searchKey: { relationIds: diaryId, tableName: 'MainDiary' },
+      searchKey: { relationIds: diaryId, tableName: 'main_diary' },
       reg: { relationIds: '=', tableName: '=' },
     })
     const raw = res?.data?.content || res?.data || []
@@ -252,7 +236,7 @@ async function handleSubmit() {
       return
     }
 
-    const resultText = auditText(form.isAudit)
+    const resultText = getAuditStatusText(form.isAudit)
     ElMessage.success(`审核完成：${resultText}`)
     visible.value = false
     emit('success')

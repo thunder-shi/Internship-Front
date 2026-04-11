@@ -71,7 +71,6 @@ const formItems = [
   { name: '专业选择', field: 'majorIds', type: 'cascader', keyWords: 'BaseMajor', multiple: true },
   { name: '项目编号', field: 'code', type: 'input' },
   { name: '实习名称', field: 'name', type: 'input' },
-  { name: '报告周期', field: 'cron', type: 'cron' },
   { name: '备注', field: 'remarks', type: 'textarea' }
 ];
 
@@ -97,7 +96,7 @@ const formRules = {
 const tableListProps = reactive({
   keyWord: {},
   title: {},
-  bottomOffset: 0,
+  bottomOffset: 70,
   sortStr: { properties: 'theOrder', direction: 'ASC' },
   pageInfo: { page: 1, size: 100 },
   initSearchWords: {

@@ -9,8 +9,8 @@
   >
     <div v-loading="filesLoading">
       <el-alert
-        v-if="readonly && currentDiary?.remark"
-        :title="`老师批阅意见：${currentDiary.remark}`"
+        v-if="readonly && currentDiary?.remarks"
+        :title="`老师批阅意见：${currentDiary.remarks}`"
         type="success"
         :closable="false"
         class="mb-16"
@@ -202,10 +202,12 @@ const visible = ref(false)
 const filesLoading = ref(false)
 const submitting = ref(false)
 const readonly = ref(false)
+const isSupplementary = ref(false)  // 补交标记
 
-const stuInternshipPostId = ref(null)
-const relTitleStudentId = ref(null)
-const periodIndex = ref(null)
+const relationId = ref(null)
+const tableName = ref(null)
+const periodId = ref(null)
+const periodIndex = ref(null)   // 仅用于标题显示
 const currentDiary = ref(null)
 
 const formRef = ref(null)
@@ -239,18 +241,21 @@ const totalSizeWarning = computed(() => totalFileSize.value > MAX_TOTAL * 0.8)
 
 const dialogTitle = computed(() => {
   if (readonly.value) return `第 ${periodIndex.value} 期实习日志（查看）`
-  if (currentDiary.value?.isAudit === CONSTANT.AUDIT_STATUS.SAVE) {
+  const diary = currentDiary.value
+  if (diary && (diary.isAudit === CONSTANT.AUDIT_STATUS.BACK || diary.submit === false)) {
     return `重新提交 — 第 ${periodIndex.value} 期实习日志`
   }
   return `提交 — 第 ${periodIndex.value} 期实习日志`
 })
 
 function open(opts) {
-  stuInternshipPostId.value = opts.stuInternshipPostId ?? null
-  relTitleStudentId.value = opts.relTitleStudentId ?? null
-  periodIndex.value = opts.periodIndex
+  relationId.value = opts.relationId ?? null
+  tableName.value = opts.tableName ?? null
+  periodId.value = opts.periodId ?? null
+  periodIndex.value = opts.periodIndex ?? null
   currentDiary.value = opts.diary ?? null
   readonly.value = opts.readonly ?? false
+  isSupplementary.value = opts.isSupplementary ?? false
 
   form.content = opts.diary?.content ?? ''
   existingFiles.value = []
@@ -268,6 +273,9 @@ function onClosed() {
   existingFiles.value = []
   newFileList.value = []
   currentDiary.value = null
+  relationId.value = null
+  tableName.value = null
+  periodId.value = null
   // 重置原生 input，避免下次打开选同一文件无反应
   if (fileInputRef.value) fileInputRef.value.value = ''
 }
@@ -319,7 +327,7 @@ async function loadExistingFiles(diaryId) {
     filesLoading.value = true
     const res = await listAPI.getSomeRecords({
       keyWords: 'SysOssFile',
-      searchKey: { relationIds: diaryId, tableName: 'MainDiary' },
+      searchKey: { relationIds: diaryId, tableName: 'main_diary' },
       reg: { relationIds: '=', tableName: '=' },
     })
     const raw = res?.data?.content || res?.data || []
@@ -372,9 +380,14 @@ async function handleSubmit() {
   try {
     submitting.value = true
 
-    const node = { periodIndex: periodIndex.value, content: form.content }
-    if (stuInternshipPostId.value) node.stuInternshipPostId = stuInternshipPostId.value
-    if (relTitleStudentId.value) node.relTitleStudentId = relTitleStudentId.value
+    const node = {
+      relationId: relationId.value,
+      tableName: tableName.value,
+      periodId: periodId.value,
+      content: form.content,
+      submit: true,
+      ...(isSupplementary.value ? { remarks: '学生补交' } : {}),
+    }
 
     const res = await submitDiary(node)
     if (res?.message !== 'successful') {
@@ -385,7 +398,7 @@ async function handleSubmit() {
 
     const rawFiles = newFileList.value.filter(f => f.raw).map(f => f.raw)
     if (rawFiles.length > 0 && diaryId) {
-      await fileAPI.upload({ files: rawFiles, relationIds: diaryId, tableName: 'MainDiary' })
+      await fileAPI.upload({ files: rawFiles, relationIds: diaryId, tableName: 'main_diary' })
     }
 
     ElMessage.success('提交成功')

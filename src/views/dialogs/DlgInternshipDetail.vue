@@ -14,11 +14,117 @@
         <div class="table-section">
           <DataTableList ref="dataTableList" :default-props="tableListProps" @append-click="handleTableAppend" @edit-click="handleTableEdit" @after-init-data="handleAfterInitData" />
         </div>
+
+        <!-- 日志期次配置 -->
+        <div v-if="form.internshipId" class="period-config-section">
+          <el-divider content-position="left">日志期次配置</el-divider>
+
+          <div class="period-config-row">
+            <span class="period-label">开始时间：</span>
+            <el-date-picker
+              v-model="form.reportStartTime"
+              type="date"
+              placeholder="日志周期开始时间"
+              value-format="YYYY-MM-DD"
+              style="width: 220px"
+            />
+          </div>
+          <div class="period-config-row">
+            <span class="period-label">结束时间：</span>
+            <el-date-picker
+              v-model="form.reportEndTime"
+              type="date"
+              placeholder="日志周期结束时间"
+              value-format="YYYY-MM-DD"
+              style="width: 220px"
+            />
+          </div>
+
+          <div class="period-config-row">
+            <span class="period-label">生成方式：</span>
+            <el-select v-model="periodConfig.mode" style="width:140px" placeholder="请选择">
+              <el-option label="按周期（cron）" value="cron" />
+              <el-option label="按期数（等分）" value="num" />
+            </el-select>
+          </div>
+
+          <div class="period-config-row">
+            <template v-if="periodConfig.mode === 'cron'">
+              <span class="period-label">报告频率：</span>
+              <el-select v-model="periodConfig.cron" style="width:150px">
+                <el-option v-for="opt in CRON_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+              </el-select>
+            </template>
+            <template v-else>
+              <span class="period-label">期数：</span>
+              <el-input-number v-model="periodConfig.periodNum" :min="1" :precision="0" style="width:120px" />
+              <span class="period-hint">期（等分时间段）</span>
+            </template>
+          </div>
+
+          <div class="period-config-row">
+            <el-button type="primary" :loading="generatingPeriods" @click="handleGeneratePeriods">生成期次</el-button>
+            <span class="period-hint">请先填写「开始/结束时间」后再生成期次</span>
+          </div>
+
+          <!-- 期次列表 -->
+          <DataTableList
+            ref="periodTableList"
+            :default-props="periodTableListProps"
+            :fetch-records="periodFetchRecords"
+            @append-click="handlePeriodAppend"
+            @edit-click="handlePeriodEdit"
+            @delete-click="handlePeriodDelete"
+            @after-init-data="handlePeriodAfterInitData"
+          />
+        </div>
       </div>
     </template>
   </DlgBasic>
   <!-- 流程选择窗口 -->
   <DlgProcessSelect ref="dlgProcessSelect" :internship-id="form.internshipId" @update-record="handleProcessSelectSave" />
+
+  <!-- 期次编辑弹窗（新增 / 编辑） -->
+  <el-dialog
+    v-model="periodEditVisible"
+    :title="periodEditForm.id ? '编辑期次' : '新增期次'"
+    width="420px"
+    :close-on-click-modal="false"
+    append-to-body
+  >
+    <el-form ref="periodFormRef" :model="periodEditForm" label-width="80px">
+      <el-form-item
+        label="开始时间"
+        prop="beginTime"
+        :rules="[{ required: true, message: '请选择开始时间', trigger: 'change' }]"
+      >
+        <el-date-picker
+          v-model="periodEditForm.beginTime"
+          type="date"
+          placeholder="请选择开始时间"
+          value-format="YYYY-MM-DD"
+          style="width: 100%"
+        />
+      </el-form-item>
+      <el-form-item
+        label="结束时间"
+        prop="endTime"
+        :rules="[{ required: true, message: '请选择结束时间', trigger: 'change' }]"
+      >
+        <el-date-picker
+          v-model="periodEditForm.endTime"
+          type="date"
+          placeholder="请选择结束时间"
+          value-format="YYYY-MM-DD"
+          style="width: 100%"
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="periodEditVisible = false">取 消</el-button>
+      <el-button type="primary" :loading="periodSaveLoading" @click="handlePeriodSave">确 定</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -31,6 +137,7 @@ import DataTableList from '@/components/DataTableList.vue';
 import DlgProcessSelect from '@/views/dialogs/DlgProcessSelect.vue';
 import listAPI from '@/api/list';
 import CONSTANT from '@/utils/constant';
+import { generatePeriods, getInternshipPeriods, savePeriod, deletePeriods } from '@/api/diary';
 
 const props = defineProps({
   userDepartmentId: { type: [Number, String], default: null },
@@ -77,7 +184,6 @@ const formItems = [
   { name: '专业选择', field: 'majorIds', type: 'cascader', keyWords: 'BaseMajor', multiple: true },
   { name: '项目编号', field: 'internshipCode', type: 'input' },
   { name: '实习名称', field: 'internshipName', type: 'input' },
-  // { name: '报告周期', field: 'cron', type: 'cron' },
   { name: '备注', field: 'internshipRemarks', type: 'textarea' }
 ];
 
@@ -103,7 +209,7 @@ const formRules = {
 const tableListProps = reactive({
   keyWord: {},
   title: {},
-  bottomOffset: 0,
+  bottomOffset: 70,
   sortStr: { properties: 'theOrder', direction: 'ASC' },
   pageInfo: { page: 1, size: 100 },
   initSearchWords: {
@@ -200,7 +306,7 @@ async function showDialog(val, formData = {}) {
   }
 
   dlgBasicRef.value?.showDialog(val, form, 'edit');
-  
+
   // 标记初始化完成
   isInitializing.value = false;
 
@@ -335,7 +441,9 @@ async function saveInternshipData(formData, successMessage) {
       id: formData.internshipId,
       code: formData.internshipCode,
       name: formData.internshipName,
-      remarks: formData.internshipRemarks
+      remarks: formData.internshipRemarks,
+      reportStartTime: formData.reportStartTime || null,
+      reportEndTime: formData.reportEndTime || null,
     };
     
     const mainInternshipRes = await listAPI.editOneNode('MainInternship', saveData);
@@ -536,6 +644,169 @@ function handleTableEdit(row) {
   }
 }
 
+// ── 日志期次配置 ──────────────────────────────────────────────
+const periodConfig = reactive({
+  mode: 'cron',           // 'cron' | 'num'
+  cron: '0 0 0 ? * MON', // 默认每周
+  periodNum: null,
+});
+const generatingPeriods = ref(false);
+const periodTableList = ref(null);
+const currentPeriodCount = ref(0);
+
+const CRON_OPTIONS = [
+  { label: '每日', value: '0 0 0 * * ?' },
+  { label: '每周', value: '0 0 0 ? * MON' },
+  { label: '每月', value: '0 0 0 1 * ?' },
+];
+
+const periodTableListProps = computed(() => ({
+  someFlags: {
+    checkFlag: true,       // 开启复选框，支持批量删除
+    showPage: false,
+    autoInit: true,
+    operateShow: true,     // 显示行级编辑 / 删除按钮
+  },
+  sortStr: { properties: 'periodIndex', direction: 'ASC' },
+  defaultDTHProps: {
+    keyWord: { edit: 'MainDiaryPeriod', view: 'MainDiaryPeriod' },
+    buttonProps: {
+      create: { show: true },
+      update: { show: true },
+      delete: { show: true },
+    },
+    allTableColumns: [
+      { id: 1, showName: '期次',     theOrder: 1, tableColumnName: 'periodIndex' },
+      { id: 2, showName: '开始时间', theOrder: 2, tableColumnName: 'beginTime'   },
+      { id: 3, showName: '结束时间', theOrder: 3, tableColumnName: 'endTime'     },
+    ],
+  },
+}))
+
+const periodFetchRecords = computed(() => async () => {
+  if (!form.internshipId) return { data: { content: [], totalElements: 0 }, message: 'successful' }
+  const res = await getInternshipPeriods({ internshipId: form.internshipId })
+  const list = res?.data || []
+  return { data: { content: list, totalElements: list.length }, message: 'successful' }
+})
+
+function handlePeriodAfterInitData(data) {
+  currentPeriodCount.value = data?.length ?? 0;
+}
+
+async function handleGeneratePeriods() {
+  if (!form.reportStartTime || !form.reportEndTime) {
+    ElMessage.warning('请先填写日志开始时间和结束时间');
+    return;
+  }
+  if (currentPeriodCount.value > 0) {
+    ElMessage.warning('当前已有期次记录，请先删除所有期次后再重新生成');
+    return;
+  }
+  const node = {
+    internshipId: form.internshipId,
+    reportStartTime: form.reportStartTime,
+    reportEndTime: form.reportEndTime,
+  };
+  if (periodConfig.mode === 'cron') {
+    node.cron = periodConfig.cron;
+  } else {
+    if (!periodConfig.periodNum || periodConfig.periodNum < 1) {
+      ElMessage.warning('请输入有效的期数（大于 0）');
+      return;
+    }
+    node.periodNum = periodConfig.periodNum;
+  }
+  try {
+    generatingPeriods.value = true;
+    const res = await generatePeriods(node);
+    if (res?.message !== 'successful') {
+      ElMessage.error(res?.message || '生成失败');
+      return;
+    }
+    periodTableList.value?.initDataList(true);
+    ElMessage.success('期次已生成');
+  } catch {
+    // HTTP 错误由 axios 拦截器统一提示，无需重复处理
+  } finally {
+    generatingPeriods.value = false;
+  }
+}
+
+// ── 期次手动 CRUD ──────────────────────────────────────────────
+const periodEditVisible = ref(false);
+const periodEditForm = reactive({ id: null, internshipId: null, beginTime: null, endTime: null });
+const periodFormRef = ref(null);
+const periodSaveLoading = ref(false);
+
+function handlePeriodAppend() {
+  Object.assign(periodEditForm, { id: null, internshipId: form.internshipId, beginTime: null, endTime: null });
+  periodEditVisible.value = true;
+  nextTick(() => periodFormRef.value?.clearValidate());
+}
+
+function handlePeriodEdit(row) {
+  const rowData = Array.isArray(row) ? row[0] : row;
+  if (!rowData) return;
+  Object.assign(periodEditForm, {
+    id: rowData.id,
+    internshipId: rowData.internshipId ?? form.internshipId,
+    beginTime: rowData.beginTime,
+    endTime: rowData.endTime,
+  });
+  periodEditVisible.value = true;
+  nextTick(() => periodFormRef.value?.clearValidate());
+}
+
+async function handlePeriodDelete(rows) {
+  const ids = Array.isArray(rows) ? rows.map(item => item.id) : rows?.id ? [rows.id] : [];
+  if (!ids.length) return;
+  try {
+    const res = await deletePeriods({ ids });
+    if (res?.message === 'successful') {
+      ElMessage.success('删除成功');
+      periodTableList.value?.initDataList(true);
+    } else {
+      ElMessage.error(res?.message || '删除失败');
+    }
+  } catch (error) {
+    // axios 拦截器已统一提示错误，此处不重复
+    console.error('删除期次失败:', error);
+  }
+}
+
+async function handlePeriodSave() {
+  try {
+    await periodFormRef.value?.validate();
+  } catch {
+    return;
+  }
+  if (periodEditForm.beginTime >= periodEditForm.endTime) {
+    ElMessage.warning('结束时间必须晚于开始时间');
+    return;
+  }
+  periodSaveLoading.value = true;
+  try {
+    const res = await savePeriod({
+      id: periodEditForm.id || null,
+      internshipId: periodEditForm.internshipId,
+      beginTime: periodEditForm.beginTime,
+      endTime: periodEditForm.endTime,
+    });
+    if (res?.message === 'successful') {
+      ElMessage.success(periodEditForm.id ? '编辑成功' : '新增成功');
+      periodEditVisible.value = false;
+      periodTableList.value?.initDataList(true);
+    } else {
+      ElMessage.error(res?.message || '保存失败');
+    }
+  } catch (error) {
+    console.error('保存期次失败:', error);
+  } finally {
+    periodSaveLoading.value = false;
+  }
+}
+
 function closeAllDialogs() {
   dlgProcessSelect.value?.showDialog?.(false, {});
   dlgBasicRef.value?.showDialog?.(false, {});
@@ -591,3 +862,43 @@ defineExpose({
   closeAllDialogs
 });
 </script>
+
+<style scoped>
+/* 流程表格 / 期次表格：固定展示 6 行，内部滚动
+   v-adaptive 通过 inline style 设置高度，用 !important 覆盖。
+   6 行 × 48px + 表头 40px = 328px */
+:deep(.table-section .el-table),
+:deep(.period-config-section .el-table) {
+  height: 328px !important;
+}
+:deep(.table-section .el-table .el-table__body-wrapper),
+:deep(.period-config-section .el-table .el-table__body-wrapper) {
+  height: 288px !important;
+  overflow-y: auto !important;
+}
+
+.period-config-section {
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.period-config-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.period-label {
+  font-size: 13px;
+  color: #606266;
+  white-space: nowrap;
+  min-width: 72px;
+  text-align: right;
+}
+
+.period-hint {
+  font-size: 12px;
+  color: #909399;
+}
+</style>

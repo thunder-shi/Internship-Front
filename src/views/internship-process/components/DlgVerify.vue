@@ -63,6 +63,10 @@
             <el-tab-pane v-if="auditRecordsViewName" label="当前审核情况" name="audit">
               <DataTableList ref="auditTableRef" :default-props="auditTableProps" />
             </el-tab-pane>
+
+            <el-tab-pane v-if="showPeriodInfo" label="报告周期详情" name="period">
+              <DataTableList ref="periodTableRef" :default-props="periodTableProps" />
+            </el-tab-pane>
           </el-tabs>
         </div>
       </el-form>
@@ -89,6 +93,7 @@ import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
 import { normalizeFormForDisplay } from '@/utils/common';
+import { getAuditStatusText } from '@/utils/verify';
 
 const props = defineProps({
   /** 对话框标题 */
@@ -116,6 +121,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  /** 是否显示报告周期详情 Tab */
+  showPeriodInfo: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['success', 'close-dialog']);
@@ -125,11 +135,12 @@ const dlgBasicRef = ref(null);
 const formPanelRef = ref(null);
 const processTableRef = ref(null);
 const auditTableRef = ref(null);
+const periodTableRef = ref(null);
 const activeTab = ref('basic');
 /** 批量审核时的待审核行列表，为空表示单条审核 */
 const batchRows = ref([]);
 
-const hasTabs = !!(props.showProjectInfo || props.processViewName || props.auditRecordsViewName);
+const hasTabs = !!(props.showProjectInfo || props.processViewName || props.auditRecordsViewName || props.showPeriodInfo);
 
 const isRecallMode = ref(false);
 
@@ -152,12 +163,6 @@ const form = reactive({});
 const formRules = {
   auditResult: [{ required: true, message: '请选择审核结果', trigger: 'change' }],
   auditReason: [{ required: true, message: '请输入审核理由', trigger: 'blur' }],
-};
-
-const auditResultTextMap = {
-  [CONSTANT.AUDIT_STATUS.PASS]: CONSTANT.AUDIT_STATUS.PASSNAME,
-  [CONSTANT.AUDIT_STATUS.NOTPASS]: CONSTANT.AUDIT_STATUS.NOTPASSNAME,
-  [CONSTANT.AUDIT_STATUS.BACK]: CONSTANT.AUDIT_STATUS.BACKNAME,
 };
 
 // ---------- 可选 Tab 页的 DataTableList 配置 ----------
@@ -216,13 +221,37 @@ const auditTableProps = reactive({
   },
 });
 
+const periodTableProps = reactive({
+  keyWord: {},
+  title: {},
+  bottomOffset: 0,
+  sortStr: { properties: 'periodIndex', direction: 'ASC' },
+  pageInfo: { page: 1, size: 100 },
+  initSearchWords: { searchKey: {} },
+  someFlags: {
+    operateShow: false,
+    checkFlag: false,
+    showPage: false,
+    autoInit: false,
+  },
+  defaultDTHProps: {
+    keyWord: { edit: 'MainDiaryPeriod', view: 'MainDiaryPeriod' },
+    buttonProps: { buttonGroup: { show: false } },
+    allTableColumns: [
+      { id: 1, showName: '期次',     theOrder: 1, tableColumnName: 'periodIndex', sortable: false },
+      { id: 2, showName: '开始时间', theOrder: 2, tableColumnName: 'beginTime',   sortable: false },
+      { id: 3, showName: '结束时间', theOrder: 3, tableColumnName: 'endTime',     sortable: false },
+    ],
+  },
+});
+
 // ---------- 表单监听 ----------
 
 watch(
   () => form.auditResult,
   (newVal) => {
     if (newVal !== null && newVal !== undefined) {
-      form.auditReason = auditResultTextMap[newVal] || '';
+      form.auditReason = getAuditStatusText(newVal);
     }
   }
 );
@@ -341,15 +370,20 @@ async function showDialog(val, formData = {}, batchRowsParam = [], initialAuditR
     defaultProps.dlgTitle = batchRows.value.length > 0
       ? `${props.dlgTitle}（已选 ${batchRows.value.length} 条）`
       : props.dlgTitle;
-    if (initialAuditResult != null && auditResultTextMap[initialAuditResult] !== undefined) {
+    if (initialAuditResult != null) {
       form.auditResult = initialAuditResult;
-      form.auditReason = auditResultTextMap[initialAuditResult];
+      form.auditReason = getAuditStatusText(initialAuditResult);
     }
   }
 
   // 设置流程 Tab 的过滤条件
   if (props.processViewName && formData?.internshipId) {
     processTableProps.initSearchWords.searchKey = { internshipId: formData.internshipId };
+  }
+
+  // 设置报告周期 Tab 的过滤条件
+  if (props.showPeriodInfo && formData?.internshipId) {
+    periodTableProps.initSearchWords.searchKey = { internshipId: formData.internshipId };
   }
 
   dlgBasicRef.value?.showDialog(val, form, 'edit');
@@ -367,6 +401,9 @@ async function showDialog(val, formData = {}, batchRowsParam = [], initialAuditR
 
     if (props.processViewName) {
       processTableRef.value?.initDataList(true);
+    }
+    if (props.showPeriodInfo) {
+      periodTableRef.value?.initDataList(true);
     }
   } else {
     dlgBasicRef.value.validate = true;
@@ -429,7 +466,7 @@ async function confirm(_option, type) {
       return;
     }
 
-    const resultText = auditResultTextMap[form.auditResult] || '未知';
+    const resultText = getAuditStatusText(form.auditResult);
     if (rowsToSubmit.length > 1) {
       ElMessage.success(`批量审核完成：${resultText}，共 ${rowsToSubmit.length} 条`);
     } else {
