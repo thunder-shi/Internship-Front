@@ -59,13 +59,8 @@
       <el-form ref="formRef" :model="form" :rules="formRules" label-width="90px">
         <el-form-item label="审核结果" prop="isAudit">
           <el-radio-group v-model="form.isAudit">
-            <template v-if="!isAlreadyPassed">
-              <el-radio :label="AUDIT_STATUS.PASS">审核通过</el-radio>
-            </template>
+            <el-radio v-if="!isAlreadyPassed" :label="AUDIT_STATUS.PASS">审核通过</el-radio>
             <el-radio :label="AUDIT_STATUS.BACK">退回修改</el-radio>
-            <template v-if="!isAlreadyPassed">
-              <el-radio :label="AUDIT_STATUS.NOTPASS">审核不通过</el-radio>
-            </template>
           </el-radio-group>
         </el-form-item>
 
@@ -134,14 +129,12 @@ const formRules = {
 const reasonLabel = computed(() => {
   if (form.isAudit === AUDIT_STATUS.PASS) return '批阅意见'
   if (form.isAudit === AUDIT_STATUS.BACK) return '退回原因'
-  if (form.isAudit === AUDIT_STATUS.NOTPASS) return '不通过原因'
   return '意见'
 })
 
 const reasonPlaceholder = computed(() => {
   if (form.isAudit === AUDIT_STATUS.PASS) return '选填，填写后学生可查看'
   if (form.isAudit === AUDIT_STATUS.BACK) return '请说明退回原因，学生可重新提交'
-  if (form.isAudit === AUDIT_STATUS.NOTPASS) return '请说明不通过原因'
   return ''
 })
 

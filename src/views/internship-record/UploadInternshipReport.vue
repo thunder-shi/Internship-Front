@@ -62,7 +62,7 @@
             type="info"
             size="small"
             title="填写日志"
-            @click="openSubmitDialog(row)"
+            @click.stop="openSubmitDialog(row)"
           ><el-icon><Edit /></el-icon></el-button>
           <!-- 详情：日志已提交，查看审核情况 -->
           <el-button
@@ -70,7 +70,7 @@
             type="info"
             size="small"
             title="查看审核情况"
-            @click="openViewDialog(row)"
+            @click.stop="openViewDialog(row)"
           ><svg-icon icon-class="axt-view" /></el-button>
           <!-- 提交：无日志时，当前/过去期可提交，未来期禁用 -->
           <el-button
@@ -79,7 +79,7 @@
             size="small"
             :disabled="isFuturePeriod(row)"
             :title="isFuturePeriod(row) ? '未到提交时间' : '提交日志'"
-            @click="openSubmitDialog(row)"
+            @click.stop="openSubmitDialog(row)"
           ><el-icon><Position /></el-icon></el-button>
         </template>
       </template>

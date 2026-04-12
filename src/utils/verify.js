@@ -74,9 +74,9 @@ export function getAuditTagType(isAudit) {
  * @param {Object|null} diary - ViewVerifyMainDiaryMerge 字段
  */
 export function getDiaryStatusText(diary) {
-  if (!diary) return '未提交'
-  if (diary.submit === false) return '草稿'
+  if (!diary || diary.submit === false) return '未提交'
   if (diary.isAllVerified === true) return AUDIT_STATUS.PASSNAME
+  if (diary.isAudit === AUDIT_STATUS.BACK) return '退回'
   return getAuditStatusText(diary.isAudit)
 }
 
