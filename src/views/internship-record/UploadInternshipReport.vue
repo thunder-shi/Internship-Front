@@ -73,22 +73,14 @@
             @click="openViewDialog(row)"
           ><svg-icon icon-class="axt-view" /></el-button>
           <!-- 提交：无日志时，当前/过去期可提交，未来期禁用 -->
-          <template v-if="!row.diary">
-            <el-button
-              v-if="!isFuturePeriod(row)"
-              type="primary"
-              size="small"
-              title="提交日志"
-              @click="openSubmitDialog(row)"
-            ><el-icon><Position /></el-icon></el-button>
-            <el-tooltip v-else content="未到提交时间" placement="top">
-              <span>
-                <el-button size="small" disabled>
-                  <el-icon><Position /></el-icon>
-                </el-button>
-              </span>
-            </el-tooltip>
-          </template>
+          <el-button
+            v-if="!row.diary"
+            type="primary"
+            size="small"
+            :disabled="isFuturePeriod(row)"
+            :title="isFuturePeriod(row) ? '未到提交时间' : '提交日志'"
+            @click="openSubmitDialog(row)"
+          ><el-icon><Position /></el-icon></el-button>
         </template>
       </template>
     </DataTableList>

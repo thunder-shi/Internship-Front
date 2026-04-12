@@ -1,33 +1,18 @@
 <template>
   <div class="review-internship-report">
     <!-- 顶部选择区 -->
-    <InternshipPeriodSelector
-      v-model:internshipId="selectedInternshipId"
-      v-model:periodId="selectedPeriod"
-      :user-id="userInfo.id"
-      @internship-change="onInternshipChange"
-      @period-change="onPeriodChange"
-    />
+    <InternshipPeriodSelector v-model:internshipId="selectedInternshipId" v-model:periodId="selectedPeriod"
+      :user-id="userInfo.id" @internship-change="onInternshipChange" @period-change="onPeriodChange" />
 
     <!-- 统计区 -->
-    <DiaryStatsCard
-      v-if="selectedPeriod"
-      :submitted="submittedCount"
-      :not-submitted="notSubmittedCount"
-      :total="allStudents.length"
-    />
+    <DiaryStatsCard v-if="selectedPeriod" :submitted="submittedCount" :not-submitted="notSubmittedCount"
+      :total="allStudents.length" />
 
     <!-- 学生列表 -->
     <template v-if="selectedPeriod">
-      <DataTableList
-        ref="dtlRef"
-        :default-props="dtlProps"
-        :fetch-records="fetchRecordsFunc"
-        :client-filter-fn="activeClientFilterFn"
-        @audit-click="onAuditClick"
-        @view-click="onViewClick"
-        @selection-change="onSelectionChange"
-      >
+      <DataTableList ref="dtlRef" :default-props="dtlProps" :fetch-records="fetchRecordsFunc"
+        :client-filter-fn="activeClientFilterFn" @audit-click="onAuditClick" @view-click="onViewClick"
+        @selection-change="onSelectionChange">
         <template #left>
           <el-radio-group v-model="activeTab" @change="onTabChange">
             <el-radio-button value="all">全部（{{ allStudents.length }}）</el-radio-button>
@@ -56,13 +41,13 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
 import { useStore } from 'vuex'
 import DataTableList from '@/components/DataTableList.vue'
 import DlgReviewDiary from './components/DlgReviewDiary.vue'
 import DlgStudentDetail from './components/DlgStudentDetail.vue'
 import InternshipPeriodSelector from './components/InternshipPeriodSelector.vue'
 import DiaryStatsCard from './components/DiaryStatsCard.vue'
+import listAPI from '@/api/list'
 import { getPeriodStudents } from '@/api/diary'
 import { getDiaryStatusText, getDiaryTagType, canReviewDiary } from '@/utils/verify'
 
@@ -107,16 +92,52 @@ async function fetchRecordsFunc() {
     allStudents.value = []
     return { data: { content: [], totalElements: 0 }, message: 'successful' }
   }
-  const params = {
+  const res = await getPeriodStudents({
     internshipId: selectedInternshipId.value,
     periodId: selectedPeriod.value,
+  })
+  let list = res?.data || []
+
+  // 非超管：前端过滤到自己指导的学生
+  if (!isSuperAdmin.value) {
+    list = await filterByCurrentTeacher(list)
   }
-  // 超管不传 userId，后端返回该期全部学生；普通教师传 userId 只返回其负责的学生
-  if (!isSuperAdmin.value) params.userId = userInfo.value.id
-  const res = await getPeriodStudents(params)
-  const list = res?.data || []
-  allStudents.value = list   // 全量数据供统计用（在 clientFilterFn 之前赋值）
+
+  allStudents.value = list
   return { data: { content: list, totalElements: list.length }, message: 'successful' }
+}
+
+/**
+ * 过滤出当前教师负责的学生：
+ *   校内实习 - row.teacherId 由后端从 ViewRelTitleTeacherStudent 回填，直接比对
+ *   校外实习 - 通过 ViewRelTeacherStudent.relInternshipId === row.stuRelationId 匹配
+ *             （直接比对 row.teacherId 不准：校外行的 teacherId 可能是企业导师而非校内导师）
+ */
+async function filterByCurrentTeacher(list) {
+  const myId = userInfo.value.id
+
+  // 查询本实习项目中当前教师负责的校外实习生（RelStuInternshipPost.id 集合）
+  let externalRelIds = new Set()
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelTeacherStudent',
+      searchKey: { teacherId: myId, internshipId: selectedInternshipId.value },
+      reg: { teacherId: '=', internshipId: '=' },
+      pageInfo: { page: 1, size: 1000 },
+    })
+    const items = res?.data?.content || res?.data || []
+    items.forEach(s => s.relInternshipId != null && externalRelIds.add(s.relInternshipId))
+  } catch {
+    return list  // 查询失败时原样返回
+  }
+
+  return list.filter(row => {
+    // 校内实习：teacherId 由后端直接从 ViewRelTitleTeacherStudent 填入，精确匹配
+    if (row.titleName) return row.teacherId === myId
+    // 校外实习：通过 stuRelationId 匹配（= RelStuInternshipPost.id = relInternshipId）
+    if (row.internshipPostName) return externalRelIds.has(row.stuRelationId)
+    return true
+  })
 }
 
 function onTabChange() {
@@ -131,22 +152,22 @@ const dtlProps = computed(() => ({
   sortStr: { properties: 'studentName', direction: 'ASC' },
   buttonCondition: {
     // 可批阅（待审核）→ 审核按钮
-    audit:   (row) => canReviewDiary(row.diary),
+    audit: (row) => canReviewDiary(row.diary),
     // 其余情况（无日志 或 已审核）→ 查看按钮
     visible: (row) => !canReviewDiary(row.diary),
   },
   defaultDTHProps: {
     keyWord: { edit: 'MainDiary', view: 'ViewPeriodStudents' },
     buttonProps: {
-      create:  { show: false },
-      update:  { show: false },
-      delete:  { show: false },
-      audit:   { show: true, type: 'primary', name: '批阅' },
+      create: { show: false },
+      update: { show: false },
+      delete: { show: false },
+      audit: { show: true, type: 'primary', name: '批阅' },
       visible: { show: true, name: '查看' },
     },
     allTableColumns: [
       { id: 1, showName: '学生姓名', theOrder: 1, tableColumnName: 'studentName' },
-      { id: 2, showName: '学号',     theOrder: 2, tableColumnName: 'studentNo' },
+      { id: 2, showName: '学号', theOrder: 2, tableColumnName: 'studentNo' },
       { id: 3, showName: '岗位/题目', theOrder: 3, tableColumnName: 'customize-postOrTitle' },
       { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: 'customize-submitTime' },
       { id: 5, showName: '审核状态', theOrder: 5, tableColumnName: 'customize-status' },

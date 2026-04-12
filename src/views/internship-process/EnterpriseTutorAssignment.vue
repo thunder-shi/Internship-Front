@@ -43,6 +43,7 @@ import { useStore } from 'vuex';
 import CONSTANT from '@/utils/constant';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
+import { initDiariesByInternship } from '@/api/diary';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import { Avatar } from '@element-plus/icons-vue';
 import TutorAssignmentBase from './components/TutorAssignmentBase.vue';
@@ -94,6 +95,8 @@ async function beforeRefreshOnProjectSelected(internship) {
     });
     if (!res || res.message !== 'successful') {
       ElMessage.warning(res?.message || '初始化失败');
+    } else {
+      try { await initDiariesByInternship({ internshipId }) } catch {}
     }
   } catch (error) {
     console.error('initEnterpriseTutorByInternshipId 调用失败:', error);

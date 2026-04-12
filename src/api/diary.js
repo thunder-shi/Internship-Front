@@ -34,3 +34,8 @@ export function savePeriod(node) {
 export function deletePeriods(node) {
   return request({ url: '/diary/period/delete', method: 'post', data: { node } })
 }
+
+/** 给指定实习项目的所有学生初始化 MainDiary 占位记录（安排导师后调用） */
+export function initDiariesByInternship(node) {
+  return request({ url: '/diary/init-by-internship', method: 'post', data: { node } })
+}
