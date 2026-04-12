@@ -1,6 +1,6 @@
 <template>
   <div class="internship-verify-container">
-    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @audit-click="handleAuditClick" @audit-command="handleBatchAuditCommand" @edit-click="handleEditClick" />
+    <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @audit-click="handleAuditClick" @edit-click="handleEditClick" />
     <!-- 审核对话框 -->
     <DlgVerify
       ref="dlgVerifyRef"
@@ -59,9 +59,6 @@ const handleVerifySuccess = () => {
   baseList.value?.initDataList();
 };
 
-/** 下拉选择的批量审核类型 */
-const lastBatchAuditCommand = ref(null);
-
 const handleAuditClick = (row) => {
   const rows = Array.isArray(row) ? row : row ? [row] : [];
   if (rows.length === 0) return;
@@ -73,14 +70,8 @@ const handleAuditClick = (row) => {
       ElMessage.warning('选中的记录中没有待审核的数据');
       return;
     }
-    const preSelected = lastBatchAuditCommand.value;
-    dlgVerifyRef.value?.showDialog(true, pending[0], pending, preSelected);
-    lastBatchAuditCommand.value = null;
+    dlgVerifyRef.value?.showDialog(true, pending[0], pending);
   }
-};
-
-const handleBatchAuditCommand = (command, _rows) => {
-  lastBatchAuditCommand.value = command;
 };
 
 const handleEditClick = (row) => {
@@ -106,7 +97,7 @@ const defaultProps = reactive({
     getVerifyRoleName,
     defaultDTHProps: {
       buttonProps: {
-        audit: { show: true, showPass: true, showNotPass: true, showBack: true },
+        audit: { show: true, name: '批量审核', showDropdown: false },
         update: { show: true, name: '查看详情' },
       },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipMerge' },

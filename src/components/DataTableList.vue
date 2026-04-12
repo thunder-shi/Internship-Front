@@ -27,19 +27,21 @@
         <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList"
           row-key="id" highlight-current-rows :row-class-name="rowClassNameFn" @current-change="handleColumnChange"
           @selection-change="handleSelectionChange" @sort-change="handleSortChange">
-          <el-table-column
-            v-if="checkFlag"
-            fixed
-            :reserve-selection="true"
-            type="selection"
-            width="55"
-            :selectable="rowSelectableFn || undefined"
-          />
-          <el-table-column v-else fixed width="55">
-            <template #default="scope">
-              <el-radio v-model="tableRadio" :label="scope.row.id"><i /></el-radio>
-            </template>
-          </el-table-column>
+          <template v-if="showSelectColumn">
+            <el-table-column
+              v-if="checkFlag"
+              fixed
+              :reserve-selection="true"
+              type="selection"
+              width="55"
+              :selectable="rowSelectableFn || undefined"
+            />
+            <el-table-column v-else fixed width="55">
+              <template #default="scope">
+                <el-radio v-model="tableRadio" :label="scope.row.id"><i /></el-radio>
+              </template>
+            </el-table-column>
+          </template>
           <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true"
             :prop="item.tableColumnName" :label="item.showName" :width="item.width"
             :sortable="item.sortable ? 'custom' : false">
@@ -509,6 +511,13 @@ const checkFlag = computed(() => {
     if (Object.prototype.hasOwnProperty.call(props.defaultProps.someFlags, 'checkFlag')) {
       return props.defaultProps.someFlags.checkFlag;
     }
+  }
+  return true;
+});
+
+const showSelectColumn = computed(() => {
+  if (Object.prototype.hasOwnProperty.call(props.defaultProps, 'someFlags')) {
+    if (props.defaultProps.someFlags.hideSelectColumn === true) return false;
   }
   return true;
 });

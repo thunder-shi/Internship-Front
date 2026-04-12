@@ -11,14 +11,14 @@
     <!-- 学生列表 -->
     <template v-if="selectedPeriod">
       <DataTableList ref="dtlRef" :default-props="dtlProps" :fetch-records="fetchRecordsFunc"
-        :client-filter-fn="activeClientFilterFn" @audit-click="onAuditClick" @view-click="onViewClick"
-        @selection-change="onSelectionChange">
+        :client-filter-fn="activeClientFilterFn" @audit-click="onAuditClick" @view-click="onViewClick">
         <template #left>
           <el-radio-group v-model="activeTab" @change="onTabChange">
             <el-radio-button value="all">全部（{{ allStudents.length }}）</el-radio-button>
             <el-radio-button value="submitted">已提交（{{ submittedCount }}）</el-radio-button>
             <el-radio-button value="not-submitted">未提交（{{ notSubmittedCount }}）</el-radio-button>
           </el-radio-group>
+          <el-button type="primary" style="margin-left: 12px" @click="onBatchAuditClick">批量审核</el-button>
         </template>
         <template #postOrTitle="{ row }">
           {{ row.internshipPostName || row.titleName || '——' }}
@@ -41,6 +41,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useStore } from 'vuex'
 import DataTableList from '@/components/DataTableList.vue'
 import DlgReviewDiary from './components/DlgReviewDiary.vue'
@@ -74,7 +75,6 @@ function onPeriodChange() {
 const dtlRef = ref(null)
 const activeTab = ref('all')
 const allStudents = ref([])
-const selectedRows = ref([])
 
 // diary=null 或 diary.submit=false（预建桩）均视为未提交
 const isSubmitted = (s) => s.diary?.submit === true
@@ -162,7 +162,7 @@ const dtlProps = computed(() => ({
       create: { show: false },
       update: { show: false },
       delete: { show: false },
-      audit: { show: true, type: 'primary', name: '批阅' },
+      audit: { show: true, type: 'primary', name: '批阅', showHeaderBtn: false },
       visible: { show: true, name: '查看' },
     },
     allTableColumns: [
@@ -179,9 +179,19 @@ const dtlProps = computed(() => ({
 const dlgReviewRef = ref(null)
 const dlgDetailRef = ref(null)
 
-// audit 按钮 → 批阅（待审核状态）
+// 行级批阅按钮
 function onAuditClick(row) {
   dlgReviewRef.value?.open(row)
+}
+
+// 顶部"批量审核"按钮 → 对当前视图所有待审核记录批量批阅
+function onBatchAuditClick() {
+  const pending = allStudents.value.filter(r => canReviewDiary(r.diary))
+  if (!pending.length) {
+    ElMessage.warning('当前列表中没有待审核的日志')
+    return
+  }
+  dlgReviewRef.value?.open(pending)
 }
 
 // visible 按钮 → 有日志时查看，无日志时看学生详情
@@ -190,9 +200,6 @@ function onViewClick([row]) {
   else dlgDetailRef.value?.open(row)
 }
 
-function onSelectionChange(rows) {
-  selectedRows.value = rows
-}
 
 function onReviewSuccess() {
   dtlRef.value?.initDataList()

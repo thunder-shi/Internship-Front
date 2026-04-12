@@ -8,54 +8,65 @@
     @closed="onClosed"
   >
     <div v-loading="loading">
-      <!-- 学生信息 -->
-      <el-descriptions :column="2" border size="small" class="mb-16">
-        <el-descriptions-item label="学生姓名">{{ student?.studentName }}</el-descriptions-item>
-        <el-descriptions-item label="岗位/题目">
-          {{ student?.internshipPostName || student?.titleName || '——' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="第几期">第 {{ student?.diary?.periodIndex }} 期</el-descriptions-item>
-        <el-descriptions-item label="当前状态">
-          <el-tag :type="getAuditTagType(student?.diary?.isAudit)">
-            {{ getAuditStatusText(student?.diary?.isAudit) }}
-          </el-tag>
-        </el-descriptions-item>
-      </el-descriptions>
-
-      <!-- 日志内容 -->
-      <el-form-item label="日志内容" label-width="90px">
-        <el-input
-          :model-value="student?.diary?.content || '（无内容）'"
-          type="textarea"
-          :rows="5"
-          readonly
-          disabled
-        />
-      </el-form-item>
-
-      <!-- 附件（MinIO 就绪后启用） -->
-      <el-form-item v-if="ossEnabled" label="附件" label-width="90px">
-        <div v-if="files.length === 0" class="empty-files">暂无附件</div>
-        <div v-else class="file-list">
-          <div v-for="file in files" :key="file.id" class="file-item">
-            <el-icon class="file-icon"><Document /></el-icon>
-            <span class="file-name" :title="file.name">{{ file.name }}</span>
-            <el-button type="primary" link size="small" @click="triggerDownload(file)">下载</el-button>
-          </div>
-        </div>
-      </el-form-item>
-
-      <!-- 审核区 -->
-      <el-divider />
-
+      <!-- 批量模式：学生汇总 -->
       <el-alert
-        v-if="isAlreadyPassed"
-        title="该日志已审核通过，仅可退回修改"
-        type="warning"
+        v-if="isBatch"
+        :title="`已选 ${batchRows.length} 位学生，其中 ${batchEligibleCount} 位处于待审核状态，批阅操作将仅对待审核记录生效`"
+        type="info"
         :closable="false"
         class="mb-16"
       />
 
+      <!-- 单行模式：学生信息 -->
+      <template v-else>
+        <el-descriptions :column="2" border size="small" class="mb-16">
+          <el-descriptions-item label="学生姓名">{{ student?.studentName }}</el-descriptions-item>
+          <el-descriptions-item label="岗位/题目">
+            {{ student?.internshipPostName || student?.titleName || '——' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="第几期">第 {{ student?.diary?.periodIndex }} 期</el-descriptions-item>
+          <el-descriptions-item label="当前状态">
+            <el-tag :type="getAuditTagType(student?.diary?.isAudit)">
+              {{ getAuditStatusText(student?.diary?.isAudit) }}
+            </el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <!-- 日志内容 -->
+        <el-form-item label="日志内容" label-width="90px">
+          <el-input
+            :model-value="student?.diary?.content || '（无内容）'"
+            type="textarea"
+            :rows="5"
+            readonly
+            disabled
+          />
+        </el-form-item>
+
+        <!-- 附件 -->
+        <el-form-item v-if="ossEnabled" label="附件" label-width="90px">
+          <div v-if="files.length === 0" class="empty-files">暂无附件</div>
+          <div v-else class="file-list">
+            <div v-for="file in files" :key="file.id" class="file-item">
+              <el-icon class="file-icon"><Document /></el-icon>
+              <span class="file-name" :title="file.name">{{ file.name }}</span>
+              <el-button type="primary" link size="small" @click="triggerDownload(file)">下载</el-button>
+            </div>
+          </div>
+        </el-form-item>
+
+        <el-divider />
+
+        <el-alert
+          v-if="isAlreadyPassed"
+          title="该日志已审核通过，仅可退回修改"
+          type="warning"
+          :closable="false"
+          class="mb-16"
+        />
+      </template>
+
+      <!-- 审核表单（单行/批量共用） -->
       <el-form ref="formRef" :model="form" :rules="formRules" label-width="90px">
         <el-form-item label="审核结果" prop="isAudit">
           <el-radio-group v-model="form.isAudit">
@@ -113,7 +124,16 @@ const loading = ref(false)
 const submitting = ref(false)
 const student = ref(null)
 
-const isAlreadyPassed = computed(() => student.value?.diary?.isAllVerified === true)
+// ── 批量模式 ─────────────────────────────────────────────────
+const batchRows = ref(null)
+const isBatch = computed(() => Array.isArray(batchRows.value) && batchRows.value.length > 1)
+const batchEligibleCount = computed(() =>
+  isBatch.value
+    ? batchRows.value.filter(r => r?.diary?.isAudit === AUDIT_STATUS.SUBMIT).length
+    : 0
+)
+
+const isAlreadyPassed = computed(() => !isBatch.value && student.value?.diary?.isAllVerified === true)
 
 // ── 附件 ────────────────────────────────────────────────────
 const files = ref([])
@@ -140,23 +160,33 @@ const reasonPlaceholder = computed(() => {
 
 // ── 对外暴露：open ──────────────────────────────────────────
 /**
- * @param {Object} studentRow - /diary/period-students 返回的单行数据
+ * @param {Object|Object[]} rowOrRows - 单行数据或行数组（批量模式）
  */
-function open(studentRow) {
-  student.value = studentRow
+function open(rowOrRows) {
+  const arr = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows]
   form.isAudit = null
   form.reason = ''
   files.value = []
-  visible.value = true
 
-  if (studentRow?.diary?.relationId) {
-    loadFiles(studentRow.diary.relationId)
+  if (arr.length > 1) {
+    // 批量模式
+    student.value = null
+    batchRows.value = arr
+  } else {
+    // 单行模式
+    student.value = arr[0]
+    batchRows.value = null
+    if (arr[0]?.diary?.relationId) {
+      loadFiles(arr[0].diary.relationId)
+    }
   }
+  visible.value = true
 }
 
 function onClosed() {
   formRef.value?.clearValidate()
   student.value = null
+  batchRows.value = null
   files.value = []
 }
 
@@ -199,26 +229,49 @@ async function handleSubmit() {
     return
   }
 
-  // 已通过时二次确认
-  if (isAlreadyPassed.value) {
-    try {
-      await ElMessageBox.confirm(
-        '当前日志已审核通过，确认要退回修改吗？',
-        '提示',
-        { confirmButtonText: '确认退回', cancelButtonText: '取消', type: 'warning' }
-      )
-    } catch { return }
-  }
-
-  // 审核的是 main_verify_process.id（Merge 视图中的 id 字段）
-  const processId = student.value?.diary?.id
-  if (!processId) {
-    ElMessage.error('缺少审核记录 ID，无法提交')
-    return
-  }
-
   try {
     submitting.value = true
+
+    if (isBatch.value) {
+      // 批量模式：只处理待审核状态的记录
+      const eligible = batchRows.value.filter(r => r?.diary?.isAudit === AUDIT_STATUS.SUBMIT)
+      if (!eligible.length) {
+        ElMessage.warning('选中的记录中没有待审核状态的日志')
+        return
+      }
+      let successCount = 0
+      for (const row of eligible) {
+        const processId = row.diary?.id
+        if (!processId) continue
+        try {
+          await internshipProcessAPI.auditProcess({ id: processId, isAudit: form.isAudit, reason: form.reason })
+          successCount++
+        } catch {}
+      }
+      ElMessage.success(`批量操作完成，成功 ${successCount} 条`)
+      visible.value = false
+      emit('success')
+      return
+    }
+
+    // 单行模式
+    // 已通过时二次确认
+    if (isAlreadyPassed.value) {
+      try {
+        await ElMessageBox.confirm(
+          '当前日志已审核通过，确认要退回修改吗？',
+          '提示',
+          { confirmButtonText: '确认退回', cancelButtonText: '取消', type: 'warning' }
+        )
+      } catch { return }
+    }
+
+    const processId = student.value?.diary?.id
+    if (!processId) {
+      ElMessage.error('缺少审核记录 ID，无法提交')
+      return
+    }
+
     const res = await internshipProcessAPI.auditProcess({
       id: processId,
       isAudit: form.isAudit,

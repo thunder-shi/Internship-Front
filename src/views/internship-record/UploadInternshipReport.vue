@@ -145,6 +145,7 @@ const dtlProps = computed(() => ({
   someFlags: {
     autoInit: true,
     checkFlag: false,
+    hideSelectColumn: true,
     showPage: false,
   },
   sortStr: { properties: 'periodIndex', direction: 'ASC' },
