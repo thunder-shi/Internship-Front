@@ -154,6 +154,13 @@
                 {{ signTypeLabel(row.signType ?? row.type) }}
               </template>
             </el-table-column>
+            <el-table-column label="审核状态" width="110" align="center">
+              <template #default="{ row }">
+                <el-tag :type="getAuditTagType(Number(row.isAudit))" size="small">
+                  {{ getAuditStatusText(Number(row.isAudit)) }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column prop="address" label="地址" min-width="180" show-overflow-tooltip />
             <el-table-column label="照片" width="88">
               <template #default="{ row }">
@@ -200,14 +207,14 @@ import listAPI from '@/api/list';
 import fileAPI from '@/api/file';
 import { submitSignAudit } from '@/api/mainSign';
 import CONSTANT from '@/utils/constant';
+import { getAuditStatusText, getAuditTagType } from '@/utils/verify';
 
 defineOptions({ name: 'StuInternshipSign' });
 
 /**
  * 是否启用「同一岗位当天仅能签到一次」（提示、禁用签到、提交校验）
- * 开发/联调阶段可设为 false 便于重复测试；需要正式限制时改为 true
  */
-const ENFORCE_ONE_SIGN_IN_PER_DAY = false;
+const ENFORCE_ONE_SIGN_IN_PER_DAY = true;
 
 /** 与后端 Byte signType / 视图列 type 对应：1 签到 2 签退（可按后端字典调整） */
 const SIGN_IN = 1;
