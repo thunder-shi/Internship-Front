@@ -42,6 +42,7 @@ import DataTree from '@/components/DataTree.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import DlgBasic from '@/components/DlgBasic.vue';
 import listAPI from '@/api/list';
+import CONSTANT from '@/utils/constant';
 
 defineOptions({
   name: 'DlgTopicStudentAssign',
@@ -68,6 +69,7 @@ const visible = computed({
 const selectedDepartmentId = ref(null);
 const selectedRow = ref(null);
 const assignedStudentIds = ref(new Set());
+const approvedSelectionStudentIds = ref(new Set());
 /** 已在「学生实习项目安排」中选过当前实习项目的学生用户 id（与 RelIntershipUser / ViewRelIntershipUser 一致） */
 const arrangedStudentIds = ref(new Set());
 const topicRowLocal = ref(null);
@@ -301,17 +303,48 @@ async function loadAssignedStudentIds() {
   }
 }
 
+async function loadApprovedSelectionStudentIds() {
+  const internshipId = resolveInternshipId();
+  approvedSelectionStudentIds.value = new Set();
+  if (!internshipId) return;
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewVerifyProcessRelTitleStudentMerge',
+      searchKey: { internshipId, isAudit: CONSTANT.AUDIT_STATUS.PASS },
+      pageInfo: { page: 1, size: 5000 },
+      sort: { properties: 'id', direction: 'DESC' },
+    });
+    const list = res?.data?.content ?? res?.data ?? [];
+    const ids = new Set();
+    for (const row of list) {
+      const isAllVerified = row?.isAllVerified;
+      if (isAllVerified === false || isAllVerified === 0 || isAllVerified === '0') continue;
+      const uid = row?.stuId ?? row?.stu_id ?? row?.studentId ?? row?.student_id;
+      if (uid != null) ids.add(Number(uid));
+    }
+    approvedSelectionStudentIds.value = ids;
+  } catch (e) {
+    console.error('加载审核通过选题学生失败:', e);
+    approvedSelectionStudentIds.value = new Set();
+  }
+}
+
 function isAssignedStudent(id) {
   if (id == null) return false;
   return assignedStudentIds.value.has(Number(id));
 }
 
+function isApprovedSelectionStudent(id) {
+  if (id == null) return false;
+  return approvedSelectionStudentIds.value.has(Number(id));
+}
+
 function isRowSelectable(row) {
-  return !isAssignedStudent(row?.id);
+  return !isAssignedStudent(row?.id) && !isApprovedSelectionStudent(row?.id);
 }
 
 function getRowClassName({ row }) {
-  return isAssignedStudent(row?.id) ? 'row-disabled' : '';
+  return isAssignedStudent(row?.id) || isApprovedSelectionStudent(row?.id) ? 'row-disabled' : '';
 }
 
 function handleNodeClick(node) {
@@ -321,7 +354,7 @@ function handleNodeClick(node) {
 }
 
 function handleSelectionChange(rows) {
-  const validRows = rows.filter((r) => !isAssignedStudent(r?.id));
+  const validRows = rows.filter((r) => !isAssignedStudent(r?.id) && !isApprovedSelectionStudent(r?.id));
   const latest = validRows.length > 0 ? validRows[validRows.length - 1] : null;
   selectedRow.value = latest;
 
@@ -336,7 +369,7 @@ function handleAfterInitData(dataList) {
   if (!Array.isArray(dataList) || dataList.length === 0 || !dataTableListRef.value?.table) return;
   setTimeout(() => {
     dataList.forEach((row) => {
-      if (isAssignedStudent(row?.id)) {
+      if (isAssignedStudent(row?.id) || isApprovedSelectionStudent(row?.id)) {
         dataTableListRef.value.table.toggleRowSelection(row, false);
       }
     });
@@ -347,6 +380,7 @@ function onClose() {
   selectedDepartmentId.value = null;
   selectedRow.value = null;
   assignedStudentIds.value = new Set();
+  approvedSelectionStudentIds.value = new Set();
   arrangedStudentIds.value = new Set();
   topicRowLocal.value = null;
   dataTableListRef.value?.table?.clearSelection?.();
@@ -360,7 +394,7 @@ function onOpenDialog() {
         ElMessage.warning('缺少 internshipId，无法加载学生列表');
         return;
       }
-      await Promise.all([loadAssignedStudentIds(), loadArrangedStudentIds()]);
+      await Promise.all([loadAssignedStudentIds(), loadArrangedStudentIds(), loadApprovedSelectionStudentIds()]);
       updateSearchKey();
       dataTreeRef.value?.initDataTree?.();
       dataTableListRef.value?.initDataList?.(true);
@@ -389,7 +423,7 @@ watch(
   async (newId, oldId) => {
     if (!visible.value) return;
     if (!newId || newId === oldId) return;
-    await Promise.all([loadAssignedStudentIds(), loadArrangedStudentIds()]);
+    await Promise.all([loadAssignedStudentIds(), loadArrangedStudentIds(), loadApprovedSelectionStudentIds()]);
     updateSearchKey();
     dataTableListRef.value?.initDataList?.(true);
   }
