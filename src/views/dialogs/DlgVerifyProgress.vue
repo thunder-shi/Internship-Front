@@ -21,8 +21,8 @@
                   <template v-if="isAfterReturn(index)">待重新提交</template>
                   <template v-else>{{ getStepRoleName(getRecordLevel(index)) }}</template>
                 </span>
-                <el-tag :type="getStatusTagType(record.isAudit)" size="small">
-                  {{ getStatusText(record.isAudit) }}
+                <el-tag :type="getAuditTagType(record.isAudit)" size="small">
+                  {{ getAuditStatusText(record.isAudit) }}
                 </el-tag>
               </div>
             </template>
@@ -80,6 +80,7 @@ import listAPI from '@/api/list';
 import moment from 'moment';
 import { normalizeFormForDisplay, formatDateTime } from '@/utils/common';
 import CONSTANT from '@/utils/constant';
+import { getAuditStatusText, getAuditTagType } from '@/utils/verify';
 
 const props = defineProps({
   modelValue: {
@@ -356,31 +357,6 @@ function getTimelineItemType(record) {
   if (record.isAudit === 3) return 'info';    // 审核退回
   if (record.isAudit === 0) return 'warning'; // 待审核
   return 'info';
-}
-
-// 获取状态标签类型
-function getStatusTagType(isAudit) {
-  const typeMap = {
-    '-1': 'info',
-    '0': 'warning',
-    '1': 'success',
-    '2': 'danger',
-    '3': 'info'  // 审核退回显示灰色
-  };
-  return typeMap[String(isAudit)] || 'info';
-}
-
-// 获取状态文本
-// -1: 待提交, 0: 提交待审核, 1: 审核通过, 2: 审核不通过, 3: 审核退回
-function getStatusText(isAudit) {
-  const textMap = {
-    '-1': CONSTANT.AUDIT_STATUS.SAVENAME,
-    '0': CONSTANT.AUDIT_STATUS.SUBMITNAME,
-    '1': CONSTANT.AUDIT_STATUS.PASSNAME,
-    '2': CONSTANT.AUDIT_STATUS.NOTPASSNAME,
-    '3': CONSTANT.AUDIT_STATUS.BACKNAME
-  };
-  return textMap[String(isAudit)] || '未知';
 }
 
 // 使用统一的时间格式化函数

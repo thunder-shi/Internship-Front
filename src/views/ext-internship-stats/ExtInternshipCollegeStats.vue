@@ -19,17 +19,17 @@
         </DataTableList>
       </main>
     </div>
+    <DlgExtInternshipProjectDetail ref="projectDetailDlgRef" />
   </div>
 </template>
 
 <script setup>
 import { reactive, ref, computed, onMounted, nextTick } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
-import { QuestionFilled } from '@element-plus/icons-vue';
 import DataTree from '@/components/DataTree.vue';
 import DataTableList from '@/components/DataTableList.vue';
+import DlgExtInternshipProjectDetail from '@/views/ext-internship-stats/DlgExtInternshipProjectDetail.vue';
 import internshipProcessAPI from '@/api/internshipProcess';
 import CONSTANT from '@/utils/constant';
 
@@ -37,14 +37,13 @@ defineOptions({
   name: 'ExtInternshipCollegeStats',
 });
 
-const router = useRouter();
-const route = useRoute();
 const store = useStore();
 
 const userInfo = computed(() => store.getters.userInfo || {});
 
 const dataTreeRef = ref(null);
 const dataTableListRef = ref(null);
+const projectDetailDlgRef = ref(null);
 
 /** 左侧树选中的部门；默认可来自账号 departmentId */
 const selectedDepartmentId = ref(null);
@@ -63,7 +62,7 @@ const treeProps = computed(() => {
   }
   return {
     title: { mainTitle: '单位部门' },
-    keyWord: 'BaseDepartment',
+    keyWord: 'ViewBaseDepartment',
     checkFlag: false,
     sort: { properties: 'theOrder', direction: 'ASC' },
     initSearchWords: {
@@ -77,9 +76,9 @@ const treeProps = computed(() => {
 const defaultDTLProps = reactive({
   keyWord: { view: 'ExtInternshipCollegeStats' },
   title: titleState,
-  bottomOffset: 80,
+  // bottomOffset: 150,
   sortStr: { properties: 'internshipId', direction: 'DESC' },
-  pageInfo: { page: 1, size: 20, sizes: [10, 20, 50, 100] },
+  pageInfo: { page: 1, size: 25, sizes: [25, 50, 75, 100] },
   initSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   nowSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   someFlags: {
@@ -211,27 +210,18 @@ function handleNodeClick(node) {
   dataTableListRef.value?.initDataList?.(true);
 }
 
-function pathWithLastSegment(segment) {
-  const parts = route.path.split('/').filter(Boolean);
-  if (parts.length) parts[parts.length - 1] = segment;
-  return `/${parts.join('/')}`;
-}
-
 function goProjectDetail(row) {
   const id = row?.internshipId;
   if (id == null) {
     ElMessage.warning('缺少 internshipId');
     return;
   }
-  const name = row?.internshipName ?? '';
-
-  router.push({
-    path: pathWithLastSegment('ExtInternshipProjectDetail'),
-    query: {
-      internshipId: String(id),
-      internshipName: name,
-    },
-  });
+  const departmentId = selectedDepartmentId.value;
+  if (departmentId == null || departmentId === '') {
+    ElMessage.warning('请在左侧选择部门，或确认账号已绑定 departmentId');
+    return;
+  }
+  projectDetailDlgRef.value?.show(row, { departmentId: Number(departmentId) });
 }
 
 onMounted(() => {
@@ -253,14 +243,19 @@ onMounted(() => {
 <style scoped>
 .page-wrap {
   padding: 12px;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .stats-layout {
   display: flex;
   gap: 12px;
   align-items: stretch;
-  min-height: calc(100vh - 120px);
+  flex: 1;
+  min-height: 0;
 }
 .stats-aside {
   flex: 0 0 auto;

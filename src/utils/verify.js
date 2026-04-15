@@ -7,6 +7,8 @@
 import moment from 'moment';
 import CONSTANT from '@/utils/constant';
 
+const { AUDIT_STATUS } = CONSTANT;
+
 /**
  * 审核级别字段映射（最多五级审核）
  * 将索引映射到 ViewRelProcessInternship 视图中对应的字段名
@@ -35,6 +37,81 @@ export function isUserIdInVerifyUserId(verifyUserId, userId) {
   if (!verifyUserId || !userId) return false;
   const ids = String(verifyUserId).split('|').filter(id => id !== '');
   return ids.includes(String(userId));
+}
+
+/**
+ * 审核状态 isAudit 值对应的显示文字
+ */
+export function getAuditStatusText(isAudit) {
+  const map = {
+    [AUDIT_STATUS.SAVE]:    AUDIT_STATUS.SAVENAME,
+    [AUDIT_STATUS.SUBMIT]:  AUDIT_STATUS.SUBMITNAME,
+    [AUDIT_STATUS.PASS]:    AUDIT_STATUS.PASSNAME,
+    [AUDIT_STATUS.NOTPASS]: AUDIT_STATUS.NOTPASSNAME,
+    [AUDIT_STATUS.BACK]:    AUDIT_STATUS.BACKNAME,
+  }
+  return map[isAudit] ?? '未知'
+}
+
+/**
+ * 审核状态 isAudit 值对应的 el-tag type
+ */
+export function getAuditTagType(isAudit) {
+  const map = {
+    [AUDIT_STATUS.SAVE]:    'info',
+    [AUDIT_STATUS.SUBMIT]:  '',
+    [AUDIT_STATUS.PASS]:    'success',
+    [AUDIT_STATUS.NOTPASS]: 'danger',
+    [AUDIT_STATUS.BACK]:    'warning',
+  }
+  return map[isAudit] ?? 'info'
+}
+
+// ── 实习日志（diary）专用 ────────────────────────────────────
+
+/**
+ * 日志状态文字（供 el-tag 内容使用）
+ * @param {Object|null} diary - ViewVerifyMainDiaryMerge 字段
+ */
+export function getDiaryStatusText(diary) {
+  if (!diary || diary.submit === false) return '未提交'
+  if (diary.isAllVerified === true) return AUDIT_STATUS.PASSNAME
+  if (diary.isAudit === AUDIT_STATUS.BACK) return '退回'
+  return getAuditStatusText(diary.isAudit)
+}
+
+/**
+ * 日志状态对应的 el-tag type
+ */
+export function getDiaryTagType(diary) {
+  if (!diary || diary.submit === false) return 'info'
+  if (diary.isAllVerified === true) return 'success'
+  return getAuditTagType(diary.isAudit)
+}
+
+/**
+ * 日志是否处于可批阅状态（待审核）
+ */
+export function canReviewDiary(diary) {
+  return diary?.isAudit === AUDIT_STATUS.SUBMIT
+}
+
+/**
+ * 草稿未提交 或 教师退回：可重新提交
+ */
+export function canResubmitDiary(diary) {
+  if (!diary) return false
+  return diary.submit === false || diary.isAudit === AUDIT_STATUS.BACK
+}
+
+/**
+ * 已提交且未退回：只可查看（不可重提）
+ */
+export function canViewDiary(diary) {
+  if (!diary) return false
+  if (diary.submit === false) return false
+  if (diary.isAudit === AUDIT_STATUS.BACK) return false
+  return true
 }
 
 /**

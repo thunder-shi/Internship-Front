@@ -45,6 +45,7 @@ import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
 import { useAssignmentPageConfig } from '@/utils/useAssignmentPageConfig';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
+import { initDiariesByInternship } from '@/api/diary';
 
 const props = defineProps({
   processTypeCode: { type: String, required: true },
@@ -230,6 +231,7 @@ async function runSystemAssign() {
 
     ElMessage.success('系统分配成功');
     await headerPageRef.value?.baseListRef?.initDataList(true);
+    try { await initDiariesByInternship({ internshipId }) } catch {}
   } catch (error) {
     console.error('系统分配失败:', error);
     ElMessage.error('系统分配失败');

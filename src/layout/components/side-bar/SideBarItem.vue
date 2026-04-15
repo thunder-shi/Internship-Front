@@ -42,7 +42,7 @@ const isHiddenByInternshipType = computed(() => {
   const type = store.getters.studentInternshipType
   if (!type || type === 'both') return false
   const path = props.basePath || props.item.path || ''
-  if (type === 'external' && path.includes('StuSelectTopic')) return true
+  if (type === 'external' && path.includes('/StuSelectTopic')) return true
   if (type === 'internal' && path.includes('StuApplyPost')) return true
   return false
 })

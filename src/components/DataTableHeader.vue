@@ -27,8 +27,16 @@
           @click="more3Click(selectedColumns)">{{ button.more3.name }}</el-button>
         <el-button v-if="button.batchCreate.show" :icon="UploadFilled" :type="button.batchCreate.type"
           @click="handleUpload">{{ button.batchCreate.name }}</el-button>
-        <div v-if="button.audit.show" style="padding-left:10px;padding-right:10px;">
-          <el-dropdown ref="auditButton" split-button size="small" :type="button.audit.type"
+        <div v-if="button.audit.show && button.audit.showHeaderBtn !== false" style="padding-left:10px;padding-right:10px;">
+          <!-- 无下拉菜单的简单按钮 -->
+          <el-button
+            v-if="button.audit.showDropdown === false"
+            :type="button.audit.type || 'primary'"
+            :disabled="selectedColumns.length < 1"
+            @click="auditDropdownClick(selectedColumns)"
+          >{{ button.audit.name || '批量审核' }}</el-button>
+          <!-- 含下拉菜单的分裂按钮（原有行为） -->
+          <el-dropdown v-else ref="auditButton" split-button size="small" :type="button.audit.type"
             :disabled="selectedColumns.length < 1" @command="auditDropdownSelect"
             @click="auditDropdownClick(selectedColumns)">{{ auditButtonName }}
             <template #dropdown>
@@ -222,7 +230,7 @@ const button = computed(() => {
     more1: { show: false, name: '更多操作1', type: 'info' },
     more2: { show: false, name: '更多操作2', type: 'info' },
     more3: { show: false, name: '更多操作3', type: 'warning' },
-    audit: { show: false, name: '审核', type: 'danger', showPass: false, showNotPass: false, showSave: false, showBack: false },
+    audit: { show: false, name: '审核', type: 'danger', showPass: false, showNotPass: false, showSave: false, showBack: false, showDropdown: true, showHeaderBtn: true },
     submit: { show: false, name: '提交', type: 'primary' },
     buttonGroup: { show: true },
   };
