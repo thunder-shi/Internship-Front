@@ -77,6 +77,42 @@ function listExternalInternshipCollegeStats(node) {
   });
 }
 
+/** 本学院校内实习报名与选题统计 */
+function listInternalInternshipCollegeStats(node) {
+  return request({
+    url: '/internshipProcess/listInternalInternshipCollegeStats',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
+/**
+ * 指定校内实习项目学生选题明细（含分类统计）
+ * @param {Object} node — { internshipId, status: 'all'|'notSubmitted'|'pendingAudit'|'titleApproved', pageInfo }
+ */
+function getInternalInternshipTitleSelectionBreakdown(node) {
+  return request({
+    url: '/internshipProcess/getInternalInternshipTitleSelectionBreakdown',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
+/** 指定校内实习项目下尚未提交题目的老师列表 */
+function listInternalInternshipTeachersNotSubmittedTopic(node) {
+  return request({
+    url: '/internshipProcess/listInternalInternshipTeachersNotSubmittedTopic',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
 /** 指定校外实习项目下已通过审核的岗位列表 */
 function listApprovedExternalInternshipPosts(node) {
   return request({
@@ -131,6 +167,9 @@ export default {
   initTeacherStudentByInternshipId,
   initEnterpriseTutorByInternshipId,
   listExternalInternshipCollegeStats,
+  listInternalInternshipCollegeStats,
+  getInternalInternshipTitleSelectionBreakdown,
+  listInternalInternshipTeachersNotSubmittedTopic,
   listApprovedExternalInternshipPosts,
   getExternalInternshipStudentPostBreakdown,
   getLatestRejectedTitleSelection,
