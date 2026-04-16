@@ -55,6 +55,37 @@ async function initEnterpriseTutorByInternshipId(params) {
   });
 }
 
+// 手动分配师生
+async function manualAssignTeacherStudent(params) {
+  return request({
+    url: '/internshipProcess/manualAssignTeacherStudent',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+  });
+}
+
+async function listAssignableTeachers(params) {
+  return request({
+    url: '/internshipProcess/listAssignableTeachers',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+  });
+}
+
+async function listAssignableStudents(params) {
+  return request({
+    url: '/internshipProcess/listAssignableStudents',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+  });
+}
+
 // 获取满足当前要求的实习项目
 // async function getNowInternship(processTypeCode) {
 //   return request({
@@ -166,6 +197,9 @@ export default {
   getVerifyUserIds,
   initTeacherStudentByInternshipId,
   initEnterpriseTutorByInternshipId,
+  manualAssignTeacherStudent,
+  listAssignableTeachers,
+  listAssignableStudents,
   listExternalInternshipCollegeStats,
   listInternalInternshipCollegeStats,
   getInternalInternshipTitleSelectionBreakdown,

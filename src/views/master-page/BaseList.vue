@@ -4,7 +4,7 @@
       :client-filter-fn="clientFilterFn" :enable-audit-status-custom="enableAuditStatusCustom"
       :get-verify-role-name="getVerifyRoleName" @append-click="appendClick" @edit-click="editClick"
       @view-click="viewClick" @update-column="updateColumn" @delete-click="deleteClick" @export-click="exportClick"
-      @more1-click="more1Click" @more2-click="more2Click" @more3-click="more3Click" @after-init-data="afterInitData" @audit-click="auditClick"
+      @more1-click="more1Click" @more2-click="more2Click" @more3-click="more3Click" @more4-click="more4Click" @after-init-data="afterInitData" @audit-click="auditClick"
       @audit-command="auditCommand" @submit-click="submitClick">
       <!--数据操作按钮类 -->
       <!-- <template #searchPanel>
@@ -109,6 +109,7 @@ const emit = defineEmits([
   'more1-click',
   'more2-click',
   'more3-click',
+  'more4-click',
   'submit-more',
   'simple-select-change',
   'simple-select-init-finish',
@@ -279,6 +280,11 @@ const more2Click = async (row) => {
 // 更多内容3
 const more3Click = async (row) => {
   emit('more3-click', row);
+};
+
+// 更多内容4
+const more4Click = async (row) => {
+  emit('more4-click', row);
 };
 
 // 审核按钮点击
