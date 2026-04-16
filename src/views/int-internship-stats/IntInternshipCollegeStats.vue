@@ -26,16 +26,17 @@
         </DataTableList>
       </main>
     </div>
+    <DlgIntInternshipProjectDetail ref="projectDetailDlgRef" />
   </div>
 </template>
 
 <script setup>
 import { reactive, ref, computed, onMounted, nextTick } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
 import DataTree from '@/components/DataTree.vue';
 import DataTableList from '@/components/DataTableList.vue';
+import DlgIntInternshipProjectDetail from '@/views/int-internship-stats/DlgIntInternshipProjectDetail.vue';
 import internshipProcessAPI from '@/api/internshipProcess';
 import CONSTANT from '@/utils/constant';
 import {
@@ -47,14 +48,13 @@ defineOptions({
   name: 'IntInternshipCollegeStats',
 });
 
-const router = useRouter();
-const route = useRoute();
 const store = useStore();
 
 const userInfo = computed(() => store.getters.userInfo || {});
 
 const dataTreeRef = ref(null);
 const dataTableListRef = ref(null);
+const projectDetailDlgRef = ref(null);
 
 const selectedDepartmentId = ref(null);
 
@@ -91,7 +91,7 @@ const defaultDTLProps = reactive({
   title: titleState,
   bottomOffset: 80,
   sortStr: { properties: 'internshipId', direction: 'DESC' },
-  pageInfo: { page: 1, size: 20, sizes: [10, 20, 50, 100] },
+  pageInfo: { page: 1, size: 25, sizes: [25, 50, 75, 100] },
   initSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   nowSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   someFlags: {
@@ -262,28 +262,18 @@ async function onStatsScopeChange(scope) {
   dataTableListRef.value?.initDataList?.(true);
 }
 
-function pathWithLastSegment(segment) {
-  const parts = route.path.split('/').filter(Boolean);
-  if (parts.length) parts[parts.length - 1] = segment;
-  return `/${parts.join('/')}`;
-}
-
 function goProjectDetail(row) {
   const id = row?.internshipId;
   if (id == null) {
     ElMessage.warning('缺少 internshipId');
     return;
   }
-  const name = row?.internshipName ?? '';
   const dept = selectedDepartmentId.value;
-  router.push({
-    path: pathWithLastSegment('IntInternshipProjectDetail'),
-    query: {
-      internshipId: String(id),
-      internshipName: name,
-      ...(dept != null && dept !== '' ? { departmentId: String(dept) } : {}),
-    },
-  });
+  if (dept == null || dept === '') {
+    ElMessage.warning('请先选择统计范围对应的部门');
+    return;
+  }
+  projectDetailDlgRef.value?.show(row, { departmentId: Number(dept) });
 }
 
 onMounted(async () => {
@@ -303,14 +293,19 @@ onMounted(async () => {
 <style scoped>
 .page-wrap {
   padding: 12px;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .stats-layout {
   display: flex;
   gap: 12px;
   align-items: stretch;
-  min-height: calc(100vh - 120px);
+  flex: 1;
+  min-height: 0;
 }
 .stats-aside {
   flex: 0 0 auto;
@@ -378,5 +373,8 @@ onMounted(async () => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+.stats-main :deep(.el-scrollbar__bar.is-vertical) {
+  display: none !important;
 }
 </style>
