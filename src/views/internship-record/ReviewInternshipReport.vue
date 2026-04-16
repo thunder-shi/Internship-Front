@@ -1,6 +1,6 @@
 <template>
   <div class="review-internship-report">
-    <!-- 顶部：实习项目 + 期数选择（原始布局保留） -->
+    <!-- 顶部：实习项目 + 期数选择 -->
     <InternshipPeriodSelector
       v-model:internshipId="selectedInternshipId"
       v-model:periodId="selectedPeriod"
@@ -33,15 +33,31 @@
         </el-radio-group>
         <el-button type="primary" style="margin-left: 12px" @click="onBatchAuditClick">批量审核</el-button>
       </template>
+
       <template #postOrTitle="{ row }">
         {{ row.internshipPostName || row.titleName || '——' }}
       </template>
       <template #submitTime="{ row }">
         {{ row.diary?.createTime || '——' }}
       </template>
+      <template #diaryTitle="{ row }">
+        {{ row.diary?.title || '——' }}
+      </template>
+      <template #diaryContent="{ row }">
+        <el-tooltip
+          v-if="row.diary?.content"
+          :content="row.diary.content"
+          placement="top"
+          :show-after="400"
+        >
+          <div class="content-preview">{{ row.diary.content }}</div>
+        </el-tooltip>
+        <span v-else>——</span>
+      </template>
       <template #status="{ row }">
         <el-tag :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
       </template>
+
       <template #rightOperate="{ row }">
         <el-button type="warning" size="small" title="学生详情" @click.stop="openStudentDetail(row)">
           <el-icon><InfoFilled /></el-icon>
@@ -52,6 +68,7 @@
     <el-empty v-if="!selectedInternshipId" description="请先选择实习项目" :image-size="120" />
 
     <DlgReviewDiary ref="dlgReviewRef" @success="onReviewSuccess" />
+    <DlgBatchReviewDiary ref="dlgBatchReviewRef" @success="onReviewSuccess" />
     <DlgStudentDetail ref="dlgDetailRef" />
     <DlgVerifyProgress
       v-model="showProgressDialog"
@@ -69,6 +86,7 @@ import { InfoFilled } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import DataTableList from '@/components/DataTableList.vue'
 import DlgReviewDiary from './components/DlgReviewDiary.vue'
+import DlgBatchReviewDiary from './components/DlgBatchReviewDiary.vue'
 import DlgStudentDetail from './components/DlgStudentDetail.vue'
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue'
 import InternshipPeriodSelector from './components/InternshipPeriodSelector.vue'
@@ -130,11 +148,6 @@ async function fetchRecordsFunc() {
   return { data: { content: list, totalElements: list.length }, message: 'successful' }
 }
 
-/**
- * 过滤出当前教师负责的学生：
- *   校内实习 - row.teacherId 由后端从 ViewRelTitleTeacherStudent 回填，直接比对
- *   校外实习 - 通过 ViewRelTeacherStudent.relInternshipId === row.stuRelationId 匹配
- */
 async function filterByCurrentTeacher(list) {
   const myId = userInfo.value.id
   let externalRelIds = new Set()
@@ -179,11 +192,13 @@ const dtlProps = computed(() => ({
       visible: { show: true, name: '查看审核历程' },
     },
     allTableColumns: [
-      { id: 1, showName: '学生姓名', theOrder: 1, tableColumnName: 'studentName' },
-      { id: 2, showName: '学号',     theOrder: 2, tableColumnName: 'studentNo' },
-      { id: 3, showName: '岗位/题目', theOrder: 3, tableColumnName: 'customize-postOrTitle' },
-      { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: 'customize-submitTime' },
-      { id: 5, showName: '审核状态', theOrder: 5, tableColumnName: 'customize-status' },
+      { id: 1, showName: '学生姓名', theOrder: 1, tableColumnName: 'studentName'               },
+      { id: 2, showName: '学号',     theOrder: 2, tableColumnName: 'studentNo'                 },
+      { id: 3, showName: '岗位/题目', theOrder: 3, tableColumnName: 'customize-postOrTitle'    },
+      { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: 'customize-submitTime'      },
+      { id: 5, showName: '日志标题', theOrder: 5, tableColumnName: 'customize-diaryTitle'      },
+      { id: 6, showName: '日志内容', theOrder: 6, tableColumnName: 'customize-diaryContent'    },
+      { id: 7, showName: '审核状态', theOrder: 7, tableColumnName: 'customize-status'          },
     ],
   },
 }))
@@ -199,6 +214,7 @@ const progressProcessInfo = computed(() => ({
 
 // ── 对话框 ───────────────────────────────────────────────────
 const dlgReviewRef = ref(null)
+const dlgBatchReviewRef = ref(null)
 const dlgDetailRef = ref(null)
 
 function onAuditClick(row) {
@@ -211,7 +227,7 @@ function onBatchAuditClick() {
     ElMessage.warning('当前列表中没有待审核的日志')
     return
   }
-  dlgReviewRef.value?.open(pending)
+  dlgBatchReviewRef.value?.open(pending)
 }
 
 function onViewClick(rowOrArray) {
@@ -230,10 +246,19 @@ function onReviewSuccess() {
 </script>
 
 <style scoped>
-/* 用 flex + gap 控制间距，不加 padding，避免底部多余高度撑出滚动条 */
 .review-internship-report {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.content-preview {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #606266;
 }
 </style>

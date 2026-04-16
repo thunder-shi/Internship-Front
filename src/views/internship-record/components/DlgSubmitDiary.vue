@@ -47,7 +47,6 @@
         <el-form-item label="附件">
           <!-- 上传按钮（编辑模式） -->
           <div v-if="!readonly" class="upload-row">
-            <!-- 原生 input，隐藏 -->
             <input
               ref="fileInputRef"
               type="file"
@@ -89,11 +88,7 @@
                 >{{ fileBadge(file.name).text }}</div>
                 <span class="file-card-name">{{ file.name }}</span>
                 <div class="file-card-actions">
-                  <el-icon
-                    class="action-icon"
-                    title="下载"
-                    @click.stop="triggerDownload(file)"
-                  ><Download /></el-icon>
+                  <el-icon class="action-icon" title="下载" @click.stop="triggerDownload(file)"><Download /></el-icon>
                 </div>
                 <span
                   v-if="!readonly"
@@ -134,13 +129,10 @@
         v-if="!readonly"
         type="primary"
         :loading="submitting"
-        :disabled="totalFileCount === 0"
-        :title="totalFileCount === 0 ? '请至少上传一个附件' : ''"
         @click="handleSave"
       >保存</el-button>
     </template>
   </el-dialog>
-
 </template>
 
 <script setup>
@@ -168,29 +160,22 @@ const ALLOWED_EXTS = [
 const acceptStr = ALLOWED_EXTS.map(e => '.' + e).join(',')
 
 const FILE_BADGES = {
-  // Word / WPS Writer — 蓝色 W
   doc: { text: 'W', bg: '#2b579a' }, docx: { text: 'W', bg: '#2b579a' },
   wps: { text: 'W', bg: '#2b579a' }, wpt:  { text: 'W', bg: '#2b579a' },
-  // Excel / WPS Spreadsheet — 绿色 X
   xls:  { text: 'X', bg: '#217346' }, xlsx: { text: 'X', bg: '#217346' },
   et:   { text: 'X', bg: '#217346' }, ett:  { text: 'X', bg: '#217346' },
-  // PowerPoint / WPS Presentation — 橙红 P
   ppt:  { text: 'P', bg: '#d24726' }, pptx: { text: 'P', bg: '#d24726' },
   dps:  { text: 'P', bg: '#d24726' }, dpt:  { text: 'P', bg: '#d24726' },
-  // PDF — 红色
   pdf: { text: 'PDF', bg: '#f40f02' },
-  // 图片 — 青绿
   jpg: { text: 'IMG', bg: '#0e9c75' }, jpeg: { text: 'IMG', bg: '#0e9c75' },
   png: { text: 'PNG', bg: '#0e9c75' }, gif:  { text: 'GIF', bg: '#0e9c75' },
   bmp: { text: 'IMG', bg: '#0e9c75' }, webp: { text: 'IMG', bg: '#0e9c75' },
   tiff: { text: 'IMG', bg: '#0e9c75' }, tif: { text: 'IMG', bg: '#0e9c75' },
-  // 视频 — 深红
   mp4: { text: 'MP4', bg: '#b03a2e' }, avi:  { text: 'AVI', bg: '#b03a2e' },
   mov: { text: 'MOV', bg: '#b03a2e' }, mkv:  { text: 'MKV', bg: '#b03a2e' },
   wmv: { text: 'WMV', bg: '#b03a2e' }, flv:  { text: 'FLV', bg: '#b03a2e' },
   rmvb: { text: 'RMVB', bg: '#b03a2e' }, m4v: { text: 'M4V', bg: '#b03a2e' },
   webm: { text: 'WEBM', bg: '#b03a2e' },
-  // 压缩包 — 紫色
   zip: { text: 'ZIP', bg: '#7d3c98' }, rar: { text: 'RAR', bg: '#7d3c98' },
   '7z': { text: '7Z', bg: '#7d3c98' }, tar: { text: 'TAR', bg: '#7d3c98' },
   gz:  { text: 'GZ',  bg: '#7d3c98' },
@@ -215,12 +200,11 @@ const visible = ref(false)
 const filesLoading = ref(false)
 const submitting = ref(false)
 const readonly = ref(false)
-const isSupplementary = ref(false)  // 补交标记
 
 const relationId = ref(null)
 const tableName = ref(null)
 const periodId = ref(null)
-const periodIndex = ref(null)   // 仅用于标题显示
+const periodIndex = ref(null)
 const currentDiary = ref(null)
 
 const formRef = ref(null)
@@ -235,7 +219,6 @@ const formRules = {
 }
 
 const backReason = ref('')
-
 const existingFiles = ref([])
 const newFileList = ref([])
 
@@ -270,7 +253,6 @@ function open(opts) {
   periodIndex.value = opts.periodIndex ?? null
   currentDiary.value = opts.diary ?? null
   readonly.value = opts.readonly ?? false
-  isSupplementary.value = opts.isSupplementary ?? false
 
   form.title = opts.diary?.title ?? ''
   form.content = opts.diary?.content ?? ''
@@ -296,15 +278,13 @@ function onClosed() {
   tableName.value = null
   periodId.value = null
   backReason.value = ''
-  // 重置原生 input，避免下次打开选同一文件无反应
   if (fileInputRef.value) fileInputRef.value.value = ''
 }
 
-// ── 文件选择（原生 input） ──────────────────────────────────
+// ── 文件选择 ────────────────────────────────────────────────
 function onNativeFileChange(e) {
   const files = Array.from(e.target.files || [])
   files.forEach(addFile)
-  // 清空 input 值，允许重复选择同一文件
   e.target.value = ''
 }
 
@@ -380,10 +360,7 @@ async function loadExistingFiles(diaryId) {
   }
 }
 
-// ── 下载已有文件 ────────────────────────────────────────────
-// ── 预览 ────────────────────────────────────────────────────
-
-// ── 下载 ───────────────────────────────────────────────────
+// ── 下载 ────────────────────────────────────────────────────
 async function triggerDownload(file) {
   try {
     await fileAPI.downloadFile(file.id)
@@ -417,16 +394,14 @@ async function handleSave() {
   try {
     submitting.value = true
 
-    const node = {
+    const res = await submitDiary({
       relationId: relationId.value,
       tableName: tableName.value,
       periodId: periodId.value,
       title: form.title,
       content: form.content,
       submit: false,
-    }
-
-    const res = await submitDiary(node)
+    })
     if (res?.message !== 'successful') {
       ElMessage.error(res?.message || '保存失败')
       return
@@ -513,10 +488,6 @@ defineExpose({ open })
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
 }
 
-.file-card-new {
-  cursor: default;
-}
-
 .file-badge {
   width: 44px;
   height: 44px;
@@ -591,5 +562,4 @@ defineExpose({ open })
   color: #409eff;
   background: #ecf5ff;
 }
-
 </style>

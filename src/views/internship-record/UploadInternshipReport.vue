@@ -112,7 +112,7 @@ const selectedPost = computed(() =>
   studentPosts.value.find(p => p._key === selectedPostKey.value) ?? null
 )
 
-// ── 表格标题（显示在 card header 左上角） ─────────────────────
+// ── 表格标题 ──────────────────────────────────────────────────
 const titleObj = reactive({ mainTitle: '上传实习报告' })
 watch(selectedPost, (post) => {
   titleObj.mainTitle = post ? postLabel(post) : '上传实习报告'
@@ -265,7 +265,7 @@ function onViewClick(rowOrArray) {
   showProgressDialog.value = true
 }
 
-// ── 对话框操作 ────────────────────────────────────────────────
+// ── 提交日志对话框 ────────────────────────────────────────────
 const dlgSubmitRef = ref(null)
 
 function buildIdParam(post) {

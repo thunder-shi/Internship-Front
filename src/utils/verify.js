@@ -59,7 +59,7 @@ export function getAuditStatusText(isAudit) {
 export function getAuditTagType(isAudit) {
   const map = {
     [AUDIT_STATUS.SAVE]:    'info',
-    [AUDIT_STATUS.SUBMIT]:  '',
+    [AUDIT_STATUS.SUBMIT]:  'warning',
     [AUDIT_STATUS.PASS]:    'success',
     [AUDIT_STATUS.NOTPASS]: 'danger',
     [AUDIT_STATUS.BACK]:    'warning',
