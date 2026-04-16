@@ -9,14 +9,26 @@
   >
     <div v-loading="filesLoading">
       <el-alert
-        v-if="readonly && currentDiary?.remarks"
-        :title="`老师批阅意见：${currentDiary.remarks}`"
-        type="success"
+        v-if="!readonly && backReason"
+        :title="`退回意见：${backReason}`"
+        type="warning"
         :closable="false"
         class="mb-16"
       />
 
       <el-form ref="formRef" :model="form" :rules="readonly ? {} : formRules" label-width="90px">
+        <!-- 日志标题 -->
+        <el-form-item label="日志标题" prop="title">
+          <el-input
+            v-model="form.title"
+            :maxlength="200"
+            show-word-limit
+            :readonly="readonly"
+            :disabled="readonly"
+            placeholder="请填写本期实习日志标题..."
+          />
+        </el-form-item>
+
         <!-- 日志内容 -->
         <el-form-item label="日志内容" prop="content">
           <el-input
@@ -124,8 +136,8 @@
         :loading="submitting"
         :disabled="totalFileCount === 0"
         :title="totalFileCount === 0 ? '请至少上传一个附件' : ''"
-        @click="handleSubmit"
-      >提交</el-button>
+        @click="handleSave"
+      >保存</el-button>
     </template>
   </el-dialog>
 
@@ -140,6 +152,7 @@ import fileAPI from '@/api/file'
 import listAPI from '@/api/list'
 import { submitDiary } from '@/api/diary'
 import CONSTANT from '@/utils/constant'
+import { canResubmitDiary } from '@/utils/verify'
 
 defineOptions({ name: 'DlgSubmitDiary' })
 
@@ -212,10 +225,16 @@ const currentDiary = ref(null)
 
 const formRef = ref(null)
 const fileInputRef = ref(null)
-const form = reactive({ content: '' })
+const form = reactive({ title: '', content: '' })
 const formRules = {
+  title: [
+    { required: true, message: '日志标题不能为空', trigger: 'blur' },
+    { max: 200, message: '标题不超过 200 字', trigger: 'blur' },
+  ],
   content: [{ required: true, message: '日志内容不能为空', trigger: 'blur' }],
 }
+
+const backReason = ref('')
 
 const existingFiles = ref([])
 const newFileList = ref([])
@@ -241,11 +260,7 @@ const totalSizeWarning = computed(() => totalFileSize.value > MAX_TOTAL * 0.8)
 
 const dialogTitle = computed(() => {
   if (readonly.value) return `第 ${periodIndex.value} 期实习日志（查看）`
-  const diary = currentDiary.value
-  if (diary && (diary.isAudit === CONSTANT.AUDIT_STATUS.BACK || diary.submit === false)) {
-    return `重新提交 — 第 ${periodIndex.value} 期实习日志`
-  }
-  return `提交 — 第 ${periodIndex.value} 期实习日志`
+  return `编辑 — 第 ${periodIndex.value} 期实习日志`
 })
 
 function open(opts) {
@@ -257,6 +272,7 @@ function open(opts) {
   readonly.value = opts.readonly ?? false
   isSupplementary.value = opts.isSupplementary ?? false
 
+  form.title = opts.diary?.title ?? ''
   form.content = opts.diary?.content ?? ''
   existingFiles.value = []
   newFileList.value = []
@@ -265,6 +281,9 @@ function open(opts) {
 
   if (opts.diary?.relationId) {
     loadExistingFiles(opts.diary.relationId)
+    if (!readonly.value && canResubmitDiary(opts.diary)) {
+      loadBackReason(opts.diary.relationId)
+    }
   }
 }
 
@@ -276,6 +295,7 @@ function onClosed() {
   relationId.value = null
   tableName.value = null
   periodId.value = null
+  backReason.value = ''
   // 重置原生 input，避免下次打开选同一文件无反应
   if (fileInputRef.value) fileInputRef.value.value = ''
 }
@@ -319,6 +339,23 @@ function removeNewFile(idx) {
   }).then(() => {
     newFileList.value.splice(idx, 1)
   }).catch(() => {})
+}
+
+// ── 加载退回意见 ────────────────────────────────────────────
+async function loadBackReason(diaryRelationId) {
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewVerifyMainDiary',
+      searchKey: { relationId: diaryRelationId, isAudit: CONSTANT.AUDIT_STATUS.BACK },
+      reg: { relationId: '=', isAudit: '=' },
+      sort: { properties: 'id', direction: 'DESC' },
+      pageInfo: { page: 1, size: 1 },
+    })
+    const record = (res?.data?.content || res?.data || [])[0]
+    backReason.value = record?.reason || ''
+  } catch {
+    backReason.value = ''
+  }
 }
 
 // ── 加载已有文件 ────────────────────────────────────────────
@@ -371,8 +408,8 @@ async function deleteExistingFile(file) {
   }
 }
 
-// ── 提交 ────────────────────────────────────────────────────
-async function handleSubmit() {
+// ── 保存草稿 ─────────────────────────────────────────────────
+async function handleSave() {
   try {
     await formRef.value.validate()
   } catch { return }
@@ -384,14 +421,14 @@ async function handleSubmit() {
       relationId: relationId.value,
       tableName: tableName.value,
       periodId: periodId.value,
+      title: form.title,
       content: form.content,
-      submit: true,
-      ...(isSupplementary.value ? { remarks: '学生补交' } : {}),
+      submit: false,
     }
 
     const res = await submitDiary(node)
     if (res?.message !== 'successful') {
-      ElMessage.error(res?.message || '提交失败')
+      ElMessage.error(res?.message || '保存失败')
       return
     }
     const diaryId = res.data
@@ -401,17 +438,15 @@ async function handleSubmit() {
       await fileAPI.upload({ files: rawFiles, relationIds: diaryId, tableName: 'main_diary' })
     }
 
-    ElMessage.success('提交成功')
+    ElMessage.success('保存成功，请点击"提交"按钮提交日志')
     visible.value = false
     emit('success')
   } catch (e) {
-    // 拦截器已显示后端错误 message；仅对"尚未分配校内导师"追加操作提示
     const backendMsg = e?.response?.data?.message || ''
     if (backendMsg.includes('尚未分配校内导师')) {
-      ElMessage.warning('请联系管理员完成校内导师分配后再提交日志')
+      ElMessage.warning('请联系管理员完成校内导师分配后再保存日志')
     } else if (!e?.response) {
-      // 非 HTTP 错误（网络断开等），拦截器未处理，手动提示
-      ElMessage.error('提交失败：' + (e?.message || ''))
+      ElMessage.error('保存失败：' + (e?.message || ''))
     }
   } finally {
     submitting.value = false

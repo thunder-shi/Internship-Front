@@ -4,80 +4,71 @@
       <el-button v-if="showRollbackBtn" type="warning" @click="handleRollback">回 退</el-button>
     </template>
     <template #mainForm>
-      <div class="dlg-content-wrapper">
-        <!-- 上半部分：基本信息表单 -->
-        <div class="form-section">
-          <FormItemsforDialog ref="formItemsRef" :form="form" :form-items="formItems" :form-rules="formRules" label-width="100px" @cron-change="onCronChange" @tree-select-change="onTreeSelectChange" />
-        </div>
+      <div class="dlg-main-body">
+        <el-tabs v-model="activeTab" class="dlg-tabs" @tab-change="onTabChange">
 
-        <!-- 下半部分：流程列表 -->
-        <div class="table-section">
-          <DataTableList ref="dataTableList" :default-props="tableListProps" @append-click="handleTableAppend" @edit-click="handleTableEdit" @after-init-data="handleAfterInitData" />
-        </div>
+          <!-- Tab 1: 基础信息 -->
+          <el-tab-pane label="基础信息" name="basic">
+            <FormItemsforDialog ref="formItemsRef" :form="form" :form-items="formItems" :form-rules="formRules" label-width="100px" @cron-change="onCronChange" @tree-select-change="onTreeSelectChange" />
+          </el-tab-pane>
 
-        <!-- 日志期次配置 -->
-        <div v-if="form.internshipId" class="period-config-section">
-          <el-divider content-position="left">日志期次配置</el-divider>
+          <!-- Tab 2: 流程安排 -->
+          <el-tab-pane label="流程安排" name="process">
+            <div v-if="form.internshipId" class="tab-pane-content">
+              <DataTableList ref="dataTableList" :default-props="tableListProps" @append-click="handleTableAppend" @edit-click="handleTableEdit" @after-init-data="handleAfterInitData" />
+            </div>
+            <el-empty v-else description="请先在「基础信息」页保存项目信息后，再配置流程安排" :image-size="80" />
+          </el-tab-pane>
 
-          <div class="period-config-row">
-            <span class="period-label">开始时间：</span>
-            <el-date-picker
-              v-model="form.reportStartTime"
-              type="date"
-              placeholder="日志周期开始时间"
-              value-format="YYYY-MM-DD"
-              style="width: 220px"
-            />
-          </div>
-          <div class="period-config-row">
-            <span class="period-label">结束时间：</span>
-            <el-date-picker
-              v-model="form.reportEndTime"
-              type="date"
-              placeholder="日志周期结束时间"
-              value-format="YYYY-MM-DD"
-              style="width: 220px"
-            />
-          </div>
+          <!-- Tab 3: 报告周期 -->
+          <el-tab-pane label="报告周期" name="period">
+            <div v-if="form.internshipId" class="period-config-section">
+              <div class="period-controls">
+                <div class="period-row">
+                  <span class="period-label">开始时间</span>
+                  <el-date-picker v-model="form.reportStartTime" type="date" placeholder="日志周期开始时间" value-format="YYYY-MM-DD" style="width: 240px" />
+                </div>
+                <div class="period-row">
+                  <span class="period-label">结束时间</span>
+                  <el-date-picker v-model="form.reportEndTime" type="date" placeholder="日志周期结束时间" value-format="YYYY-MM-DD" style="width: 240px" />
+                </div>
+                <div class="period-row">
+                  <span class="period-label">生成方式</span>
+                  <el-select v-model="periodConfig.mode" style="width: 150px">
+                    <el-option label="按周期（cron）" value="cron" />
+                    <el-option label="按期数（等分）" value="num" />
+                  </el-select>
+                  <template v-if="periodConfig.mode === 'cron'">
+                    <span class="period-label" style="margin-left: 16px">报告频率</span>
+                    <el-select v-model="periodConfig.cron" style="width: 150px">
+                      <el-option v-for="opt in CRON_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+                    </el-select>
+                  </template>
+                  <template v-else>
+                    <span class="period-label" style="margin-left: 16px">期数</span>
+                    <el-input-number v-model="periodConfig.periodNum" :min="1" :precision="0" style="width: 130px" />
+                  </template>
+                </div>
+                <div class="period-generate-row">
+                  <el-button type="primary" :loading="generatingPeriods" @click="handleGeneratePeriods">生成期次</el-button>
+                  <span v-if="currentPeriodCount > 0" class="period-hint-warn">已有 {{ currentPeriodCount }} 期，请先删除后再重新生成</span>
+                  <span v-else class="period-hint">请先填写开始/结束时间后再生成</span>
+                </div>
+              </div>
+              <DataTableList
+                ref="periodTableList"
+                :default-props="periodTableListProps"
+                :fetch-records="periodFetchRecords"
+                @append-click="handlePeriodAppend"
+                @edit-click="handlePeriodEdit"
+                @delete-click="handlePeriodDelete"
+                @after-init-data="handlePeriodAfterInitData"
+              />
+            </div>
+            <el-empty v-else description="请先在「基础信息」页保存项目信息后，再配置报告周期" :image-size="80" />
+          </el-tab-pane>
 
-          <div class="period-config-row">
-            <span class="period-label">生成方式：</span>
-            <el-select v-model="periodConfig.mode" style="width:140px" placeholder="请选择">
-              <el-option label="按周期（cron）" value="cron" />
-              <el-option label="按期数（等分）" value="num" />
-            </el-select>
-          </div>
-
-          <div class="period-config-row">
-            <template v-if="periodConfig.mode === 'cron'">
-              <span class="period-label">报告频率：</span>
-              <el-select v-model="periodConfig.cron" style="width:150px">
-                <el-option v-for="opt in CRON_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
-              </el-select>
-            </template>
-            <template v-else>
-              <span class="period-label">期数：</span>
-              <el-input-number v-model="periodConfig.periodNum" :min="1" :precision="0" style="width:120px" />
-              <span class="period-hint">期（等分时间段）</span>
-            </template>
-          </div>
-
-          <div class="period-config-row">
-            <el-button type="primary" :loading="generatingPeriods" @click="handleGeneratePeriods">生成期次</el-button>
-            <span class="period-hint">请先填写「开始/结束时间」后再生成期次</span>
-          </div>
-
-          <!-- 期次列表 -->
-          <DataTableList
-            ref="periodTableList"
-            :default-props="periodTableListProps"
-            :fetch-records="periodFetchRecords"
-            @append-click="handlePeriodAppend"
-            @edit-click="handlePeriodEdit"
-            @delete-click="handlePeriodDelete"
-            @after-init-data="handlePeriodAfterInitData"
-          />
-        </div>
+        </el-tabs>
       </div>
     </template>
   </DlgBasic>
@@ -160,6 +151,7 @@ const processList = ref([]);
 const majorList = ref([]); // 存储已选择的专业列表
 const isInitializing = ref(false); // 标记是否正在初始化，避免触发"已修改"状态
 const showRollbackBtn = ref(false); // 是否显示回退按钮（无需审核自动通过的记录）
+const activeTab = ref('basic');
 
 const defaultProps = reactive({
   form: {},
@@ -241,9 +233,19 @@ watch( form, () => {
   { deep: true }
 );
 
+function onTabChange(tabName) {
+  if (!form.internshipId) return;
+  if (tabName === 'process') {
+    nextTick(() => dataTableList.value?.initDataList(true));
+  } else if (tabName === 'period') {
+    nextTick(() => periodTableList.value?.initDataList(true));
+  }
+}
+
 async function showDialog(val, formData = {}) {
   // 标记开始初始化
   isInitializing.value = true;
+  activeTab.value = 'basic';
 
   // 预加载专业数据（在清空表单之前加载，避免级联选择器竞态条件）
   // 竞态原因：清空表单 → majorIds 变 undefined → 级联选择器 initData(loading=true)
@@ -366,6 +368,7 @@ function validateFormData() {
   // 检查专业选择
   if (!form.majorIds || (Array.isArray(form.majorIds) && form.majorIds.length === 0)) {
     ElMessage.warning('请选择专业');
+    activeTab.value = 'basic';
     return false;
   }
 
@@ -373,11 +376,13 @@ function validateFormData() {
   const planProcess = processList.value.find((p) => p.processTypeName === '实习计划制定');
   if (!planProcess) {
     ElMessage.warning('流程列表中必须包含"实习计划制定"流程');
+    activeTab.value = 'process';
     return false;
   }
 
   if (!planProcess.startTime || !planProcess.endTime) {
     ElMessage.warning('"实习计划制定"流程必须设置起止时间');
+    activeTab.value = 'process';
     return false;
   }
 
@@ -864,41 +869,81 @@ defineExpose({
 </script>
 
 <style scoped>
-/* 流程表格 / 期次表格：固定展示 6 行，内部滚动
-   v-adaptive 通过 inline style 设置高度，用 !important 覆盖。
-   6 行 × 48px + 表头 40px = 328px */
-:deep(.table-section .el-table),
-:deep(.period-config-section .el-table) {
-  height: 328px !important;
+.dlg-main-body {
+  padding: 16px 20px;
 }
-:deep(.table-section .el-table .el-table__body-wrapper),
-:deep(.period-config-section .el-table .el-table__body-wrapper) {
-  height: 288px !important;
-  overflow-y: auto !important;
+
+.dlg-tabs {
+  width: 100%;
+}
+
+.dlg-tabs :deep(.el-tabs__content) {
+  padding-top: 16px;
+}
+
+.tab-pane-content {
+  min-height: 200px;
 }
 
 .period-config-section {
-  flex-shrink: 0;
-  padding: 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
-.period-config-row {
+.period-controls {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
   margin-bottom: 12px;
 }
 
+.period-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .period-label {
-  font-size: 13px;
+  font-size: 14px;
   color: #606266;
-  white-space: nowrap;
-  min-width: 72px;
+  width: 70px;
   text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.period-row :deep(.el-input-number) {
+  margin-left: 0;
+}
+
+.period-generate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 4px;
 }
 
 .period-hint {
   font-size: 12px;
   color: #909399;
+}
+
+.period-hint-warn {
+  font-size: 12px;
+  color: #e6a23c;
+}
+
+/* 流程表格和期次表格：固定展示 6 行，内部滚动 */
+:deep(.tab-pane-content .el-table),
+:deep(.period-config-section .el-table) {
+  height: 328px !important;
+}
+:deep(.tab-pane-content .el-table .el-table__body-wrapper),
+:deep(.period-config-section .el-table .el-table__body-wrapper) {
+  height: 288px !important;
+  overflow-y: auto !important;
 }
 </style>

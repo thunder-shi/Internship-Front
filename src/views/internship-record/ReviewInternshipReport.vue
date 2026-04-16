@@ -1,51 +1,76 @@
 <template>
   <div class="review-internship-report">
-    <!-- 顶部选择区 -->
-    <InternshipPeriodSelector v-model:internshipId="selectedInternshipId" v-model:periodId="selectedPeriod"
-      :user-id="userInfo.id" @internship-change="onInternshipChange" @period-change="onPeriodChange" />
+    <!-- 顶部：实习项目 + 期数选择（原始布局保留） -->
+    <InternshipPeriodSelector
+      v-model:internshipId="selectedInternshipId"
+      v-model:periodId="selectedPeriod"
+      :user-id="userInfo.id"
+      @internship-change="onInternshipChange"
+      @period-change="onPeriodChange"
+    />
 
     <!-- 统计区 -->
-    <DiaryStatsCard v-if="selectedPeriod" :submitted="submittedCount" :not-submitted="notSubmittedCount"
-      :total="allStudents.length" />
+    <DiaryStatsCard
+      :submitted="submittedCount"
+      :not-submitted="notSubmittedCount"
+      :total="allStudents.length"
+    />
 
     <!-- 学生列表 -->
-    <template v-if="selectedPeriod">
-      <DataTableList ref="dtlRef" :default-props="dtlProps" :fetch-records="fetchRecordsFunc"
-        :client-filter-fn="activeClientFilterFn" @audit-click="onAuditClick" @view-click="onViewClick">
-        <template #left>
-          <el-radio-group v-model="activeTab" @change="onTabChange">
-            <el-radio-button value="all">全部（{{ allStudents.length }}）</el-radio-button>
-            <el-radio-button value="submitted">已提交（{{ submittedCount }}）</el-radio-button>
-            <el-radio-button value="not-submitted">未提交（{{ notSubmittedCount }}）</el-radio-button>
-          </el-radio-group>
-          <el-button type="primary" style="margin-left: 12px" @click="onBatchAuditClick">批量审核</el-button>
-        </template>
-        <template #postOrTitle="{ row }">
-          {{ row.internshipPostName || row.titleName || '——' }}
-        </template>
-        <template #submitTime="{ row }">
-          {{ row.diary?.createTime || '——' }}
-        </template>
-        <template #status="{ row }">
-          <el-tag :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
-        </template>
-      </DataTableList>
-    </template>
+    <DataTableList
+      ref="dtlRef"
+      :default-props="dtlProps"
+      :fetch-records="fetchRecordsFunc"
+      :client-filter-fn="activeClientFilterFn"
+      @audit-click="onAuditClick"
+      @view-click="onViewClick"
+    >
+      <template #left>
+        <el-radio-group v-model="activeTab" @change="onTabChange">
+          <el-radio-button value="all">全部（{{ allStudents.length }}）</el-radio-button>
+          <el-radio-button value="submitted">已提交（{{ submittedCount }}）</el-radio-button>
+          <el-radio-button value="not-submitted">未提交（{{ notSubmittedCount }}）</el-radio-button>
+        </el-radio-group>
+        <el-button type="primary" style="margin-left: 12px" @click="onBatchAuditClick">批量审核</el-button>
+      </template>
+      <template #postOrTitle="{ row }">
+        {{ row.internshipPostName || row.titleName || '——' }}
+      </template>
+      <template #submitTime="{ row }">
+        {{ row.diary?.createTime || '——' }}
+      </template>
+      <template #status="{ row }">
+        <el-tag :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
+      </template>
+      <template #rightOperate="{ row }">
+        <el-button type="warning" size="small" title="学生详情" @click.stop="openStudentDetail(row)">
+          <el-icon><InfoFilled /></el-icon>
+        </el-button>
+      </template>
+    </DataTableList>
 
     <el-empty v-if="!selectedInternshipId" description="请先选择实习项目" :image-size="120" />
 
     <DlgReviewDiary ref="dlgReviewRef" @success="onReviewSuccess" />
     <DlgStudentDetail ref="dlgDetailRef" />
+    <DlgVerifyProgress
+      v-model="showProgressDialog"
+      :main-internship-id="null"
+      :process-info="progressProcessInfo"
+      key-words="ViewVerifyMainDiary"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { InfoFilled } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import DataTableList from '@/components/DataTableList.vue'
 import DlgReviewDiary from './components/DlgReviewDiary.vue'
 import DlgStudentDetail from './components/DlgStudentDetail.vue'
+import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue'
 import InternshipPeriodSelector from './components/InternshipPeriodSelector.vue'
 import DiaryStatsCard from './components/DiaryStatsCard.vue'
 import listAPI from '@/api/list'
@@ -76,7 +101,6 @@ const dtlRef = ref(null)
 const activeTab = ref('all')
 const allStudents = ref([])
 
-// diary=null 或 diary.submit=false（预建桩）均视为未提交
 const isSubmitted = (s) => s.diary?.submit === true
 const submittedCount = computed(() => allStudents.value.filter(isSubmitted).length)
 const notSubmittedCount = computed(() => allStudents.value.filter(s => !isSubmitted(s)).length)
@@ -98,7 +122,6 @@ async function fetchRecordsFunc() {
   })
   let list = res?.data || []
 
-  // 非超管：前端过滤到自己指导的学生
   if (!isSuperAdmin.value) {
     list = await filterByCurrentTeacher(list)
   }
@@ -111,12 +134,9 @@ async function fetchRecordsFunc() {
  * 过滤出当前教师负责的学生：
  *   校内实习 - row.teacherId 由后端从 ViewRelTitleTeacherStudent 回填，直接比对
  *   校外实习 - 通过 ViewRelTeacherStudent.relInternshipId === row.stuRelationId 匹配
- *             （直接比对 row.teacherId 不准：校外行的 teacherId 可能是企业导师而非校内导师）
  */
 async function filterByCurrentTeacher(list) {
   const myId = userInfo.value.id
-
-  // 查询本实习项目中当前教师负责的校外实习生（RelStuInternshipPost.id 集合）
   let externalRelIds = new Set()
   try {
     const res = await listAPI.getSomeRecords({
@@ -128,13 +148,12 @@ async function filterByCurrentTeacher(list) {
     const items = res?.data?.content || res?.data || []
     items.forEach(s => s.relInternshipId != null && externalRelIds.add(s.relInternshipId))
   } catch {
-    return list  // 查询失败时原样返回
+    ElMessage.warning('获取负责学生列表失败，请刷新重试')
+    return []
   }
 
   return list.filter(row => {
-    // 校内实习：teacherId 由后端直接从 ViewRelTitleTeacherStudent 填入，精确匹配
     if (row.titleName) return row.teacherId === myId
-    // 校外实习：通过 stuRelationId 匹配（= RelStuInternshipPost.id = relInternshipId）
     if (row.internshipPostName) return externalRelIds.has(row.stuRelationId)
     return true
   })
@@ -150,12 +169,6 @@ const dtlProps = computed(() => ({
     checkFlag: true,
   },
   sortStr: { properties: 'studentName', direction: 'ASC' },
-  buttonCondition: {
-    // 可批阅（待审核）→ 审核按钮
-    audit: (row) => canReviewDiary(row.diary),
-    // 其余情况（无日志 或 已审核）→ 查看按钮
-    visible: (row) => !canReviewDiary(row.diary),
-  },
   defaultDTHProps: {
     keyWord: { edit: 'MainDiary', view: 'ViewPeriodStudents' },
     buttonProps: {
@@ -163,11 +176,11 @@ const dtlProps = computed(() => ({
       update: { show: false },
       delete: { show: false },
       audit: { show: true, type: 'primary', name: '批阅', showHeaderBtn: false },
-      visible: { show: true, name: '查看' },
+      visible: { show: true, name: '查看审核历程' },
     },
     allTableColumns: [
       { id: 1, showName: '学生姓名', theOrder: 1, tableColumnName: 'studentName' },
-      { id: 2, showName: '学号', theOrder: 2, tableColumnName: 'studentNo' },
+      { id: 2, showName: '学号',     theOrder: 2, tableColumnName: 'studentNo' },
       { id: 3, showName: '岗位/题目', theOrder: 3, tableColumnName: 'customize-postOrTitle' },
       { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: 'customize-submitTime' },
       { id: 5, showName: '审核状态', theOrder: 5, tableColumnName: 'customize-status' },
@@ -175,16 +188,23 @@ const dtlProps = computed(() => ({
   },
 }))
 
+// ── 审核历程对话框 ────────────────────────────────────────────
+const showProgressDialog = ref(false)
+const currentRow = ref({})
+const progressProcessInfo = computed(() => ({
+  relationId: currentRow.value.diary?.relationId,
+  isAudit: currentRow.value.diary?.isAudit,
+  tableName: 'MainDiary',
+}))
+
 // ── 对话框 ───────────────────────────────────────────────────
 const dlgReviewRef = ref(null)
 const dlgDetailRef = ref(null)
 
-// 行级批阅按钮
 function onAuditClick(row) {
   dlgReviewRef.value?.open(row)
 }
 
-// 顶部"批量审核"按钮 → 对当前视图所有待审核记录批量批阅
 function onBatchAuditClick() {
   const pending = allStudents.value.filter(r => canReviewDiary(r.diary))
   if (!pending.length) {
@@ -194,22 +214,24 @@ function onBatchAuditClick() {
   dlgReviewRef.value?.open(pending)
 }
 
-// visible 按钮 → 有日志时查看，无日志时看学生详情
-function onViewClick([row]) {
-  if (row.diary) dlgReviewRef.value?.open(row)
-  else dlgDetailRef.value?.open(row)
+function onViewClick(rowOrArray) {
+  const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray
+  currentRow.value = { ...row }
+  showProgressDialog.value = true
 }
 
+function openStudentDetail(row) {
+  dlgDetailRef.value?.open(row)
+}
 
 function onReviewSuccess() {
   dtlRef.value?.initDataList()
 }
-
 </script>
 
 <style scoped>
+/* 用 flex + gap 控制间距，不加 padding，避免底部多余高度撑出滚动条 */
 .review-internship-report {
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;

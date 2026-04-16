@@ -30,6 +30,9 @@
               {{ getAuditStatusText(student?.diary?.isAudit) }}
             </el-tag>
           </el-descriptions-item>
+          <el-descriptions-item v-if="student?.diary?.title" label="日志标题" :span="2">
+            {{ student.diary.title }}
+          </el-descriptions-item>
         </el-descriptions>
 
         <!-- 日志内容 -->

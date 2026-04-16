@@ -7,6 +7,7 @@
  * 前端只需做用户级精确过滤：
  *   - 待审核(0)：当前用户在 verifyUserId 中
  *   - 全部通过(1) + isAllVerified：最终级审核人可见（用于退回）
+ *   - 审核不通过(2)：当前用户在 verifyUserId 中（即负责该记录的审核人可见）
  *   - 退回(3)：创建人可见
  */
 import { computed } from 'vue';
@@ -39,6 +40,9 @@ export function useVerifyFilter() {
         return isUserIdInVerifyUserId(row.verifyUserId, uid);
       } else if (row.isAudit === CONSTANT.AUDIT_STATUS.PASS && row.isAllVerified) {
         // 全部通过：仅最终级审核人可见（用于退回）
+        return isUserIdInVerifyUserId(row.verifyUserId, uid);
+      } else if (row.isAudit === CONSTANT.AUDIT_STATUS.NOTPASS) {
+        // 审核不通过：负责该记录的审核人可见
         return isUserIdInVerifyUserId(row.verifyUserId, uid);
       } else if (row.isAudit === CONSTANT.AUDIT_STATUS.BACK) {
         // 退回：创建人可见

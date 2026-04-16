@@ -129,7 +129,7 @@ export function buildVerifySearchWords() {
 
   return {
     searchKey: {
-      isAudit: `${CONSTANT.AUDIT_STATUS.SUBMIT},${CONSTANT.AUDIT_STATUS.PASS},${CONSTANT.AUDIT_STATUS.BACK}`,
+      isAudit: `${CONSTANT.AUDIT_STATUS.SUBMIT},${CONSTANT.AUDIT_STATUS.PASS},${CONSTANT.AUDIT_STATUS.NOTPASS},${CONSTANT.AUDIT_STATUS.BACK}`,
       startTime: currentTime,
       endTime: currentTime,
     },
