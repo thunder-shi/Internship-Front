@@ -59,7 +59,7 @@ export function getAuditStatusText(isAudit) {
 export function getAuditTagType(isAudit) {
   const map = {
     [AUDIT_STATUS.SAVE]:    'info',
-    [AUDIT_STATUS.SUBMIT]:  '',
+    [AUDIT_STATUS.SUBMIT]:  'warning',
     [AUDIT_STATUS.PASS]:    'success',
     [AUDIT_STATUS.NOTPASS]: 'danger',
     [AUDIT_STATUS.BACK]:    'warning',
@@ -118,7 +118,7 @@ export function canViewDiary(diary) {
  * 构建审核页面的初始查询条件
  *
  * 包含三个标准过滤维度：
- * 1. isAudit IN (待审核, 已通过, 已退回)
+ * 1. isAudit IN (待审核, 已通过, 审核不通过, 已退回)
  * 2. startTime <= 当前时间（流程已开始）
  * 3. endTime >= 当前时间（流程未结束）
  *
@@ -129,7 +129,7 @@ export function buildVerifySearchWords() {
 
   return {
     searchKey: {
-      isAudit: `${CONSTANT.AUDIT_STATUS.SUBMIT},${CONSTANT.AUDIT_STATUS.PASS},${CONSTANT.AUDIT_STATUS.BACK}`,
+      isAudit: `${CONSTANT.AUDIT_STATUS.SUBMIT},${CONSTANT.AUDIT_STATUS.PASS},${CONSTANT.AUDIT_STATUS.NOTPASS},${CONSTANT.AUDIT_STATUS.BACK}`,
       startTime: currentTime,
       endTime: currentTime,
     },

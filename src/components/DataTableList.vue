@@ -2,7 +2,7 @@
   <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns"
     :default-props="defaultDTHPropsWithButtonCondition" @init-click="refreshInit" @show-search="showSearchPanel"
     @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick"
-    @more1-click="more1Click" @more2-click="more2Click" @more3-click="more3Click" @upload-finish="uploadFinish" @upload="upload"
+    @more1-click="more1Click" @more2-click="more2Click" @more3-click="more3Click" @more4-click="more4Click" @upload-finish="uploadFinish" @upload="upload"
     @audit-click="auditClick" @audit-command="auditCommand">
     <template v-if="$slots.left" #left><slot name="left" /></template>
     <template #searchPanel>
@@ -347,6 +347,7 @@ const emit = defineEmits([
   'more1-click',
   'more2-click',
   'more3-click',
+  'more4-click',
   'upload-finish',
   'update-column',
   'view-click',
@@ -1121,6 +1122,11 @@ const more2Click = async (row) => {
 // 更多内容3
 const more3Click = async (row) => {
   emit('more3-click', row);
+};
+
+// 更多内容4
+const more4Click = async (row) => {
+  emit('more4-click', row);
 };
 // #endregion
 

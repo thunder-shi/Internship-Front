@@ -49,6 +49,14 @@
               class="mb-16"
               title="今日已在该岗位完成签到，无需重复签到；如需离开可提交签退。"
             />
+            <el-alert
+              v-if="hasRejectedSignToday"
+              type="warning"
+              :closable="false"
+              show-icon
+              class="mb-16"
+              title="检测到你今天有审核退回的打卡记录，请重新提交一次打卡。"
+            />
             <el-form
               ref="formRef"
               :model="form"
@@ -82,7 +90,8 @@
                     :rows="2"
                     maxlength="500"
                     show-word-limit
-                    placeholder="请输入或点击下方获取定位"
+                    readonly
+                    placeholder="请点击下方获取定位"
                   />
                   <el-button :loading="locLoading" @click="fillLocation"> 获取定位 </el-button>
                 </div>
@@ -117,7 +126,14 @@
                         <span>预览</span>
                       </span>
                     </div>
-                    <el-button text type="danger" size="small" @click="clearPhoto">移除</el-button>
+                    <el-button
+                      type="danger"
+                      plain
+                      class="remove-photo-btn"
+                      @click="clearPhoto"
+                    >
+                      移除
+                    </el-button>
                   </div>
                 </div>
               </el-form-item>
@@ -289,6 +305,11 @@ function isRecordCreateTimeToday(row) {
   );
 }
 
+function isAuditBack(row) {
+  const status = row?.isAudit;
+  return String(status) === String(CONSTANT.AUDIT_STATUS.BACK);
+}
+
 /** 当前岗位下今日是否已有签到记录 */
 const hasCheckedInToday = computed(() => {
   if (!ENFORCE_ONE_SIGN_IN_PER_DAY) return false;
@@ -299,7 +320,20 @@ const hasCheckedInToday = computed(() => {
     (row) =>
       Number(row.stuInternshipId ?? row.stu_internship_id) === rid &&
       getRowSignType(row) === SIGN_IN &&
-      isRecordCreateTimeToday(row)
+      isRecordCreateTimeToday(row) &&
+      !isAuditBack(row)
+  );
+});
+
+const hasRejectedSignToday = computed(() => {
+  const post = currentPost.value;
+  if (!post) return false;
+  const rid = Number(post.relationId);
+  return historyRows.value.some(
+    (row) =>
+      Number(row.stuInternshipId ?? row.stu_internship_id) === rid &&
+      isRecordCreateTimeToday(row) &&
+      isAuditBack(row)
   );
 });
 
@@ -398,7 +432,7 @@ async function fillLocation() {
     },
     () => {
       locLoading.value = false;
-      ElMessage.error('获取定位失败，请检查浏览器权限或手动填写地址');
+      ElMessage.error('获取定位失败，请检查浏览器定位权限后重试');
     },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
   );
@@ -648,6 +682,23 @@ onBeforeUnmount(() => {
   gap: 12px;
   margin-top: 8px;
   flex-wrap: wrap;
+}
+
+.remove-photo-btn {
+  font-weight: 600;
+  font-size: 13px;
+  min-height: 32px;
+  padding: 8px 14px;
+  color: #fff;
+  border-color: var(--el-color-danger);
+  background: var(--el-color-danger);
+}
+
+.remove-photo-btn:hover,
+.remove-photo-btn:focus-visible {
+  color: #fff;
+  border-color: var(--el-color-danger-dark-2);
+  background: var(--el-color-danger-dark-2);
 }
 
 .preview-thumb {

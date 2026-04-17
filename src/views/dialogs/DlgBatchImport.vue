@@ -166,8 +166,11 @@ const submit = async () => {
     await IEAPI.importInfo(props.defaultProps.keyWords, file.value);
     success = true;
   } catch (error) {
-    console.error('导入失败:', error);
-    proxy.$message.error('导入失败，请检查文件格式是否正确');
+    const backendMsg = error?.response?.data?.message || ''
+    const msg = backendMsg
+      ? `导入失败，${backendMsg}，所有数据已回滚，请修正后重新导入`
+      : '导入失败，请检查文件格式是否正确，所有数据已回滚'
+    proxy.$message.error(msg)
   } finally {
     proxy.fullScreenLoading().close();
     if (dlgBasicRef.value?.buttonLoading) {

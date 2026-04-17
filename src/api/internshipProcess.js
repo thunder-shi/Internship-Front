@@ -1,6 +1,4 @@
 import request from '@/utils/request';
-import { getEncryptKeyWord } from '@/utils/rsaEncrypt';
-import CONSTANT from '@/utils/constant';
 
 // 推进审核流程（单条传对象，批量传对象数组）
 async function auditProcess(node) {
@@ -48,6 +46,37 @@ async function initTeacherStudentByInternshipId(params) {
 async function initEnterpriseTutorByInternshipId(params) {
   return request({
     url: '/internshipProcess/initEnterpriseTutorByInternshipId',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+  });
+}
+
+// 手动分配师生
+async function manualAssignTeacherStudent(params) {
+  return request({
+    url: '/internshipProcess/manualAssignTeacherStudent',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+  });
+}
+
+async function listAssignableTeachers(params) {
+  return request({
+    url: '/internshipProcess/listAssignableTeachers',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+  });
+}
+
+async function listAssignableStudents(params) {
+  return request({
+    url: '/internshipProcess/listAssignableStudents',
     method: 'post',
     data: {
       node: JSON.stringify(params),
@@ -166,6 +195,9 @@ export default {
   getVerifyUserIds,
   initTeacherStudentByInternshipId,
   initEnterpriseTutorByInternshipId,
+  manualAssignTeacherStudent,
+  listAssignableTeachers,
+  listAssignableStudents,
   listExternalInternshipCollegeStats,
   listInternalInternshipCollegeStats,
   getInternalInternshipTitleSelectionBreakdown,

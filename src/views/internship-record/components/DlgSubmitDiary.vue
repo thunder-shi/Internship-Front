@@ -9,14 +9,26 @@
   >
     <div v-loading="filesLoading">
       <el-alert
-        v-if="readonly && currentDiary?.remarks"
-        :title="`老师批阅意见：${currentDiary.remarks}`"
-        type="success"
+        v-if="!readonly && backReason"
+        :title="`退回意见：${backReason}`"
+        type="warning"
         :closable="false"
         class="mb-16"
       />
 
       <el-form ref="formRef" :model="form" :rules="readonly ? {} : formRules" label-width="90px">
+        <!-- 日志标题 -->
+        <el-form-item label="日志标题" prop="title">
+          <el-input
+            v-model="form.title"
+            :maxlength="200"
+            show-word-limit
+            :readonly="readonly"
+            :disabled="readonly"
+            placeholder="请填写本期实习日志标题..."
+          />
+        </el-form-item>
+
         <!-- 日志内容 -->
         <el-form-item label="日志内容" prop="content">
           <el-input
@@ -35,7 +47,6 @@
         <el-form-item label="附件">
           <!-- 上传按钮（编辑模式） -->
           <div v-if="!readonly" class="upload-row">
-            <!-- 原生 input，隐藏 -->
             <input
               ref="fileInputRef"
               type="file"
@@ -77,11 +88,7 @@
                 >{{ fileBadge(file.name).text }}</div>
                 <span class="file-card-name">{{ file.name }}</span>
                 <div class="file-card-actions">
-                  <el-icon
-                    class="action-icon"
-                    title="下载"
-                    @click.stop="triggerDownload(file)"
-                  ><Download /></el-icon>
+                  <el-icon class="action-icon" title="下载" @click.stop="triggerDownload(file)"><Download /></el-icon>
                 </div>
                 <span
                   v-if="!readonly"
@@ -121,25 +128,20 @@
       <el-button
         v-if="!readonly"
         type="primary"
-        :loading="submitting"
-        :disabled="totalFileCount === 0"
-        :title="totalFileCount === 0 ? '请至少上传一个附件' : ''"
-        @click="handleSubmit"
-      >提交</el-button>
+        @click="handleSave"
+      >保存</el-button>
     </template>
   </el-dialog>
-
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, Upload, Download } from '@element-plus/icons-vue'
-import { useStore } from 'vuex'
-import fileAPI from '@/api/file'
 import listAPI from '@/api/list'
-import { submitDiary } from '@/api/diary'
 import CONSTANT from '@/utils/constant'
+import { canResubmitDiary } from '@/utils/verify'
+import { useDiaryFiles } from './useDiaryFiles'
 
 defineOptions({ name: 'DlgSubmitDiary' })
 
@@ -155,29 +157,22 @@ const ALLOWED_EXTS = [
 const acceptStr = ALLOWED_EXTS.map(e => '.' + e).join(',')
 
 const FILE_BADGES = {
-  // Word / WPS Writer — 蓝色 W
   doc: { text: 'W', bg: '#2b579a' }, docx: { text: 'W', bg: '#2b579a' },
   wps: { text: 'W', bg: '#2b579a' }, wpt:  { text: 'W', bg: '#2b579a' },
-  // Excel / WPS Spreadsheet — 绿色 X
   xls:  { text: 'X', bg: '#217346' }, xlsx: { text: 'X', bg: '#217346' },
   et:   { text: 'X', bg: '#217346' }, ett:  { text: 'X', bg: '#217346' },
-  // PowerPoint / WPS Presentation — 橙红 P
   ppt:  { text: 'P', bg: '#d24726' }, pptx: { text: 'P', bg: '#d24726' },
   dps:  { text: 'P', bg: '#d24726' }, dpt:  { text: 'P', bg: '#d24726' },
-  // PDF — 红色
   pdf: { text: 'PDF', bg: '#f40f02' },
-  // 图片 — 青绿
   jpg: { text: 'IMG', bg: '#0e9c75' }, jpeg: { text: 'IMG', bg: '#0e9c75' },
   png: { text: 'PNG', bg: '#0e9c75' }, gif:  { text: 'GIF', bg: '#0e9c75' },
   bmp: { text: 'IMG', bg: '#0e9c75' }, webp: { text: 'IMG', bg: '#0e9c75' },
   tiff: { text: 'IMG', bg: '#0e9c75' }, tif: { text: 'IMG', bg: '#0e9c75' },
-  // 视频 — 深红
   mp4: { text: 'MP4', bg: '#b03a2e' }, avi:  { text: 'AVI', bg: '#b03a2e' },
   mov: { text: 'MOV', bg: '#b03a2e' }, mkv:  { text: 'MKV', bg: '#b03a2e' },
   wmv: { text: 'WMV', bg: '#b03a2e' }, flv:  { text: 'FLV', bg: '#b03a2e' },
   rmvb: { text: 'RMVB', bg: '#b03a2e' }, m4v: { text: 'M4V', bg: '#b03a2e' },
   webm: { text: 'WEBM', bg: '#b03a2e' },
-  // 压缩包 — 紫色
   zip: { text: 'ZIP', bg: '#7d3c98' }, rar: { text: 'RAR', bg: '#7d3c98' },
   '7z': { text: '7Z', bg: '#7d3c98' }, tar: { text: 'TAR', bg: '#7d3c98' },
   gz:  { text: 'GZ',  bg: '#7d3c98' },
@@ -194,30 +189,36 @@ function badgeFontSize(text) {
   return '10px'
 }
 
-const emit = defineEmits(['success'])
-const store = useStore()
-const userInfo = computed(() => store.getters.userInfo || {})
+const emit = defineEmits(['save'])
 
 const visible = ref(false)
-const filesLoading = ref(false)
-const submitting = ref(false)
 const readonly = ref(false)
-const isSupplementary = ref(false)  // 补交标记
 
 const relationId = ref(null)
 const tableName = ref(null)
 const periodId = ref(null)
-const periodIndex = ref(null)   // 仅用于标题显示
+const periodIndex = ref(null)
 const currentDiary = ref(null)
 
 const formRef = ref(null)
 const fileInputRef = ref(null)
-const form = reactive({ content: '' })
+const form = reactive({ title: '', content: '' })
 const formRules = {
+  title: [
+    { required: true, message: '日志标题不能为空', trigger: 'blur' },
+    { max: 200, message: '标题不超过 200 字', trigger: 'blur' },
+  ],
   content: [{ required: true, message: '日志内容不能为空', trigger: 'blur' }],
 }
 
-const existingFiles = ref([])
+const backReason = ref('')
+const {
+  files: existingFiles,
+  filesLoading,
+  loadFiles: loadExistingFiles,
+  triggerDownload,
+  deleteFile: deleteExistingFile,
+} = useDiaryFiles()
 const newFileList = ref([])
 
 const totalFileCount = computed(() => existingFiles.value.length + newFileList.value.length)
@@ -241,11 +242,7 @@ const totalSizeWarning = computed(() => totalFileSize.value > MAX_TOTAL * 0.8)
 
 const dialogTitle = computed(() => {
   if (readonly.value) return `第 ${periodIndex.value} 期实习日志（查看）`
-  const diary = currentDiary.value
-  if (diary && (diary.isAudit === CONSTANT.AUDIT_STATUS.BACK || diary.submit === false)) {
-    return `重新提交 — 第 ${periodIndex.value} 期实习日志`
-  }
-  return `提交 — 第 ${periodIndex.value} 期实习日志`
+  return `编辑 — 第 ${periodIndex.value} 期实习日志`
 })
 
 function open(opts) {
@@ -255,20 +252,26 @@ function open(opts) {
   periodIndex.value = opts.periodIndex ?? null
   currentDiary.value = opts.diary ?? null
   readonly.value = opts.readonly ?? false
-  isSupplementary.value = opts.isSupplementary ?? false
 
+  backReason.value = ''
+  form.title = opts.diary?.title ?? ''
   form.content = opts.diary?.content ?? ''
   existingFiles.value = []
-  newFileList.value = []
+  newFileList.value = (opts.draftFiles || []).map(f => ({ name: f.name, size: f.size, raw: f }))
 
   visible.value = true
+  nextTick(() => formRef.value?.clearValidate())
 
   if (opts.diary?.relationId) {
     loadExistingFiles(opts.diary.relationId)
+    if (!readonly.value && canResubmitDiary(opts.diary)) {
+      loadBackReason(opts.diary.relationId)
+    }
   }
 }
 
 function onClosed() {
+  if (visible.value) return  // 关闭动画结束前被重新打开，跳过清理
   formRef.value?.resetFields()
   existingFiles.value = []
   newFileList.value = []
@@ -276,15 +279,14 @@ function onClosed() {
   relationId.value = null
   tableName.value = null
   periodId.value = null
-  // 重置原生 input，避免下次打开选同一文件无反应
+  backReason.value = ''
   if (fileInputRef.value) fileInputRef.value.value = ''
 }
 
-// ── 文件选择（原生 input） ──────────────────────────────────
+// ── 文件选择 ────────────────────────────────────────────────
 function onNativeFileChange(e) {
   const files = Array.from(e.target.files || [])
   files.forEach(addFile)
-  // 清空 input 值，允许重复选择同一文件
   e.target.value = ''
 }
 
@@ -321,101 +323,36 @@ function removeNewFile(idx) {
   }).catch(() => {})
 }
 
-// ── 加载已有文件 ────────────────────────────────────────────
-async function loadExistingFiles(diaryId) {
+// ── 退回意见 ─────────────────────────────────────────────────
+async function loadBackReason(diaryRelationId) {
   try {
-    filesLoading.value = true
     const res = await listAPI.getSomeRecords({
-      keyWords: 'SysOssFile',
-      searchKey: { relationIds: diaryId, tableName: 'main_diary' },
-      reg: { relationIds: '=', tableName: '=' },
+      keyWords: 'ViewVerifyMainDiary',
+      searchKey: { relationId: diaryRelationId, isAudit: CONSTANT.AUDIT_STATUS.BACK },
+      reg: { relationId: '=', isAudit: '=' },
+      sort: { properties: 'id', direction: 'DESC' },
+      pageInfo: { page: 1, size: 1 },
     })
-    const raw = res?.data?.content || res?.data || []
-    existingFiles.value = raw.map(f => ({
-      id: f.id,
-      name: f.fileName || '未知文件',
-      size: Number(f.fileSize) || 0,
-    }))
+    const record = (res?.data?.content || res?.data || [])[0]
+    backReason.value = record?.reason || ''
   } catch {
-    existingFiles.value = []
-  } finally {
-    filesLoading.value = false
+    backReason.value = ''
   }
 }
 
-// ── 下载已有文件 ────────────────────────────────────────────
-// ── 预览 ────────────────────────────────────────────────────
-
-// ── 下载 ───────────────────────────────────────────────────
-async function triggerDownload(file) {
-  try {
-    await fileAPI.downloadFile(file.id)
-  } catch {
-    ElMessage.error('下载失败')
-  }
-}
-
-// ── 删除 ────────────────────────────────────────────────────
-async function deleteExistingFile(file) {
-  try {
-    await ElMessageBox.confirm('删除后不可恢复，确定删除该文件吗？', '提示', {
-      confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
-    })
-  } catch { return }
-  try {
-    await fileAPI.deleteFile([file.id])
-    existingFiles.value = existingFiles.value.filter(f => f.id !== file.id)
-    ElMessage.success('删除成功')
-  } catch {
-    ElMessage.error('删除失败')
-  }
-}
-
-// ── 提交 ────────────────────────────────────────────────────
-async function handleSubmit() {
+// ── 保存到缓存 ───────────────────────────────────────────────
+async function handleSave() {
   try {
     await formRef.value.validate()
   } catch { return }
 
-  try {
-    submitting.value = true
-
-    const node = {
-      relationId: relationId.value,
-      tableName: tableName.value,
-      periodId: periodId.value,
-      content: form.content,
-      submit: true,
-      ...(isSupplementary.value ? { remarks: '学生补交' } : {}),
-    }
-
-    const res = await submitDiary(node)
-    if (res?.message !== 'successful') {
-      ElMessage.error(res?.message || '提交失败')
-      return
-    }
-    const diaryId = res.data
-
-    const rawFiles = newFileList.value.filter(f => f.raw).map(f => f.raw)
-    if (rawFiles.length > 0 && diaryId) {
-      await fileAPI.upload({ files: rawFiles, relationIds: diaryId, tableName: 'main_diary' })
-    }
-
-    ElMessage.success('提交成功')
-    visible.value = false
-    emit('success')
-  } catch (e) {
-    // 拦截器已显示后端错误 message；仅对"尚未分配校内导师"追加操作提示
-    const backendMsg = e?.response?.data?.message || ''
-    if (backendMsg.includes('尚未分配校内导师')) {
-      ElMessage.warning('请联系管理员完成校内导师分配后再提交日志')
-    } else if (!e?.response) {
-      // 非 HTTP 错误（网络断开等），拦截器未处理，手动提示
-      ElMessage.error('提交失败：' + (e?.message || ''))
-    }
-  } finally {
-    submitting.value = false
-  }
+  emit('save', {
+    periodId: periodId.value,
+    title: form.title,
+    content: form.content,
+    files: newFileList.value.filter(f => f.raw).map(f => f.raw),
+  })
+  visible.value = false
 }
 
 defineExpose({ open })
@@ -476,10 +413,6 @@ defineExpose({ open })
 .file-card:hover {
   border-color: #409eff;
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
-}
-
-.file-card-new {
-  cursor: default;
 }
 
 .file-badge {
@@ -556,5 +489,4 @@ defineExpose({ open })
   color: #409eff;
   background: #ecf5ff;
 }
-
 </style>

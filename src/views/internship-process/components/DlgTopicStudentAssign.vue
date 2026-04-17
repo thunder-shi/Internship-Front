@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch, nextTick } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
 import DataTree from '@/components/DataTree.vue';
@@ -172,10 +172,14 @@ async function fetchAvailableStudents(params) {
   if (rawSearchKey.departmentId != null) {
     searchKey.departmentId = rawSearchKey.departmentId;
   }
+  if (nameKeyword) searchKey.name = nameKeyword;
+  if (stuIdKeyword) searchKey.workId = stuIdKeyword;
 
   const reg = { ...(params?.reg || {}), id: '()' };
+  if (nameKeyword) reg.name = CONSTANT.SEARCH_OPERATOR.LIKE;
+  if (stuIdKeyword) reg.workId = CONSTANT.SEARCH_OPERATOR.LIKE;
 
-  const response = await listAPI.getSomeRecords({
+  return listAPI.getSomeRecords({
     keyWords: 'BaseUser',
     pageInfo: params?.pageInfo,
     treeInfo: params?.treeInfo,
@@ -184,30 +188,6 @@ async function fetchAvailableStudents(params) {
     reg,
     andor: params?.andor,
   });
-
-  const list = response?.data?.content ?? [];
-  if (!nameKeyword && !stuIdKeyword) return response;
-
-  const filtered = list.filter((row) => {
-    const rowName = String(row?.student_name ?? row?.name ?? '').toLowerCase();
-    const rowStuId = String(row?.stu_id ?? row?.workId ?? row?.id ?? '');
-    const matchName = !nameKeyword || rowName.includes(nameKeyword.toLowerCase());
-    const matchStuId = !stuIdKeyword || rowStuId.includes(stuIdKeyword);
-    return matchName && matchStuId;
-  });
-
-  return {
-    ...response,
-    data: {
-      ...(response?.data || {}),
-      content: filtered,
-      totalElements: filtered.length,
-      page: {
-        ...(response?.data?.page || {}),
-        totalElements: filtered.length,
-      },
-    },
-  };
 }
 
 function resolveInternshipId() {
@@ -285,16 +265,19 @@ async function loadAssignedStudentIds() {
     const titleList = titleRes?.data?.content ?? titleRes?.data ?? [];
     const titleIds = titleList.map((r) => r?.id).filter((id) => id != null);
     const ids = [];
-    for (const titleId of titleIds) {
+    if (titleIds.length > 0) {
       const relRes = await listAPI.getSomeRecords({
         keyWords: 'RelTitleStudent',
-        searchKey: { titleId: Number(titleId) },
-        pageInfo: { page: 1, size: 1 },
+        searchKey: { titleId: titleIds.join(',') },
+        reg: { titleId: CONSTANT.SEARCH_OPERATOR.IN },
+        pageInfo: { page: 1, size: 1000 },
         sort: { properties: 'id', direction: 'DESC' },
       });
-      const rel = (relRes?.data?.content ?? relRes?.data ?? [])[0];
-      const stuId = rel?.stuId ?? rel?.stu_id;
-      if (stuId != null) ids.push(Number(stuId));
+      const relList = relRes?.data?.content ?? relRes?.data ?? [];
+      for (const rel of relList) {
+        const stuId = rel?.stuId ?? rel?.stu_id;
+        if (stuId != null) ids.push(Number(stuId));
+      }
     }
     assignedStudentIds.value = new Set(ids);
   } catch (e) {
@@ -386,20 +369,16 @@ function onClose() {
   dataTableListRef.value?.table?.clearSelection?.();
 }
 
-function onOpenDialog() {
-  nextTick(() => {
-    setTimeout(async () => {
-      const internshipId = resolveInternshipId();
-      if (!internshipId) {
-        ElMessage.warning('缺少 internshipId，无法加载学生列表');
-        return;
-      }
-      await Promise.all([loadAssignedStudentIds(), loadArrangedStudentIds(), loadApprovedSelectionStudentIds()]);
-      updateSearchKey();
-      dataTreeRef.value?.initDataTree?.();
-      dataTableListRef.value?.initDataList?.(true);
-    }, 80);
-  });
+async function onOpenDialog() {
+  const internshipId = resolveInternshipId();
+  if (!internshipId) {
+    ElMessage.warning('缺少 internshipId，无法加载学生列表');
+    return;
+  }
+  await Promise.all([loadAssignedStudentIds(), loadArrangedStudentIds(), loadApprovedSelectionStudentIds()]);
+  updateSearchKey();
+  dataTreeRef.value?.initDataTree?.();
+  dataTableListRef.value?.initDataList?.(true);
 }
 
 async function handleConfirm() {

@@ -1,41 +1,47 @@
 <template>
   <div class="upload-report-page">
-    <!-- 顶部：实习岗位选择 -->
-    <el-card class="selector-card" shadow="never">
-      <div class="selector-row">
-        <span class="selector-label">当前实习：</span>
+    <!-- 实习项目选择卡片 -->
+    <el-card shadow="never" class="selector-card">
+      <el-form-item label="实习项目" label-width="80px" class="mb-0">
         <el-select
-          v-if="studentPosts.length > 1"
           v-model="selectedPostKey"
-          placeholder="请选择实习岗位"
-          style="width: 360px"
+          placeholder="请选择实习项目"
           :loading="postsLoading"
+          filterable
+          clearable
+          style="width: 100%; max-width: 500px"
           @change="onPostChange"
         >
+          <template #empty>
+            <p class="select-empty">{{ postsLoading ? '加载中...' : '暂无分配的实习项目' }}</p>
+          </template>
           <el-option
             v-for="post in studentPosts"
             :key="post._key"
             :label="postLabel(post)"
             :value="post._key"
-          />
+          >
+            <div class="post-option">
+              <el-tag
+                size="small"
+                :type="post._type === 'external' ? 'primary' : 'success'"
+                effect="light"
+                class="type-tag"
+              >{{ post._type === 'external' ? '校外' : '校内' }}</el-tag>
+              <span class="option-text">{{ postLabel(post) }}</span>
+            </div>
+          </el-option>
         </el-select>
-        <span v-else-if="studentPosts.length === 1" class="current-post-name">
-          {{ postLabel(studentPosts[0]) }}
-        </span>
-        <span v-else-if="!postsLoading" class="empty-hint">
-          暂无实习岗位，请联系管理员
-        </span>
-      </div>
+      </el-form-item>
     </el-card>
 
-    <!-- 期次列表：DataTableList 随岗位选中后挂载，自动加载数据 -->
     <DataTableList
-      v-if="selectedPostKey"
       ref="dtlRef"
       :default-props="dtlProps"
       :fetch-records="fetchRecordsFunc"
       :row-class-name="periodRowClass"
       @after-init-data="onAfterInitData"
+      @view-click="onViewClick"
     >
       <template #period="{ row }">
         <span>第 {{ row.periodIndex }} 期</span>
@@ -48,60 +54,49 @@
         >当前</el-tag>
       </template>
       <template #status="{ row }">
-        <el-tag :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
-      </template>
-      <template #remarks="{ row }">
-        <span class="remark-text">{{ row.diary?.remarks || '——' }}</span>
+        <el-tag v-if="periodDrafts[row.periodId]" type="warning" effect="light">草稿</el-tag>
+        <el-tag v-else :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
       </template>
       <template #rightOperate="{ row }">
-        <span v-if="!selectedPost?._approved" class="pending-text">审核中</span>
-        <template v-else>
-          <!-- 修改：日志存在且可编辑（草稿/退回） -->
-          <el-button
-            v-if="canResubmitDiary(row.diary)"
-            type="info"
-            size="small"
-            title="填写日志"
-            @click.stop="openSubmitDialog(row)"
-          ><el-icon><Edit /></el-icon></el-button>
-          <!-- 详情：日志已提交，查看审核情况 -->
-          <el-button
-            v-if="canViewDiary(row.diary)"
-            type="info"
-            size="small"
-            title="查看审核情况"
-            @click.stop="openViewDialog(row)"
-          ><svg-icon icon-class="axt-view" /></el-button>
-          <!-- 提交：无日志时，当前/过去期可提交，未来期禁用 -->
-          <el-button
-            v-if="!row.diary"
-            type="primary"
-            size="small"
-            :disabled="isFuturePeriod(row)"
-            :title="isFuturePeriod(row) ? '未到提交时间' : '提交日志'"
-            @click.stop="openSubmitDialog(row)"
-          ><el-icon><Position /></el-icon></el-button>
-        </template>
+        <el-button
+          type="warning"
+          size="small"
+          :title="row.diary?.submit && !periodDrafts[row.periodId] ? '查看日志' : '编辑日志'"
+          :disabled="!selectedPost?._approved && !row.diary && !periodDrafts[row.periodId]"
+          @click.stop="openSubmitDialog(row)"
+        ><el-icon><Edit /></el-icon></el-button>
+        <el-button
+          type="success"
+          size="small"
+          :disabled="!selectedPost?._approved || isFuturePeriod(row) || (!row.diary && !periodDrafts[row.periodId]) || row.diary?.submit === true"
+          :title="submitBtnTitle(row)"
+          @click.stop="handleDirectSubmit(row)"
+        ><el-icon><Position /></el-icon></el-button>
       </template>
     </DataTableList>
 
-    <DlgSubmitDiary ref="dlgSubmitRef" @success="onSubmitSuccess" />
+    <DlgSubmitDiary ref="dlgSubmitRef" @save="onSaveDraft" />
+    <DlgVerifyProgress
+      v-model="showProgressDialog"
+      :main-internship-id="null"
+      :process-info="progressProcessInfo"
+      key-words="ViewVerifyMainDiary"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, reactive, watch, nextTick, onMounted } from 'vue'
+import { ElMessage, ElLoading } from 'element-plus'
 import { Edit, Position } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import DataTableList from '@/components/DataTableList.vue'
 import listAPI from '@/api/list'
-import { getStudentPeriods } from '@/api/diary'
+import fileAPI from '@/api/file'
+import { getStudentPeriods, submitDiary } from '@/api/diary'
 import DlgSubmitDiary from './components/DlgSubmitDiary.vue'
-import CONSTANT from '@/utils/constant'
-import { getDiaryStatusText, getDiaryTagType, canResubmitDiary, canViewDiary } from '@/utils/verify'
-
-const PASS = CONSTANT.AUDIT_STATUS.PASS
+import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue'
+import { getDiaryStatusText, getDiaryTagType } from '@/utils/verify'
 
 defineOptions({ name: 'UploadInternshipReport' })
 
@@ -116,12 +111,16 @@ const selectedPost = computed(() =>
   studentPosts.value.find(p => p._key === selectedPostKey.value) ?? null
 )
 
+// ── 表格标题 ──────────────────────────────────────────────────
+const titleObj = reactive({ mainTitle: '上传实习报告' })
+watch(selectedPost, (post) => {
+  titleObj.mainTitle = post ? postLabel(post) : '上传实习报告'
+}, { immediate: true })
+
 // ── DataTableList ─────────────────────────────────────────────
 const dtlRef = ref(null)
-// 最新期的 periodId，由 after-init-data 更新，用于高亮和 canSubmit 判断
 const currentPeriodId = ref(null)
 
-/** DataTableList 数据加载完毕后回调，按日期定位当前期次 */
 function onAfterInitData(list) {
   currentPeriodId.value = findCurrentPeriod(list)?.periodId ?? null
 }
@@ -142,11 +141,11 @@ async function fetchRecordsFunc() {
 }
 
 const dtlProps = computed(() => ({
+  title: titleObj,
   someFlags: {
     autoInit: true,
     checkFlag: false,
     hideSelectColumn: true,
-    showPage: false,
   },
   sortStr: { properties: 'periodIndex', direction: 'ASC' },
   defaultDTHProps: {
@@ -156,13 +155,13 @@ const dtlProps = computed(() => ({
       update: { show: false },
       delete: { show: false },
       buttonGroup: { show: false },
+      visible: { show: true, name: '查看审核历程' },
     },
     allTableColumns: [
       { id: 1, showName: '期次',     theOrder: 1, tableColumnName: 'customize-period'  },
       { id: 2, showName: '开始时间', theOrder: 2, tableColumnName: 'beginTime'         },
       { id: 3, showName: '结束时间', theOrder: 3, tableColumnName: 'endTime'           },
       { id: 4, showName: '状态',     theOrder: 4, tableColumnName: 'customize-status'  },
-      { id: 5, showName: '批阅意见', theOrder: 5, tableColumnName: 'customize-remarks' },
     ],
   },
 }))
@@ -177,20 +176,10 @@ function postLabel(post) {
   return post.teacherName ? `${name}（${post.teacherName}）` : name || `课题 #${post.relTitleStudentId}`
 }
 
-/** 期次时间判断 */
-function isPastPeriod(row) {
-  return row.endTime ? new Date(row.endTime) < new Date() : false
-}
 function isFuturePeriod(row) {
   return row.beginTime ? new Date(row.beginTime) > new Date() : false
 }
 
-/**
- * 根据今天的日期找"当前"期次：
- * 1. 今天在 beginTime-endTime 范围内的活跃期
- * 2. 无活跃期时取最近已过期的期次
- * 3. 全部未开始时取最近即将到来的期次
- */
 function findCurrentPeriod(list) {
   const now = new Date()
   const active = list.find(p =>
@@ -208,14 +197,13 @@ function findCurrentPeriod(list) {
   return future[0] ?? null
 }
 
-
 // ── 数据加载 ──────────────────────────────────────────────────
 async function loadStudentPosts() {
   const userId = userInfo.value?.id
   if (!userId) return
   try {
     postsLoading.value = true
-    const [extRes, intRes] = await Promise.allSettled([
+    const [extRes, intRes, intVerifyRes] = await Promise.allSettled([
       listAPI.getSomeRecords({
         keyWords: 'ViewVerifyProcessRelStuInternshipPostMerge',
         searchKey: { studentId: userId },
@@ -226,6 +214,13 @@ async function loadStudentPosts() {
         searchKey: { stuId: userId },
         reg: { stuId: '=' },
       }),
+      // 单独查 Merge View 获取 isAllVerified（ViewRelTitleTeacherStudent.isAudit 是导师课题
+      // 授权状态，不是学生选题审核状态，语义不同，不能用于判断选题是否最终通过）
+      listAPI.getSomeRecords({
+        keyWords: 'ViewVerifyProcessRelTitleStudentMerge',
+        searchKey: { stuId: userId },
+        reg: { stuId: '=' },
+      }),
     ])
     const extList = extRes.status === 'fulfilled'
       ? (extRes.value?.data?.content || extRes.value?.data || [])
@@ -233,6 +228,11 @@ async function loadStudentPosts() {
     const intList = intRes.status === 'fulfilled'
       ? (intRes.value?.data?.content || intRes.value?.data || [])
       : []
+    const intVerifyList = intVerifyRes.status === 'fulfilled'
+      ? (intVerifyRes.value?.data?.content || intVerifyRes.value?.data || [])
+      : []
+    // relationId 对应 RelTitleStudent.id，与 ViewRelTitleTeacherStudent.relTitleStudentId 相同
+    const intVerifyMap = new Map(intVerifyList.map(v => [v.relationId, v.isAllVerified === true]))
 
     studentPosts.value = [
       ...extList.map(item => ({
@@ -247,7 +247,7 @@ async function loadStudentPosts() {
         _key: `int_${item.relTitleStudentId}`,
         _type: 'internal',
         _paramId: item.relTitleStudentId,
-        _approved: item.isAudit === PASS,
+        _approved: intVerifyMap.get(item.relTitleStudentId) ?? false,
       })),
     ]
   } catch {
@@ -258,10 +258,30 @@ async function loadStudentPosts() {
 }
 
 function onPostChange() {
+  Object.keys(periodDrafts).forEach(k => delete periodDrafts[k])
   dtlRef.value?.initDataList()
 }
 
-// ── 对话框操作 ────────────────────────────────────────────────
+// ── 审核历程对话框 ────────────────────────────────────────────
+const showProgressDialog = ref(false)
+const currentRow = ref({})
+const progressProcessInfo = computed(() => ({
+  relationId: currentRow.value.diary?.relationId,
+  isAudit: currentRow.value.diary?.isAudit,
+  tableName: 'MainDiary',
+}))
+
+function onViewClick(rowOrArray) {
+  const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray
+  currentRow.value = { ...row }
+  showProgressDialog.value = true
+}
+
+// ── 草稿缓存（仅存内存，页面刷新后失效）────────────────────────
+// periodId → { title, content, files: File[] }
+const periodDrafts = reactive({})
+
+// ── 提交日志对话框 ────────────────────────────────────────────
 const dlgSubmitRef = ref(null)
 
 function buildIdParam(post) {
@@ -271,86 +291,128 @@ function buildIdParam(post) {
   }
 }
 
+function submitBtnTitle(row) {
+  if (!selectedPost.value?._approved) return '实习未开始'
+  if (isFuturePeriod(row)) return '未到提交时间'
+  if (!row.diary && !periodDrafts[row.periodId]) return '请先保存日志内容'
+  if (row.diary?.submit === true) return '已提交'
+  return '提交日志'
+}
+
 function openSubmitDialog(periodItem) {
+  const draft = periodDrafts[periodItem.periodId]
+  const isSubmitted = periodItem.diary?.submit === true
+  // 有草稿时用草稿的 title/content 覆盖，保留 diary 其余字段（如 isAudit/relationId）
+  const diary = draft
+    ? { ...(periodItem.diary ?? {}), title: draft.title, content: draft.content }
+    : (periodItem.diary ?? null)
   dlgSubmitRef.value?.open({
     ...buildIdParam(selectedPost.value),
     periodId: periodItem.periodId,
     periodIndex: periodItem.periodIndex,
-    diary: periodItem.diary ?? null,
-    readonly: false,
+    diary,
+    draftFiles: draft?.files ?? [],
+    readonly: isSubmitted,
   })
 }
 
-function openViewDialog(periodItem) {
-  dlgSubmitRef.value?.open({
-    ...buildIdParam(selectedPost.value),
-    periodId: periodItem.periodId,
-    periodIndex: periodItem.periodIndex,
-    diary: periodItem.diary,
-    readonly: true,
-  })
+function onSaveDraft({ periodId, title, content, files }) {
+  periodDrafts[periodId] = { title, content, files }
+  ElMessage.success('草稿已保存，点击提交按钮上传')
 }
 
-function onSubmitSuccess() {
-  dtlRef.value?.initDataList()
+async function handleDirectSubmit(row) {
+  const draft = periodDrafts[row.periodId]
+  const title = draft ? draft.title : row.diary?.title
+  const content = draft ? draft.content : row.diary?.content
+
+  if (!title?.trim()) {
+    ElMessage.warning('请先填写日志标题后再提交')
+    return
+  }
+  if (!content?.trim()) {
+    ElMessage.warning('请先填写日志内容后再提交')
+    return
+  }
+  const post = selectedPost.value
+  const loading = ElLoading.service({ text: '提交中…', background: 'rgba(0,0,0,0.45)' })
+  try {
+    const res = await submitDiary({
+      ...buildIdParam(post),
+      periodId: row.periodId,
+      title,
+      content,
+      submit: true,
+    })
+    if (res?.message === 'successful') {
+      const diaryId = res.data
+      if (draft?.files?.length > 0 && diaryId) {
+        loading.setText('上传附件中…')
+        await fileAPI.upload({ files: draft.files, relationIds: diaryId, tableName: 'main_diary' })
+      }
+      delete periodDrafts[row.periodId]
+      ElMessage.success('提交成功')
+      dtlRef.value?.initDataList()
+    } else {
+      ElMessage.error(res?.message || '提交失败')
+    }
+  } catch {
+    // 拦截器已处理
+  } finally {
+    loading.close()
+  }
 }
 
 // ── 初始化 ────────────────────────────────────────────────────
 onMounted(async () => {
   await loadStudentPosts()
-  // 只有一个岗位时自动选中；DataTableList 随 v-if 挂载后会自动发起数据请求
   if (studentPosts.value.length === 1) {
     selectedPostKey.value = studentPosts.value[0]._key
+    await nextTick()
+    dtlRef.value?.initDataList()
   }
 })
 </script>
 
 <style scoped>
 .upload-report-page {
-  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.selector-card :deep(.el-card__body) {
-  padding: 14px 20px;
-}
-
-.selector-row {
-  display: flex;
-  align-items: center;
   gap: 12px;
 }
 
-.selector-label {
-  font-weight: 600;
-  white-space: nowrap;
-  color: #303133;
+.selector-card :deep(.el-card__body) {
+  padding: 14px 16px;
 }
 
-.current-post-name {
-  font-size: 14px;
-  color: #409eff;
-  font-weight: 500;
+.mb-0 {
+  margin-bottom: 0;
 }
 
-.empty-hint {
+.select-empty {
+  text-align: center;
   color: #909399;
-  font-size: 13px;
+  padding: 10px 0;
+  margin: 0;
 }
 
-.remark-text {
-  color: #606266;
-  font-size: 12px;
+.post-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
 }
 
-.pending-text {
-  color: #e6a23c;
-  font-size: 13px;
+.type-tag {
+  flex-shrink: 0;
 }
 
-/* 当前期行高亮 */
+.option-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 :deep(.current-period-row td) {
   background-color: #ecf5ff !important;
 }

@@ -9,11 +9,25 @@
     system-assign-mode="manual"
     :tutor-assign-kind="null"
     :submit-row-condition="submitRowCondition"
-  />
+  >
+    <template #rightOperate="{ row }">
+      <el-button
+        type="primary"
+        size="small"
+        circle
+        title="分配老师"
+        :disabled="row?.isAudit !== CONSTANT.AUDIT_STATUS.SAVE"
+        @click="baseRef?.openManualAssignDialog?.(row, { teacherOnly: true })"
+      >
+        <el-icon><Avatar /></el-icon>
+      </el-button>
+    </template>
+  </TutorAssignmentBase>
 </template>
 
 <script setup>
 import { ref } from 'vue';
+import { Avatar } from '@element-plus/icons-vue';
 import CONSTANT from '@/utils/constant';
 import TutorAssignmentBase from './components/TutorAssignmentBase.vue';
 

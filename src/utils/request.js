@@ -35,9 +35,11 @@ service.interceptors.request.use(
 // response interceptor
 const suppressMessages = ['用户Id获取失败']
 
+const suppressUrls = ['/sign/logout', '/importAndExport/importInfo', '/importAndExport/exportInfo']
+
 const shouldSuppress = (message, url) => {
   if (!message) return false
-  if (url && url.includes('/sign/logout')) return true
+  if (url && suppressUrls.some((u) => url.includes(u))) return true
   return suppressMessages.some((text) => message.includes(text))
 }
 

@@ -126,7 +126,7 @@ const confirm = async (option, type, dlgForm) => {
 };
 
 const confirmMore = async (data) => {
-  await userAPI.saveUserRoles(data.id, form.roleIds);
+  await userAPI.saveUserRoles(data.id, form.roleIds || []);
 };
 
 const onSelRoles = (val) => {
