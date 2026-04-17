@@ -128,7 +128,6 @@
       <el-button
         v-if="!readonly"
         type="primary"
-        :loading="submitting"
         @click="handleSave"
       >保存</el-button>
     </template>
@@ -136,13 +135,10 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, Upload, Download } from '@element-plus/icons-vue'
-import { useStore } from 'vuex'
-import fileAPI from '@/api/file'
 import listAPI from '@/api/list'
-import { submitDiary } from '@/api/diary'
 import CONSTANT from '@/utils/constant'
 import { canResubmitDiary } from '@/utils/verify'
 import { useDiaryFiles } from './useDiaryFiles'
@@ -193,12 +189,9 @@ function badgeFontSize(text) {
   return '10px'
 }
 
-const emit = defineEmits(['success'])
-const store = useStore()
-const userInfo = computed(() => store.getters.userInfo || {})
+const emit = defineEmits(['save'])
 
 const visible = ref(false)
-const submitting = ref(false)
 const readonly = ref(false)
 
 const relationId = ref(null)
@@ -260,12 +253,14 @@ function open(opts) {
   currentDiary.value = opts.diary ?? null
   readonly.value = opts.readonly ?? false
 
+  backReason.value = ''
   form.title = opts.diary?.title ?? ''
   form.content = opts.diary?.content ?? ''
   existingFiles.value = []
-  newFileList.value = []
+  newFileList.value = (opts.draftFiles || []).map(f => ({ name: f.name, size: f.size, raw: f }))
 
   visible.value = true
+  nextTick(() => formRef.value?.clearValidate())
 
   if (opts.diary?.relationId) {
     loadExistingFiles(opts.diary.relationId)
@@ -276,6 +271,7 @@ function open(opts) {
 }
 
 function onClosed() {
+  if (visible.value) return  // 关闭动画结束前被重新打开，跳过清理
   formRef.value?.resetFields()
   existingFiles.value = []
   newFileList.value = []
@@ -344,47 +340,19 @@ async function loadBackReason(diaryRelationId) {
   }
 }
 
-// ── 保存草稿 ─────────────────────────────────────────────────
+// ── 保存到缓存 ───────────────────────────────────────────────
 async function handleSave() {
   try {
     await formRef.value.validate()
   } catch { return }
 
-  try {
-    submitting.value = true
-
-    const res = await submitDiary({
-      relationId: relationId.value,
-      tableName: tableName.value,
-      periodId: periodId.value,
-      title: form.title,
-      content: form.content,
-      submit: false,
-    })
-    if (res?.message !== 'successful') {
-      ElMessage.error(res?.message || '保存失败')
-      return
-    }
-    const diaryId = res.data
-
-    const rawFiles = newFileList.value.filter(f => f.raw).map(f => f.raw)
-    if (rawFiles.length > 0 && diaryId) {
-      await fileAPI.upload({ files: rawFiles, relationIds: diaryId, tableName: 'main_diary' })
-    }
-
-    ElMessage.success('保存成功，请点击"提交"按钮提交日志')
-    visible.value = false
-    emit('success')
-  } catch (e) {
-    const backendMsg = e?.response?.data?.message || ''
-    if (backendMsg.includes('尚未分配校内导师')) {
-      ElMessage.warning('请联系管理员完成校内导师分配后再保存日志')
-    } else if (!e?.response) {
-      ElMessage.error('保存失败：' + (e?.message || ''))
-    }
-  } finally {
-    submitting.value = false
-  }
+  emit('save', {
+    periodId: periodId.value,
+    title: form.title,
+    content: form.content,
+    files: newFileList.value.filter(f => f.raw).map(f => f.raw),
+  })
+  visible.value = false
 }
 
 defineExpose({ open })

@@ -54,27 +54,28 @@
         >当前</el-tag>
       </template>
       <template #status="{ row }">
-        <el-tag :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
+        <el-tag v-if="periodDrafts[row.periodId]" type="warning" effect="light">草稿</el-tag>
+        <el-tag v-else :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
       </template>
       <template #rightOperate="{ row }">
         <el-button
           type="warning"
           size="small"
-          :title="row.diary?.submit ? '查看日志' : '编辑日志'"
-          :disabled="!selectedPost?._approved && !row.diary"
+          :title="row.diary?.submit && !periodDrafts[row.periodId] ? '查看日志' : '编辑日志'"
+          :disabled="!selectedPost?._approved && !row.diary && !periodDrafts[row.periodId]"
           @click.stop="openSubmitDialog(row)"
         ><el-icon><Edit /></el-icon></el-button>
         <el-button
           type="success"
           size="small"
-          :disabled="!selectedPost?._approved || isFuturePeriod(row) || !row.diary || row.diary?.submit === true"
+          :disabled="!selectedPost?._approved || isFuturePeriod(row) || (!row.diary && !periodDrafts[row.periodId]) || row.diary?.submit === true"
           :title="submitBtnTitle(row)"
           @click.stop="handleDirectSubmit(row)"
         ><el-icon><Position /></el-icon></el-button>
       </template>
     </DataTableList>
 
-    <DlgSubmitDiary ref="dlgSubmitRef" @success="onSubmitSuccess" />
+    <DlgSubmitDiary ref="dlgSubmitRef" @save="onSaveDraft" />
     <DlgVerifyProgress
       v-model="showProgressDialog"
       :main-internship-id="null"
@@ -86,11 +87,12 @@
 
 <script setup>
 import { ref, computed, reactive, watch, nextTick, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElLoading } from 'element-plus'
 import { Edit, Position } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import DataTableList from '@/components/DataTableList.vue'
 import listAPI from '@/api/list'
+import fileAPI from '@/api/file'
 import { getStudentPeriods, submitDiary } from '@/api/diary'
 import DlgSubmitDiary from './components/DlgSubmitDiary.vue'
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue'
@@ -256,6 +258,7 @@ async function loadStudentPosts() {
 }
 
 function onPostChange() {
+  Object.keys(periodDrafts).forEach(k => delete periodDrafts[k])
   dtlRef.value?.initDataList()
 }
 
@@ -274,6 +277,10 @@ function onViewClick(rowOrArray) {
   showProgressDialog.value = true
 }
 
+// ── 草稿缓存（仅存内存，页面刷新后失效）────────────────────────
+// periodId → { title, content, files: File[] }
+const periodDrafts = reactive({})
+
 // ── 提交日志对话框 ────────────────────────────────────────────
 const dlgSubmitRef = ref(null)
 
@@ -287,43 +294,63 @@ function buildIdParam(post) {
 function submitBtnTitle(row) {
   if (!selectedPost.value?._approved) return '实习未开始'
   if (isFuturePeriod(row)) return '未到提交时间'
-  if (!row.diary) return '请先保存日志内容'
+  if (!row.diary && !periodDrafts[row.periodId]) return '请先保存日志内容'
   if (row.diary?.submit === true) return '已提交'
   return '提交日志'
 }
 
 function openSubmitDialog(periodItem) {
+  const draft = periodDrafts[periodItem.periodId]
   const isSubmitted = periodItem.diary?.submit === true
+  // 有草稿时用草稿的 title/content 覆盖，保留 diary 其余字段（如 isAudit/relationId）
+  const diary = draft
+    ? { ...(periodItem.diary ?? {}), title: draft.title, content: draft.content }
+    : (periodItem.diary ?? null)
   dlgSubmitRef.value?.open({
     ...buildIdParam(selectedPost.value),
     periodId: periodItem.periodId,
     periodIndex: periodItem.periodIndex,
-    diary: periodItem.diary ?? null,
+    diary,
+    draftFiles: draft?.files ?? [],
     readonly: isSubmitted,
   })
 }
 
+function onSaveDraft({ periodId, title, content, files }) {
+  periodDrafts[periodId] = { title, content, files }
+  ElMessage.success('草稿已保存，点击提交按钮上传')
+}
+
 async function handleDirectSubmit(row) {
-  const diary = row.diary
-  if (!diary || diary.submit === true) return
-  if (!diary.title?.trim()) {
+  const draft = periodDrafts[row.periodId]
+  const title = draft ? draft.title : row.diary?.title
+  const content = draft ? draft.content : row.diary?.content
+
+  if (!title?.trim()) {
     ElMessage.warning('请先填写日志标题后再提交')
     return
   }
-  if (!diary.content?.trim()) {
+  if (!content?.trim()) {
     ElMessage.warning('请先填写日志内容后再提交')
     return
   }
   const post = selectedPost.value
+  const loading = ElLoading.service({ text: '提交中…', background: 'rgba(0,0,0,0.45)' })
   try {
     const res = await submitDiary({
       ...buildIdParam(post),
       periodId: row.periodId,
-      title: diary.title || '',
-      content: diary.content || '',
+      title,
+      content,
       submit: true,
     })
     if (res?.message === 'successful') {
+      const diaryId = res.data
+      if (draft?.files?.length > 0 && diaryId) {
+        loading.setText('上传附件中…')
+        await fileAPI.upload({ files: draft.files, relationIds: diaryId, tableName: 'main_diary' })
+      }
+      delete periodDrafts[row.periodId]
       ElMessage.success('提交成功')
       dtlRef.value?.initDataList()
     } else {
@@ -331,11 +358,9 @@ async function handleDirectSubmit(row) {
     }
   } catch {
     // 拦截器已处理
+  } finally {
+    loading.close()
   }
-}
-
-function onSubmitSuccess() {
-  dtlRef.value?.initDataList()
 }
 
 // ── 初始化 ────────────────────────────────────────────────────
