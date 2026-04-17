@@ -108,15 +108,22 @@ async function handleSubmit() {
   try {
     submitting.value = true
     let successCount = 0
+    const failedNames = []
     for (const row of eligible) {
       const processId = row.diary?.id
       if (!processId) continue
       try {
         await internshipProcessAPI.auditProcess({ id: processId, isAudit: form.isAudit, reason: form.reason })
         successCount++
-      } catch {}
+      } catch {
+        failedNames.push(row.studentName || `ID:${processId}`)
+      }
     }
-    ElMessage.success(`批量操作完成（${getAuditStatusText(form.isAudit)}），成功 ${successCount} 条`)
+    if (failedNames.length === 0) {
+      ElMessage.success(`批量操作完成（${getAuditStatusText(form.isAudit)}），共 ${successCount} 条`)
+    } else {
+      ElMessage.warning(`操作完成：${successCount} 条成功，${failedNames.length} 条失败（${failedNames.join('、')}）`)
+    }
     visible.value = false
     emit('success')
   } catch (e) {

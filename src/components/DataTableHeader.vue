@@ -397,8 +397,8 @@ async function _exportData() {
     instance.proxy.downloadFile(content, name);
     loading.close();
   } catch (error) {
-    console.log(error);
     loading.close();
+    ElMessage.error('导出失败，请重试')
   }
 }
 

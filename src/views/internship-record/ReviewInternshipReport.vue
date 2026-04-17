@@ -1,30 +1,15 @@
 <template>
   <div class="review-internship-report">
     <!-- 顶部：实习项目 + 期数选择 -->
-    <InternshipPeriodSelector
-      v-model:internshipId="selectedInternshipId"
-      v-model:periodId="selectedPeriod"
-      :user-id="userInfo.id"
-      @internship-change="onInternshipChange"
-      @period-change="onPeriodChange"
-    />
+    <InternshipPeriodSelector v-model:internshipId="selectedInternshipId" v-model:periodId="selectedPeriod"
+      :user-id="userInfo.id" @internship-change="onInternshipChange" @period-change="onPeriodChange" />
 
     <!-- 统计区 -->
-    <DiaryStatsCard
-      :submitted="submittedCount"
-      :not-submitted="notSubmittedCount"
-      :total="allStudents.length"
-    />
+    <DiaryStatsCard :submitted="submittedCount" :not-submitted="notSubmittedCount" :total="allStudents.length" />
 
     <!-- 学生列表 -->
-    <DataTableList
-      ref="dtlRef"
-      :default-props="dtlProps"
-      :fetch-records="fetchRecordsFunc"
-      :client-filter-fn="activeClientFilterFn"
-      @audit-click="onAuditClick"
-      @view-click="onViewClick"
-    >
+    <DataTableList ref="dtlRef" :default-props="dtlProps" :fetch-records="fetchRecordsFunc"
+      :client-filter-fn="activeClientFilterFn" @audit-click="onAuditClick" @view-click="onViewClick">
       <template #left>
         <el-radio-group v-model="activeTab" @change="onTabChange">
           <el-radio-button value="all">全部（{{ allStudents.length }}）</el-radio-button>
@@ -44,12 +29,7 @@
         {{ row.diary?.title || '——' }}
       </template>
       <template #diaryContent="{ row }">
-        <el-tooltip
-          v-if="row.diary?.content"
-          :content="row.diary.content"
-          placement="top"
-          :show-after="400"
-        >
+        <el-tooltip v-if="row.diary?.content" :content="row.diary.content" placement="top" :show-after="400">
           <div class="content-preview">{{ row.diary.content }}</div>
         </el-tooltip>
         <span v-else>——</span>
@@ -60,7 +40,9 @@
 
       <template #rightOperate="{ row }">
         <el-button type="warning" size="small" title="学生详情" @click.stop="openStudentDetail(row)">
-          <el-icon><InfoFilled /></el-icon>
+          <el-icon>
+            <InfoFilled />
+          </el-icon>
         </el-button>
       </template>
     </DataTableList>
@@ -70,12 +52,8 @@
     <DlgReviewDiary ref="dlgReviewRef" @success="onReviewSuccess" />
     <DlgBatchReviewDiary ref="dlgBatchReviewRef" @success="onReviewSuccess" />
     <DlgStudentDetail ref="dlgDetailRef" />
-    <DlgVerifyProgress
-      v-model="showProgressDialog"
-      :main-internship-id="null"
-      :process-info="progressProcessInfo"
-      key-words="ViewVerifyMainDiary"
-    />
+    <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="null" :process-info="progressProcessInfo"
+      key-words="ViewVerifyMainDiary" />
   </div>
 </template>
 
@@ -192,13 +170,12 @@ const dtlProps = computed(() => ({
       visible: { show: true, name: '查看审核历程' },
     },
     allTableColumns: [
-      { id: 1, showName: '学生姓名', theOrder: 1, tableColumnName: 'studentName'               },
-      { id: 2, showName: '学号',     theOrder: 2, tableColumnName: 'studentNo'                 },
-      { id: 3, showName: '岗位/题目', theOrder: 3, tableColumnName: 'customize-postOrTitle'    },
-      { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: 'customize-submitTime'      },
-      { id: 5, showName: '日志标题', theOrder: 5, tableColumnName: 'customize-diaryTitle'      },
-      { id: 6, showName: '日志内容', theOrder: 6, tableColumnName: 'customize-diaryContent'    },
-      { id: 7, showName: '审核状态', theOrder: 7, tableColumnName: 'customize-status'          },
+      { id: 1, showName: '学生姓名', theOrder: 1, tableColumnName: 'studentName' },
+      { id: 2, showName: '学号', theOrder: 2, tableColumnName: 'studentNo' },
+      { id: 3, showName: '岗位/题目', theOrder: 3, tableColumnName: 'customize-postOrTitle' },
+      { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: 'customize-submitTime' },
+      { id: 5, showName: '日志标题', theOrder: 5, tableColumnName: 'customize-diaryTitle' },
+      { id: 7, showName: '审核状态', theOrder: 7, tableColumnName: 'customize-status' },
     ],
   },
 }))

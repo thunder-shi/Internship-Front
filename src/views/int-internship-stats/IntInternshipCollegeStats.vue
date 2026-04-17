@@ -199,28 +199,32 @@ async function fetchCollegeStats(params) {
     };
   }
 
-  const res = await internshipProcessAPI.listInternalInternshipCollegeStats({
-    departmentId: Number(departmentId),
-    pageInfo: {
-      page: params.pageInfo.page,
-      size: params.pageInfo.size,
-    },
-  });
-  const data = unwrapPayload(res);
-  const rows = Array.isArray(data.rows) ? data.rows : [];
-  const content = rows.map((r) => ({
-    ...r,
-    id: r.internshipId ?? r.id,
-  }));
-  const total = Number(data.totalElements ?? 0);
-
-  return {
-    data: {
-      content,
-      totalElements: total,
-      page: { totalElements: total },
-    },
-  };
+  try {
+    const res = await internshipProcessAPI.listInternalInternshipCollegeStats({
+      departmentId: Number(departmentId),
+      pageInfo: {
+        page: params.pageInfo.page,
+        size: params.pageInfo.size,
+      },
+    });
+    const data = unwrapPayload(res);
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    const content = rows.map((r) => ({
+      ...r,
+      id: r.internshipId ?? r.id,
+    }));
+    const total = Number(data.totalElements ?? 0);
+    return {
+      data: {
+        content,
+        totalElements: total,
+        page: { totalElements: total },
+      },
+    };
+  } catch {
+    ElMessage.error('获取统计数据失败，请重试');
+    return { data: { content: [], totalElements: 0, page: { totalElements: 0 } } };
+  }
 }
 
 function handleNodeClick(node) {
@@ -236,24 +240,23 @@ async function applyStatsScope(scope) {
   if (scope === 'school') {
     const id = await fetchSchoolRootDepartmentId(userInfo.value);
     selectedDepartmentId.value = id;
-    titleState.subTitle = id != null ? `全校：学校根 departmentId=${id}` : '未能解析学校根，请检查部门数据';
+    titleState.subTitle = id != null ? '统计范围：全校' : '未能解析学校根节点，请检查部门数据';
     return;
   }
   if (scope === 'college') {
     if (uid == null || uid === '') {
       selectedDepartmentId.value = null;
-      titleState.subTitle = '本学院：账号未绑定部门，请改选「全校」或左侧树';
+      titleState.subTitle = '统计范围：本学院（账号未绑定部门，请改选「全校」或左侧树）';
       return;
     }
     const id = await resolveCollegeScopeDepartmentId(uid);
     selectedDepartmentId.value = id;
-    titleState.subTitle =
-      id != null ? `本学院：按账号部门解析为 departmentId=${id}` : '本学院：解析失败，请使用左侧树选择';
+    titleState.subTitle = id != null ? '统计范围：本学院' : '统计范围：本学院（解析失败，请使用左侧树选择）';
     return;
   }
   // tree：仅刷新列表，id 由点击树维护
   if (selectedDepartmentId.value != null && selectedDepartmentId.value !== '') {
-    titleState.subTitle = '按左侧部门树所选节点';
+    titleState.subTitle = '统计范围：按左侧部门树所选节点';
   }
 }
 

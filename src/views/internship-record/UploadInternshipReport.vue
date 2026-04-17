@@ -94,10 +94,7 @@ import listAPI from '@/api/list'
 import { getStudentPeriods, submitDiary } from '@/api/diary'
 import DlgSubmitDiary from './components/DlgSubmitDiary.vue'
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue'
-import CONSTANT from '@/utils/constant'
 import { getDiaryStatusText, getDiaryTagType } from '@/utils/verify'
-
-const PASS = CONSTANT.AUDIT_STATUS.PASS
 
 defineOptions({ name: 'UploadInternshipReport' })
 
@@ -204,7 +201,7 @@ async function loadStudentPosts() {
   if (!userId) return
   try {
     postsLoading.value = true
-    const [extRes, intRes] = await Promise.allSettled([
+    const [extRes, intRes, intVerifyRes] = await Promise.allSettled([
       listAPI.getSomeRecords({
         keyWords: 'ViewVerifyProcessRelStuInternshipPostMerge',
         searchKey: { studentId: userId },
@@ -215,6 +212,13 @@ async function loadStudentPosts() {
         searchKey: { stuId: userId },
         reg: { stuId: '=' },
       }),
+      // 单独查 Merge View 获取 isAllVerified（ViewRelTitleTeacherStudent.isAudit 是导师课题
+      // 授权状态，不是学生选题审核状态，语义不同，不能用于判断选题是否最终通过）
+      listAPI.getSomeRecords({
+        keyWords: 'ViewVerifyProcessRelTitleStudentMerge',
+        searchKey: { stuId: userId },
+        reg: { stuId: '=' },
+      }),
     ])
     const extList = extRes.status === 'fulfilled'
       ? (extRes.value?.data?.content || extRes.value?.data || [])
@@ -222,6 +226,11 @@ async function loadStudentPosts() {
     const intList = intRes.status === 'fulfilled'
       ? (intRes.value?.data?.content || intRes.value?.data || [])
       : []
+    const intVerifyList = intVerifyRes.status === 'fulfilled'
+      ? (intVerifyRes.value?.data?.content || intVerifyRes.value?.data || [])
+      : []
+    // relationId 对应 RelTitleStudent.id，与 ViewRelTitleTeacherStudent.relTitleStudentId 相同
+    const intVerifyMap = new Map(intVerifyList.map(v => [v.relationId, v.isAllVerified === true]))
 
     studentPosts.value = [
       ...extList.map(item => ({
@@ -236,7 +245,7 @@ async function loadStudentPosts() {
         _key: `int_${item.relTitleStudentId}`,
         _type: 'internal',
         _paramId: item.relTitleStudentId,
-        _approved: item.isAudit === PASS,
+        _approved: intVerifyMap.get(item.relTitleStudentId) ?? false,
       })),
     ]
   } catch {

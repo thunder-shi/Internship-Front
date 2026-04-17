@@ -1,6 +1,4 @@
 import request from '@/utils/request';
-import { getEncryptKeyWord } from '@/utils/rsaEncrypt';
-import CONSTANT from '@/utils/constant';
 
 // 推进审核流程（单条传对象，批量传对象数组）
 async function auditProcess(node) {
