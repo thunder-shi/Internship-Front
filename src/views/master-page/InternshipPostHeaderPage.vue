@@ -13,6 +13,7 @@
       @submit-click="handleSubmitClick"
       @more2-click="handleMore2Click"
       @more3-click="handleMore3Click"
+      @more4-click="handleMore4Click"
       @after-init-data="handleAfterInitData"
     >
       <template v-if="$slots.rightOperate" #rightOperate="slotProps">
@@ -107,6 +108,7 @@ const emit = defineEmits([
   'audit-command',
   'more2-click',
   'more3-click',
+  'more4-click',
   'post-detail-close',
   'post-detail-success',
   'project-selected',
@@ -333,6 +335,10 @@ function handleMore2Click(rows) {
 
 function handleMore3Click(rows) {
   emit('more3-click', rows);
+}
+
+function handleMore4Click(rows) {
+  emit('more4-click', rows);
 }
 
 // 查看进度按钮点击（转发给父组件）

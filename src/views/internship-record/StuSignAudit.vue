@@ -443,11 +443,31 @@ function onTabChange(name) {
   }
 }
 
+function isTodaySignRecord(row) {
+  if (!row) return false;
+  const t = row.createTime ?? row.create_time ?? row.submitTime ?? row.signTime;
+  if (!t) return false;
+  return moment(t).format('YYYY-MM-DD') === moment().format('YYYY-MM-DD');
+}
+
 function handleAuditClick(row) {
   const rows = Array.isArray(row) ? row : row ? [row] : [];
   if (rows.length === 0) return;
-  if (rows.length === 1) {
-    dlgVerifyRef.value?.showDialog(true, rows[0]);
+  if (activeTab.value === 'student') {
+    const todayRows = rows.filter(isTodaySignRecord);
+    if (!todayRows.length) {
+      ElMessage.warning('按学生查询仅支持审核当天打卡记录');
+      return;
+    }
+    if (todayRows.length !== rows.length) {
+      ElMessage.warning('已自动忽略非当天记录，仅可审核当天打卡');
+    }
+    row = rows.length === 1 ? todayRows[0] : todayRows;
+  }
+  const effectiveRows = Array.isArray(row) ? row : row ? [row] : [];
+  if (effectiveRows.length === 0) return;
+  if (effectiveRows.length === 1) {
+    dlgVerifyRef.value?.showDialog(true, effectiveRows[0]);
     return;
   }
   const preSelected = lastBatchAuditCommand.value;
@@ -455,7 +475,7 @@ function handleAuditClick(row) {
     preSelected === CONSTANT.AUDIT_STATUS.BACK
       ? CONSTANT.AUDIT_STATUS.PASS
       : CONSTANT.AUDIT_STATUS.SUBMIT;
-  const targetRows = rows.filter((r) => r && r.isAudit === targetStatus);
+  const targetRows = effectiveRows.filter((r) => r && r.isAudit === targetStatus);
   if (!targetRows.length) {
     ElMessage.warning(
       preSelected === CONSTANT.AUDIT_STATUS.BACK

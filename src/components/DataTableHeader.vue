@@ -25,6 +25,8 @@
           @click="more2Click(selectedColumns)">{{ button.more2.name }}</el-button>
         <el-button v-if="button.more3.show" :type="button.more3.type" :icon="Promotion"
           @click="more3Click(selectedColumns)">{{ button.more3.name }}</el-button>
+        <el-button v-if="button.more4.show" :type="button.more4.type" :icon="Promotion"
+          @click="more4Click(selectedColumns)">{{ button.more4.name }}</el-button>
         <el-button v-if="button.batchCreate.show" :icon="UploadFilled" :type="button.batchCreate.type"
           @click="handleUpload">{{ button.batchCreate.name }}</el-button>
         <div v-if="button.audit.show && button.audit.showHeaderBtn !== false" style="padding-left:10px;padding-right:10px;">
@@ -133,6 +135,7 @@ const emit = defineEmits([
   'more1-click',
   'more2-click',
   'more3-click',
+  'more4-click',
   'export-click',
   'show-search',
   'init-click',
@@ -230,6 +233,7 @@ const button = computed(() => {
     more1: { show: false, name: '更多操作1', type: 'info' },
     more2: { show: false, name: '更多操作2', type: 'info' },
     more3: { show: false, name: '更多操作3', type: 'warning' },
+    more4: { show: false, name: '更多操作4', type: 'warning' },
     audit: { show: false, name: '审核', type: 'danger', showPass: false, showNotPass: false, showSave: false, showBack: false, showDropdown: true, showHeaderBtn: true },
     submit: { show: false, name: '提交', type: 'primary' },
     buttonGroup: { show: true },
@@ -321,6 +325,11 @@ async function more2Click(row) {
 // 更多内容3
 async function more3Click(row) {
   emit('more3-click', row);
+}
+
+// 更多内容4
+async function more4Click(row) {
+  emit('more4-click', row);
 }
 
 // 导入数据
