@@ -243,10 +243,36 @@ function applyStudentSearchWords() {
   nowSearchWordsStudent.andor = { ...initSearchWordsStudent.andor };
 }
 
-function handlePostSelectChange(val, field, form, options) {
+function getPostOptionById(postId) {
+  if (postId == null || postId === '') return null;
+  const fieldItem = postSelectDialogProps.formItems.find((i) => i.field === 'internshipPostId');
+  const list = fieldItem?.options;
+  if (!Array.isArray(list) || !list.length) return null;
+  return list.find((o) => String(o.id) === String(postId)) ?? null;
+}
+
+function applySelectedPostById(postId) {
+  const opt = getPostOptionById(postId);
+  if (!opt) return;
+  currentPost.value = { ...opt };
+  syncSelectedStudentForPost();
+}
+
+/** select_noremote：handleSelectChange(item, val, form) 仅 3 参；SimpleSelect 经 @simple-select-change 为 (val, field, form, options) */
+function handlePostSelectChange(arg1, arg2, arg3, arg4) {
+  if (arguments.length <= 3) {
+    if (arg1?.field === 'internshipPostId') {
+      applySelectedPostById(arg2);
+    }
+    return;
+  }
+  const field = arg2;
+  const options = arg4;
   if (field === 'internshipPostId' && options && options.length > 0) {
     currentPost.value = { ...options[0] };
     syncSelectedStudentForPost();
+  } else if (field === 'internshipPostId') {
+    applySelectedPostById(arg1);
   }
 }
 
@@ -273,9 +299,31 @@ const postSelectDialogProps = reactive({
   },
 });
 
-const buttonPropsShared = computed(() => ({
+const auditButtonPropsToday = {
+  show: true,
+  showPass: true,
+  showNotPass: true,
+  showBack: true,
+};
+
+/** 按学生查询仅允许行内单条审核，隐藏表头批量审核（DataTableHeader 用 audit.showHeaderBtn） */
+const auditButtonPropsStudent = {
+  ...auditButtonPropsToday,
+  showHeaderBtn: false,
+};
+
+const buttonPropsToday = computed(() => ({
   more1: { show: false },
-  audit: { show: true, showPass: true, showNotPass: true, showBack: true },
+  audit: auditButtonPropsToday,
+  update: { show: false },
+  create: { show: false },
+  delete: { show: false },
+  buttonGroup: { show: true },
+}));
+
+const buttonPropsStudent = computed(() => ({
+  more1: { show: false },
+  audit: auditButtonPropsStudent,
   update: { show: false },
   create: { show: false },
   delete: { show: false },
@@ -293,7 +341,7 @@ const defaultPropsToday = computed(() => ({
     enableAuditStatusCustom: true,
     getVerifyRoleName,
     defaultDTHProps: {
-      buttonProps: buttonPropsShared.value,
+      buttonProps: buttonPropsToday.value,
       keyWord: SIGN_AUDIT_KEY_WORD,
       allTableColumns: VERIFY_MAIN_SIGN_COLUMNS,
     },
@@ -310,7 +358,7 @@ const defaultPropsStudent = computed(() => ({
     enableAuditStatusCustom: true,
     getVerifyRoleName,
     defaultDTHProps: {
-      buttonProps: buttonPropsShared.value,
+      buttonProps: buttonPropsStudent.value,
       keyWord: SIGN_AUDIT_KEY_WORD,
       allTableColumns: VERIFY_MAIN_SIGN_COLUMNS,
     },
@@ -368,17 +416,10 @@ async function openPostDialog() {
 }
 
 async function handlePostSelectConfirm() {
-  if (resolveInternshipPostId(currentPost.value) == null && postSelectDialogRef.value) {
-    const form = postSelectDialogRef.value.form || {};
-    const fid = form.internshipPostId;
-    if (fid != null && fid !== '') {
-      const fieldItem = postSelectDialogProps.formItems.find((i) => i.field === 'internshipPostId');
-      const opt = fieldItem?.options?.find((o) => String(o.id) === String(fid));
-      if (opt) {
-        currentPost.value = { ...opt };
-        syncSelectedStudentForPost();
-      }
-    }
+  const dlgForm = postSelectDialogRef.value?.form || {};
+  const fid = dlgForm.internshipPostId;
+  if (fid != null && fid !== '') {
+    applySelectedPostById(fid);
   }
   if (resolveInternshipPostId(currentPost.value) == null) {
     ElMessage.warning('请选择实习岗位');
