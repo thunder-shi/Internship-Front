@@ -75,7 +75,7 @@
         <SimpleCron v-else-if="item.type === 'cron'" v-model="form[item.field]" :disabled="item.disabled" :show-expression="item.showExpression" @change="(val) => onCronChange(val, item.field)" />
         <!-- 简单下拉选择框 -->
         <el-select v-else-if="item.type === 'select_noremote'" v-model="form[item.field]" placeholder="请选择" @change="(val) => handleSelectChange && handleSelectChange(item, val, form)">
-          <el-option v-for="(sitem, sindex) in item.options" :key="sindex" :label="sitem.name" :value="sitem.id" />
+          <el-option v-for="(sitem, sindex) in item.options" :key="sitem.id ?? `opt-${sindex}`" :label="sitem.name" :value="sitem.id" />
         </el-select>
         <!-- 关联数据选择框 -->
         <SimpleSelect v-else-if="item.type === 'select'" :ref="'smpSel' + item.field" v-model="form[item.field]" :field="item.field" :select-label="item.selectLabel" :change-label="item.changeLabel" :multiple="item.multiple" :key-words="item.keyWords" :search-key="typeof item.searchKeys === 'object' ? item.searchKeys : form[item.searchKeys]" :reg-key="item.regKey" :disabled="item.disabled" :placeholder="item.placeholder ? item.placeholder : '请选择'" :auto-select="item.autoSelect" :sortJson="item.sortJson" @update-value="onSimpleSelectChange" @init-finish="simpleSelectInitFinish" />
