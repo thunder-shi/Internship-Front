@@ -83,11 +83,10 @@
 import { ref, computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
-import fileAPI from '@/api/file'
-import listAPI from '@/api/list'
 import internshipProcessAPI from '@/api/internshipProcess'
 import CONSTANT from '@/utils/constant'
 import { getAuditStatusText, getAuditTagType } from '@/utils/verify'
+import { useDiaryFiles } from './useDiaryFiles'
 
 defineOptions({ name: 'DlgReviewDiary' })
 
@@ -96,10 +95,10 @@ const emit = defineEmits(['success'])
 const AUDIT_STATUS = CONSTANT.AUDIT_STATUS
 
 const visible = ref(false)
-const loading = ref(false)
 const submitting = ref(false)
 const student = ref(null)
-const files = ref([])
+
+const { files, filesLoading: loading, loadFiles, triggerDownload, reset: resetFiles } = useDiaryFiles()
 
 const isAlreadyPassed = computed(() => student.value?.diary?.isAllVerified === true)
 
@@ -125,7 +124,7 @@ function open(row) {
   student.value = row
   form.isAudit = null
   form.reason = ''
-  files.value = []
+  resetFiles()
   visible.value = true
 
   if (row?.diary?.relationId) {
@@ -136,36 +135,7 @@ function open(row) {
 function onClosed() {
   formRef.value?.clearValidate()
   student.value = null
-  files.value = []
-}
-
-async function loadFiles(diaryId) {
-  try {
-    loading.value = true
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'SysOssFile',
-      searchKey: { relationIds: diaryId, tableName: 'main_diary' },
-      reg: { relationIds: '=', tableName: '=' },
-    })
-    const raw = res?.data?.content || res?.data || []
-    files.value = raw.map(f => ({
-      id: f.id,
-      name: f.fileName || '未知文件',
-      size: Number(f.fileSize) || 0,
-    }))
-  } catch {
-    files.value = []
-  } finally {
-    loading.value = false
-  }
-}
-
-async function triggerDownload(file) {
-  try {
-    await fileAPI.downloadFile(file.id)
-  } catch {
-    ElMessage.error('文件下载失败')
-  }
+  resetFiles()
 }
 
 async function handleSubmit() {

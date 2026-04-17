@@ -19,21 +19,6 @@
         <el-button type="primary" style="margin-left: 12px" @click="onBatchAuditClick">批量审核</el-button>
       </template>
 
-      <template #postOrTitle="{ row }">
-        {{ row.internshipPostName || row.titleName || '——' }}
-      </template>
-      <template #submitTime="{ row }">
-        {{ row.diary?.createTime || '——' }}
-      </template>
-      <template #diaryTitle="{ row }">
-        {{ row.diary?.title || '——' }}
-      </template>
-      <template #diaryContent="{ row }">
-        <el-tooltip v-if="row.diary?.content" :content="row.diary.content" placement="top" :show-after="400">
-          <div class="content-preview">{{ row.diary.content }}</div>
-        </el-tooltip>
-        <span v-else>——</span>
-      </template>
       <template #status="{ row }">
         <el-tag :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
       </template>
@@ -122,8 +107,16 @@ async function fetchRecordsFunc() {
     list = await filterByCurrentTeacher(list)
   }
 
-  allStudents.value = list
-  return { data: { content: list, totalElements: list.length }, message: 'successful' }
+  // 扁平化嵌套字段，避免在模板中使用 customize-* 插槽
+  const flat = list.map(row => ({
+    ...row,
+    _postOrTitle: row.internshipPostName || row.titleName || null,
+    _submitTime: row.diary?.createTime ?? null,
+    _diaryTitle: row.diary?.title ?? null,
+  }))
+
+  allStudents.value = flat
+  return { data: { content: flat, totalElements: flat.length }, message: 'successful' }
 }
 
 async function filterByCurrentTeacher(list) {
@@ -172,9 +165,9 @@ const dtlProps = computed(() => ({
     allTableColumns: [
       { id: 1, showName: '学生姓名', theOrder: 1, tableColumnName: 'studentName' },
       { id: 2, showName: '学号', theOrder: 2, tableColumnName: 'studentNo' },
-      { id: 3, showName: '岗位/题目', theOrder: 3, tableColumnName: 'customize-postOrTitle' },
-      { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: 'customize-submitTime' },
-      { id: 5, showName: '日志标题', theOrder: 5, tableColumnName: 'customize-diaryTitle' },
+      { id: 3, showName: '岗位/题目', theOrder: 3, tableColumnName: '_postOrTitle' },
+      { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: '_submitTime' },
+      { id: 5, showName: '日志标题', theOrder: 5, tableColumnName: '_diaryTitle' },
       { id: 7, showName: '审核状态', theOrder: 7, tableColumnName: 'customize-status' },
     ],
   },
@@ -227,15 +220,5 @@ function onReviewSuccess() {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.content-preview {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #606266;
 }
 </style>

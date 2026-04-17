@@ -118,7 +118,7 @@ export function canViewDiary(diary) {
  * 构建审核页面的初始查询条件
  *
  * 包含三个标准过滤维度：
- * 1. isAudit IN (待审核, 已通过, 已退回)
+ * 1. isAudit IN (待审核, 已通过, 审核不通过, 已退回)
  * 2. startTime <= 当前时间（流程已开始）
  * 3. endTime >= 当前时间（流程未结束）
  *

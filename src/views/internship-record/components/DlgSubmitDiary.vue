@@ -145,6 +145,7 @@ import listAPI from '@/api/list'
 import { submitDiary } from '@/api/diary'
 import CONSTANT from '@/utils/constant'
 import { canResubmitDiary } from '@/utils/verify'
+import { useDiaryFiles } from './useDiaryFiles'
 
 defineOptions({ name: 'DlgSubmitDiary' })
 
@@ -197,7 +198,6 @@ const store = useStore()
 const userInfo = computed(() => store.getters.userInfo || {})
 
 const visible = ref(false)
-const filesLoading = ref(false)
 const submitting = ref(false)
 const readonly = ref(false)
 
@@ -219,7 +219,13 @@ const formRules = {
 }
 
 const backReason = ref('')
-const existingFiles = ref([])
+const {
+  files: existingFiles,
+  filesLoading,
+  loadFiles: loadExistingFiles,
+  triggerDownload,
+  deleteFile: deleteExistingFile,
+} = useDiaryFiles()
 const newFileList = ref([])
 
 const totalFileCount = computed(() => existingFiles.value.length + newFileList.value.length)
@@ -321,7 +327,7 @@ function removeNewFile(idx) {
   }).catch(() => {})
 }
 
-// ── 加载退回意见 ────────────────────────────────────────────
+// ── 退回意见 ─────────────────────────────────────────────────
 async function loadBackReason(diaryRelationId) {
   try {
     const res = await listAPI.getSomeRecords({
@@ -335,53 +341,6 @@ async function loadBackReason(diaryRelationId) {
     backReason.value = record?.reason || ''
   } catch {
     backReason.value = ''
-  }
-}
-
-// ── 加载已有文件 ────────────────────────────────────────────
-async function loadExistingFiles(diaryId) {
-  try {
-    filesLoading.value = true
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'SysOssFile',
-      searchKey: { relationIds: diaryId, tableName: 'main_diary' },
-      reg: { relationIds: '=', tableName: '=' },
-    })
-    const raw = res?.data?.content || res?.data || []
-    existingFiles.value = raw.map(f => ({
-      id: f.id,
-      name: f.fileName || '未知文件',
-      size: Number(f.fileSize) || 0,
-    }))
-  } catch {
-    existingFiles.value = []
-  } finally {
-    filesLoading.value = false
-  }
-}
-
-// ── 下载 ────────────────────────────────────────────────────
-async function triggerDownload(file) {
-  try {
-    await fileAPI.downloadFile(file.id)
-  } catch {
-    ElMessage.error('下载失败')
-  }
-}
-
-// ── 删除 ────────────────────────────────────────────────────
-async function deleteExistingFile(file) {
-  try {
-    await ElMessageBox.confirm('删除后不可恢复，确定删除该文件吗？', '提示', {
-      confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
-    })
-  } catch { return }
-  try {
-    await fileAPI.deleteFile([file.id])
-    existingFiles.value = existingFiles.value.filter(f => f.id !== file.id)
-    ElMessage.success('删除成功')
-  } catch {
-    ElMessage.error('删除失败')
   }
 }
 
