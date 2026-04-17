@@ -3,8 +3,18 @@ import { getEncryptKeyWord } from '@/utils/rsaEncrypt'
 import constant from '@/utils/constant'
 import { safeStringify } from '@/utils/common'
 
-// 获得所有树节点
-const getAllNodes = async ({ keyWords, parentId = -1, virtualRootFlag = true, searchKey = '', lazy = false, preName = '', sort = {properties: 'theOrder', direction: 'ASC'} }) => {
+// 获得所有树节点（searchKey 与 regKey 需成对传入时，后端才能正确解析精确匹配等条件）
+const getAllNodes = async ({
+  keyWords,
+  parentId = -1,
+  virtualRootFlag = true,
+  searchKey = '',
+  regKey = {},
+  andor = {},
+  lazy = false,
+  preName = '',
+  sort = { properties: 'theOrder', direction: 'ASC' },
+}) => {
   const encryptedKeyWords = await getEncryptKeyWord(keyWords)
   return request({
     url: '/dataTree/readAllTreeNodes',
@@ -14,6 +24,8 @@ const getAllNodes = async ({ keyWords, parentId = -1, virtualRootFlag = true, se
       parentId,
       virtualRootFlag,
       searchKey,
+      regKey,
+      andor,
       lazy,
       preName,
       sort,

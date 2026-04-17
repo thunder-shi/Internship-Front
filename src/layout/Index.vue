@@ -135,6 +135,16 @@ defineOptions({
   box-sizing: border-box;
   overflow: auto;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* 隐藏右侧滚动条，仍可用滚轮/触控板滚动 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
 }
 .app-main {
   padding: $paddingTop $paddingRight $paddingBottom $paddingLeft;

@@ -2,9 +2,46 @@ import treeAPI from '@/api/tree';
 import CONSTANT from '@/utils/constant';
 
 /**
- * 实习统计接口约定：departmentId = 待统计子树的根节点 id（非「用户所在节点」字面量）。
- * @see IntInternshipCollegeStats / listInternalInternshipCollegeStats
+ * 实习统计接口约定：
+ * - 校级：departmentId 可选，省略表示全校汇总；传入表示下钻该部门子树。
+ * - 院系管理员：统计范围限定在本人部门子树内；请求可传所选节点 departmentId 做子树下钻（须在权限范围内）。
+ * @see listInternalInternshipCollegeStats / listExternalInternshipCollegeStats
  */
+
+const INTERNSHIP_STATS_SCHOOL_SCOPE_JOB_CODES = new Set([
+  CONSTANT.USER_JOB_CODE.SUPER_ADMIN,
+  CONSTANT.USER_JOB_CODE.SCHOOL_ADMIN,
+  CONSTANT.USER_JOB_CODE.ACADEMIC_AFFAIRS_ADMIN,
+]);
+
+const INTERNSHIP_STATS_SCHOOL_SCOPE_ROLE_IDS = [
+  CONSTANT.ROLE_TABLE.SUPER_ADMIN,
+  CONSTANT.ROLE_TABLE.SCHOOL_ADMIN,
+  CONSTANT.ROLE_TABLE.ACADEMIC_AFFAIRS_ADMIN,
+];
+
+/**
+ * 校级三角色：全校部门树 + 可下钻；与 ViewBaseUser.jobCode / sys_role 一致。
+ */
+export function isInternshipStatsSchoolScopeUser(userInfo = {}, roles = []) {
+  const code = userInfo.jobCode;
+  if (code && INTERNSHIP_STATS_SCHOOL_SCOPE_JOB_CODES.has(code)) return true;
+  return roles.some((r) => INTERNSHIP_STATS_SCHOOL_SCOPE_ROLE_IDS.includes(r));
+}
+
+/** 院系管理员（且非校级三角色之一时按本院口径） */
+export function isInternshipStatsDepartmentAdmin(userInfo = {}, roles = []) {
+  if (userInfo.jobCode === CONSTANT.USER_JOB_CODE.DEPARTMENT_ADMIN) return true;
+  return roles.includes(CONSTANT.ROLE_TABLE.DEPARTMENT_ADMIN);
+}
+
+/** 可访问学院汇总实习统计的角色（其余身份后端返回 lackPermissions） */
+export function canViewInternshipCollegeStats(userInfo = {}, roles = []) {
+  return (
+    isInternshipStatsSchoolScopeUser(userInfo, roles) ||
+    isInternshipStatsDepartmentAdmin(userInfo, roles)
+  );
+}
 
 /**
  * getAllParentIndex 返回从「当前节点」到「根」的数组，转为从根到叶的链。
@@ -76,6 +113,26 @@ export async function fetchSchoolRootDepartmentId(userInfo = {}) {
     return school?.id != null ? Number(school.id) : null;
   } catch (e) {
     console.warn('fetchSchoolRootDepartmentId failed', e);
+    return null;
+  }
+}
+
+/**
+ * 院系管理员左侧树：以本人部门为根展示子树（懒加载子节点）。
+ * @param {string} keyWords DataTree keyWord，须与页面一致（如 BaseDepartment / ViewBaseDepartment）
+ * @param {number|string} departmentId 用户绑定的部门 id
+ */
+export async function fetchDepartmentSubtreeRootRow(keyWords, departmentId) {
+  if (departmentId == null || departmentId === '') return null;
+  try {
+    const res = await treeAPI.getAllParentIndex(keyWords, departmentId);
+    const chain = rootToLeafChainFromParentIndex(res.data || []);
+    if (!chain.length) return null;
+    const self = chain[chain.length - 1];
+    if (self?.id == null) return null;
+    return { ...self, isLeaf: false };
+  } catch (e) {
+    console.warn('fetchDepartmentSubtreeRootRow failed', e);
     return null;
   }
 }

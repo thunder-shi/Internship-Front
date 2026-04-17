@@ -119,7 +119,8 @@ function listInternalInternshipCollegeStats(node) {
 
 /**
  * 指定校内实习项目学生选题明细（含分类统计）
- * @param {Object} node — { internshipId, status: 'all'|'notSubmitted'|'pendingAudit'|'titleApproved', pageInfo }
+ * @param {Object} node — { internshipId, departmentId?, status: 'all'|'notSubmitted'|'pendingAudit'|'titleApproved', pageInfo }
+ *   departmentId 与 listInternalInternshipCollegeStats 下钻一致；省略表示全校汇总口径（由登录角色决定范围）
  */
 function getInternalInternshipTitleSelectionBreakdown(node) {
   return request({
@@ -131,7 +132,10 @@ function getInternalInternshipTitleSelectionBreakdown(node) {
   });
 }
 
-/** 指定校内实习项目下尚未提交题目的老师列表 */
+/**
+ * 指定校内实习项目下尚未提交题目的老师列表
+ * @param {Object} node — { internshipId, departmentId?, pageInfo }，departmentId 与统计下钻一致，省略为全校口径
+ */
 function listInternalInternshipTeachersNotSubmittedTopic(node) {
   return request({
     url: '/internshipProcess/listInternalInternshipTeachersNotSubmittedTopic',

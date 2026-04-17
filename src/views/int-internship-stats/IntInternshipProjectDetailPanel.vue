@@ -39,7 +39,7 @@
           <div class="tab-datalist">
             <DataTableList
               v-if="activeTab === 'students'"
-              :key="`students-${resolvedInternshipId}-${studentStatus}`"
+              :key="`students-${resolvedInternshipId}-${studentStatus}-${resolvedDepartmentId ?? 'whole'}`"
               ref="studentsDataTableRef"
               :default-props="studentsDtlProps"
               :fetch-records="fetchStudentRows"
@@ -55,42 +55,32 @@
         </el-tab-pane>
 
         <el-tab-pane label="尚未提交题目的老师" name="teachers">
-          <el-alert
-            v-if="resolvedDepartmentId == null"
-            type="warning"
-            show-icon
-            :closable="false"
-            class="mb-12"
-            title="缺少学院 departmentId，请从统计列表进入本页，或在后台菜单中携带部门信息。"
-          />
-          <template v-else>
-            <div class="counts-row counts-row--inline">
-              <span class="inline-count-label">未提交题目的老师人数：</span>
-              <span class="inline-count-num">{{ teachersNotSubmittedCount }}</span>
-            </div>
-            <div class="tab-datalist">
-              <DataTableList
-                v-if="activeTab === 'teachers'"
-                :key="`teachers-${resolvedInternshipId}-${resolvedDepartmentId}`"
-                ref="teachersDataTableRef"
-                :default-props="teachersDtlProps"
-                :fetch-records="fetchTeacherRows"
-              >
-                <template #rowNum="{ row }">
-                  {{ row.__rowNum }}
-                </template>
-                <template #teacherNameCell="{ row }">
-                  {{ teacherCellName(row) }}
-                </template>
-                <template #teacherDeptCell="{ row }">
-                  {{ teacherCellDept(row) }}
-                </template>
-                <template #teacherPhoneCell="{ row }">
-                  {{ teacherCellPhone(row) }}
-                </template>
-              </DataTableList>
-            </div>
-          </template>
+          <div class="counts-row counts-row--inline">
+            <span class="inline-count-label">未提交题目的老师人数：</span>
+            <span class="inline-count-num">{{ teachersNotSubmittedCount }}</span>
+          </div>
+          <div class="tab-datalist">
+            <DataTableList
+              v-if="activeTab === 'teachers'"
+              :key="`teachers-${resolvedInternshipId}-${resolvedDepartmentId ?? 'whole'}`"
+              ref="teachersDataTableRef"
+              :default-props="teachersDtlProps"
+              :fetch-records="fetchTeacherRows"
+            >
+              <template #rowNum="{ row }">
+                {{ row.__rowNum }}
+              </template>
+              <template #teacherNameCell="{ row }">
+                {{ teacherCellName(row) }}
+              </template>
+              <template #teacherDeptCell="{ row }">
+                {{ teacherCellDept(row) }}
+              </template>
+              <template #teacherPhoneCell="{ row }">
+                {{ teacherCellPhone(row) }}
+              </template>
+            </DataTableList>
+          </div>
         </el-tab-pane>
       </el-tabs>
     </template>
@@ -99,10 +89,8 @@
 
 <script setup>
 import { ref, reactive, computed, watch, nextTick } from 'vue';
-import { useStore } from 'vuex';
 import DataTableList from '@/components/DataTableList.vue';
 import internshipProcessAPI from '@/api/internshipProcess';
-import { resolveCollegeScopeDepartmentId } from '@/utils/internshipStatsDepartment';
 
 defineOptions({
   name: 'IntInternshipProjectDetailPanel',
@@ -114,44 +102,33 @@ const props = defineProps({
   departmentId: { type: [Number, String], default: null },
 });
 
-const store = useStore();
-const userInfo = computed(() => store.getters.userInfo || {});
-
 const activeTab = ref('students');
 const studentsDataTableRef = ref(null);
 const teachersDataTableRef = ref(null);
 
-const resolvedFallbackDepartmentId = ref(null);
 const resolvedInternshipId = computed(() => {
   if (props.internshipId == null || props.internshipId === '') return null;
   const n = Number(props.internshipId);
   return Number.isNaN(n) ? props.internshipId : n;
 });
 
+/**
+ * 仅使用弹窗/路由显式传入的 departmentId，与 listInternalInternshipCollegeStats 下钻节点一致。
+ * 不要用登录人 departmentId 解析兜底：校级账号挂在教务处等时，会得到错误子树，详情与列表交集为空（全 0）。
+ * 全校/未下钻：不传 departmentId（null），由后端按角色给全校口径。
+ */
 const resolvedDepartmentId = computed(() => {
-  if (props.departmentId != null && props.departmentId !== '') {
-    const n = Number(props.departmentId);
-    return Number.isNaN(n) ? null : n;
-  }
-  return resolvedFallbackDepartmentId.value;
+  if (props.departmentId == null || props.departmentId === '') return null;
+  const n = Number(props.departmentId);
+  return Number.isNaN(n) ? null : n;
 });
 
-async function refreshResolvedDepartmentFallback() {
-  const d = userInfo.value.departmentId;
-  if (d == null || d === '') {
-    resolvedFallbackDepartmentId.value = null;
-    return;
+function appendDepartmentScopeToNode(node) {
+  const id = resolvedDepartmentId.value;
+  if (id != null && Number.isFinite(id)) {
+    node.departmentId = id;
   }
-  resolvedFallbackDepartmentId.value = await resolveCollegeScopeDepartmentId(d);
 }
-
-watch(
-  () => userInfo.value.departmentId,
-  () => {
-    refreshResolvedDepartmentFallback();
-  },
-  { immediate: true }
-);
 
 function unwrapPayload(res) {
   if (res == null) return {};
@@ -233,11 +210,13 @@ async function fetchStudentRows(params) {
       },
     };
   }
-  const res = await internshipProcessAPI.getInternalInternshipTitleSelectionBreakdown({
+  const breakdownNode = {
     internshipId: Number(resolvedInternshipId.value),
     status: studentStatus.value,
     pageInfo: { page: params.pageInfo.page, size: params.pageInfo.size },
-  });
+  };
+  appendDepartmentScopeToNode(breakdownNode);
+  const res = await internshipProcessAPI.getInternalInternshipTitleSelectionBreakdown(breakdownNode);
   const data = unwrapPayload(res);
   const rows = Array.isArray(data.rows) ? data.rows : [];
   if (data.counts && typeof data.counts === 'object') {
@@ -336,7 +315,7 @@ function teacherCellPhone(row) {
 }
 
 async function fetchTeacherRows(params) {
-  if (!resolvedInternshipId.value || resolvedDepartmentId.value == null) {
+  if (!resolvedInternshipId.value) {
     return {
       data: {
         content: [],
@@ -345,11 +324,12 @@ async function fetchTeacherRows(params) {
       },
     };
   }
-  const res = await internshipProcessAPI.listInternalInternshipTeachersNotSubmittedTopic({
+  const teachersNode = {
     internshipId: Number(resolvedInternshipId.value),
-    departmentId: Number(resolvedDepartmentId.value),
     pageInfo: { page: params.pageInfo.page, size: params.pageInfo.size },
-  });
+  };
+  appendDepartmentScopeToNode(teachersNode);
+  const res = await internshipProcessAPI.listInternalInternshipTeachersNotSubmittedTopic(teachersNode);
   const data = unwrapPayload(res);
   const rows = Array.isArray(data.rows) ? data.rows : [];
   teachersNotSubmittedCount.value = Number(
@@ -372,12 +352,12 @@ async function fetchTeacherRows(params) {
 
 watch(
   () => [resolvedInternshipId.value, activeTab.value, resolvedDepartmentId.value, studentStatus.value],
-  ([iid, tab, did]) => {
+  ([iid, tab]) => {
     if (!iid) return;
     nextTick(() => {
       if (tab === 'students') {
         studentsDataTableRef.value?.initDataList?.(true);
-      } else if (tab === 'teachers' && did != null) {
+      } else if (tab === 'teachers') {
         teachersDataTableRef.value?.initDataList?.(true);
       }
     });

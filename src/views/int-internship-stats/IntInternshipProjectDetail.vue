@@ -47,7 +47,7 @@
 
           <DataTableList
             v-if="activeTab === 'students'"
-            :key="`students-${internshipId}-${studentStatus}`"
+            :key="`students-${internshipId}-${studentStatus}-${departmentId ?? 'whole'}`"
             ref="studentsDataTableRef"
             :default-props="studentsDtlProps"
             :fetch-records="fetchStudentRows"
@@ -62,40 +62,30 @@
         </el-tab-pane>
 
         <el-tab-pane label="尚未提交题目的老师" name="teachers">
-          <el-alert
-            v-if="departmentId == null"
-            type="warning"
-            show-icon
-            :closable="false"
-            class="mb-12"
-            title="缺少学院 departmentId，请从统计列表进入本页，或在后台菜单中携带部门信息。"
-          />
-          <template v-else>
-            <div class="counts-row counts-row--inline">
-              <span class="inline-count-label">未提交题目的老师人数：</span>
-              <span class="inline-count-num">{{ teachersNotSubmittedCount }}</span>
-            </div>
-            <DataTableList
-              v-if="activeTab === 'teachers'"
-              :key="`teachers-${internshipId}-${departmentId}`"
-              ref="teachersDataTableRef"
-              :default-props="teachersDtlProps"
-              :fetch-records="fetchTeacherRows"
-            >
-              <template #rowNum="{ row }">
-                {{ row.__rowNum }}
-              </template>
-              <template #teacherNameCell="{ row }">
-                {{ teacherCellName(row) }}
-              </template>
-              <template #teacherDeptCell="{ row }">
-                {{ teacherCellDept(row) }}
-              </template>
-              <template #teacherPhoneCell="{ row }">
-                {{ teacherCellPhone(row) }}
-              </template>
-            </DataTableList>
-          </template>
+          <div class="counts-row counts-row--inline">
+            <span class="inline-count-label">未提交题目的老师人数：</span>
+            <span class="inline-count-num">{{ teachersNotSubmittedCount }}</span>
+          </div>
+          <DataTableList
+            v-if="activeTab === 'teachers'"
+            :key="`teachers-${internshipId}-${departmentId ?? 'whole'}`"
+            ref="teachersDataTableRef"
+            :default-props="teachersDtlProps"
+            :fetch-records="fetchTeacherRows"
+          >
+            <template #rowNum="{ row }">
+              {{ row.__rowNum }}
+            </template>
+            <template #teacherNameCell="{ row }">
+              {{ teacherCellName(row) }}
+            </template>
+            <template #teacherDeptCell="{ row }">
+              {{ teacherCellDept(row) }}
+            </template>
+            <template #teacherPhoneCell="{ row }">
+              {{ teacherCellPhone(row) }}
+            </template>
+          </DataTableList>
         </el-tab-pane>
       </el-tabs>
     </template>
@@ -252,11 +242,15 @@ async function fetchStudentRows(params) {
       },
     };
   }
-  const res = await internshipProcessAPI.getInternalInternshipTitleSelectionBreakdown({
+  const breakdownNode = {
     internshipId: Number(internshipId.value),
     status: studentStatus.value,
     pageInfo: { page: params.pageInfo.page, size: params.pageInfo.size },
-  });
+  };
+  if (departmentId.value != null) {
+    breakdownNode.departmentId = Number(departmentId.value);
+  }
+  const res = await internshipProcessAPI.getInternalInternshipTitleSelectionBreakdown(breakdownNode);
   const data = unwrapPayload(res);
   const rows = Array.isArray(data.rows) ? data.rows : [];
   if (data.counts && typeof data.counts === 'object') {
@@ -361,7 +355,7 @@ function teacherCellPhone(row) {
 }
 
 async function fetchTeacherRows(params) {
-  if (!internshipId.value || departmentId.value == null) {
+  if (!internshipId.value) {
     return {
       data: {
         content: [],
@@ -370,11 +364,14 @@ async function fetchTeacherRows(params) {
       },
     };
   }
-  const res = await internshipProcessAPI.listInternalInternshipTeachersNotSubmittedTopic({
+  const teachersNode = {
     internshipId: Number(internshipId.value),
-    departmentId: Number(departmentId.value),
     pageInfo: { page: params.pageInfo.page, size: params.pageInfo.size },
-  });
+  };
+  if (departmentId.value != null) {
+    teachersNode.departmentId = Number(departmentId.value);
+  }
+  const res = await internshipProcessAPI.listInternalInternshipTeachersNotSubmittedTopic(teachersNode);
   const data = unwrapPayload(res);
   const rows = Array.isArray(data.rows) ? data.rows : [];
   teachersNotSubmittedCount.value = Number(
@@ -407,12 +404,12 @@ function goBack() {
 
 watch(
   () => [internshipId.value, activeTab.value, departmentId.value, studentStatus.value],
-  ([iid, tab, did]) => {
+  ([iid, tab]) => {
     if (!iid) return;
     nextTick(() => {
       if (tab === 'students') {
         studentsDataTableRef.value?.initDataList?.(true);
-      } else if (tab === 'teachers' && did != null) {
+      } else if (tab === 'teachers') {
         teachersDataTableRef.value?.initDataList?.(true);
       }
     });

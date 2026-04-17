@@ -56,12 +56,17 @@ function show(row, options = {}) {
   }
   openedId.value = id;
   openedName.value = row?.internshipName ?? '';
-  const dept = options.departmentId ?? row?.departmentId;
-  if (dept == null || dept === '') {
+  let deptRaw;
+  if (Object.prototype.hasOwnProperty.call(options, 'departmentId')) {
+    deptRaw = options.departmentId;
+  } else {
+    deptRaw = row?.departmentId;
+  }
+  if (deptRaw == null || deptRaw === '') {
     openedDepartmentId.value = null;
   } else {
-    const n = Number(dept);
-    openedDepartmentId.value = Number.isNaN(n) ? dept : n;
+    const n = Number(deptRaw);
+    openedDepartmentId.value = Number.isFinite(n) ? n : null;
   }
   defaultProps.dlgTitle = openedName.value
     ? `校内实习项目详情 — ${openedName.value}`

@@ -5,18 +5,30 @@
         <DataTree ref="dataTreeRef" :default-props="treeProps" @node-click="handleNodeClick" />
       </aside>
       <main class="stats-main">
-        <DataTableList
-          ref="dataTableListRef"
-          :default-props="defaultDTLProps"
-          :fetch-records="fetchCollegeStats"
-        >
-          <template #rightOperate="{ row }">
-            <!-- 与实习流程列表「查看」一致：primary + small + axt-view（同 TutorAssignmentBase visible 按钮） -->
-            <el-button type="primary" size="small" title="项目详情" @click="goProjectDetail(row)">
-              <svg-icon icon-class="axt-view" />
-            </el-button>
-          </template>
-        </DataTableList>
+        <div v-if="isSchoolScopeUser" class="stats-scope-bar">
+          <span class="scope-label">统计范围</span>
+          <el-radio-group v-model="statsScope" size="small" @change="onStatsScopeChange">
+            <el-radio-button label="whole">全校汇总</el-radio-button>
+            <el-radio-button label="tree">左侧部门树下钻</el-radio-button>
+          </el-radio-group>
+        </div>
+        <div v-else-if="isDeptAdminOnly" class="stats-scope-bar stats-scope-bar--hint">
+          <span class="scope-hint">统计范围限定在本院账号绑定部门子树内；点击左侧节点可按该节点下钻查看汇总。</span>
+        </div>
+        <div class="stats-table-flex">
+          <DataTableList
+            ref="dataTableListRef"
+            :default-props="defaultDTLProps"
+            :fetch-records="fetchCollegeStats"
+          >
+            <template #rightOperate="{ row }">
+              <!-- 与实习流程列表「查看」一致：primary + small + axt-view（同 TutorAssignmentBase visible 按钮） -->
+              <el-button type="primary" size="small" title="项目详情" @click="goProjectDetail(row)">
+                <svg-icon icon-class="axt-view" />
+              </el-button>
+            </template>
+          </DataTableList>
+        </div>
       </main>
     </div>
     <DlgExtInternshipProjectDetail ref="projectDetailDlgRef" />
@@ -32,6 +44,12 @@ import DataTableList from '@/components/DataTableList.vue';
 import DlgExtInternshipProjectDetail from '@/views/ext-internship-stats/DlgExtInternshipProjectDetail.vue';
 import internshipProcessAPI from '@/api/internshipProcess';
 import CONSTANT from '@/utils/constant';
+import {
+  canViewInternshipCollegeStats,
+  isInternshipStatsSchoolScopeUser,
+  isInternshipStatsDepartmentAdmin,
+  fetchDepartmentSubtreeRootRow,
+} from '@/utils/internshipStatsDepartment';
 
 defineOptions({
   name: 'ExtInternshipCollegeStats',
@@ -40,16 +58,29 @@ defineOptions({
 const store = useStore();
 
 const userInfo = computed(() => store.getters.userInfo || {});
+const roles = computed(() => store.getters.roles || []);
+
+const isSchoolScopeUser = computed(() =>
+  isInternshipStatsSchoolScopeUser(userInfo.value, roles.value)
+);
+const isDeptAdminOnly = computed(
+  () =>
+    isInternshipStatsDepartmentAdmin(userInfo.value, roles.value) &&
+    !isSchoolScopeUser.value
+);
 
 const dataTreeRef = ref(null);
 const dataTableListRef = ref(null);
 const projectDetailDlgRef = ref(null);
 
-/** 左侧树选中的部门；默认可来自账号 departmentId */
+/** 校级 + 「树下钻」时，为左侧所选部门 id；全校汇总时为 null。院系管理员不按此字段请求接口。 */
 const selectedDepartmentId = ref(null);
 
+/** whole | tree */
+const statsScope = ref('whole');
+
 const titleState = reactive({
-  mainTitle: '校外实习报名统计（本学院）',
+  mainTitle: '校外实习报名统计',
   subTitle: '',
 });
 
@@ -60,11 +91,15 @@ const treeProps = computed(() => {
     searchKey.schoolId = userInfo.value.schoolId;
     regKey.schoolId = CONSTANT.SEARCH_OPERATOR.EQ;
   }
+  const deptOnly = isDeptAdminOnly.value;
   return {
     title: { mainTitle: '单位部门' },
     keyWord: 'ViewBaseDepartment',
     checkFlag: false,
     sort: { properties: 'theOrder', direction: 'ASC' },
+    // 不要虚拟根「全部」：首层即学校，点击学校节点即按该校子树下钻统计
+    virtualRootFlag: false,
+    autoInit: !deptOnly,
     initSearchWords: {
       searchKey,
       regKey,
@@ -167,9 +202,8 @@ function unwrapPayload(res) {
 }
 
 async function fetchCollegeStats(params) {
-  const departmentId = selectedDepartmentId.value;
-  if (departmentId == null || departmentId === '') {
-    ElMessage.warning('请在左侧选择部门，或确认账号已绑定 departmentId');
+  if (!canViewInternshipCollegeStats(userInfo.value, roles.value)) {
+    ElMessage.error('无权查看实习统计');
     return {
       data: {
         content: [],
@@ -179,34 +213,89 @@ async function fetchCollegeStats(params) {
     };
   }
 
-  const res = await internshipProcessAPI.listExternalInternshipCollegeStats({
-    departmentId: Number(departmentId),
+  const payload = {
     pageInfo: {
       page: params.pageInfo.page,
       size: params.pageInfo.size,
     },
-  });
-  const data = unwrapPayload(res);
-  const rows = Array.isArray(data.rows) ? data.rows : [];
-  const content = rows.map((r) => ({
-    ...r,
-    id: r.internshipId ?? r.id,
-  }));
-  const total = Number(data.totalElements ?? 0);
-
-  return {
-    data: {
-      content,
-      totalElements: total,
-      page: { totalElements: total },
-    },
   };
+
+  if (isDeptAdminOnly.value) {
+    const departmentId = selectedDepartmentId.value;
+    if (departmentId == null || departmentId === '') {
+      ElMessage.warning('请先在左侧部门树选择要统计的节点');
+      return {
+        data: {
+          content: [],
+          totalElements: 0,
+          page: { totalElements: 0 },
+        },
+      };
+    }
+    payload.departmentId = Number(departmentId);
+  } else if (statsScope.value === 'tree') {
+    const departmentId = selectedDepartmentId.value;
+    if (departmentId == null || departmentId === '') {
+      ElMessage.warning('请先在左侧部门树选择要下钻的节点');
+      return {
+        data: {
+          content: [],
+          totalElements: 0,
+          page: { totalElements: 0 },
+        },
+      };
+    }
+    payload.departmentId = Number(departmentId);
+  }
+
+  try {
+    const res = await internshipProcessAPI.listExternalInternshipCollegeStats(payload);
+    const data = unwrapPayload(res);
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    const content = rows.map((r) => ({
+      ...r,
+      id: r.internshipId ?? r.id,
+    }));
+    const total = Number(data.totalElements ?? 0);
+
+    return {
+      data: {
+        content,
+        totalElements: total,
+        page: { totalElements: total },
+      },
+    };
+  } catch {
+    ElMessage.error('获取统计数据失败，请重试');
+    return { data: { content: [], totalElements: 0, page: { totalElements: 0 } } };
+  }
+}
+
+async function applyStatsScope(scope) {
+  if (scope === 'whole') {
+    selectedDepartmentId.value = null;
+    titleState.subTitle = '统计范围：全校汇总';
+    return;
+  }
+  if (selectedDepartmentId.value != null && selectedDepartmentId.value !== '') {
+    titleState.subTitle = '统计范围：按左侧部门树所选节点下钻';
+  } else {
+    titleState.subTitle = '请在左侧部门树选择下钻节点';
+  }
+}
+
+async function onStatsScopeChange(scope) {
+  await applyStatsScope(scope);
+  dataTableListRef.value?.initDataList?.(true);
 }
 
 function handleNodeClick(node) {
   if (!node || node.id === -1) return;
   selectedDepartmentId.value = node.id;
-  titleState.subTitle = node.name ? `当前：${node.name}` : `当前部门 ID：${node.id}`;
+  titleState.subTitle = node.name ? `下钻：${node.name}` : `下钻部门 ID：${node.id}`;
+  if (!isDeptAdminOnly.value) {
+    statsScope.value = 'tree';
+  }
   dataTableListRef.value?.initDataList?.(true);
 }
 
@@ -216,25 +305,54 @@ function goProjectDetail(row) {
     ElMessage.warning('缺少 internshipId');
     return;
   }
-  const departmentId = selectedDepartmentId.value;
-  if (departmentId == null || departmentId === '') {
-    ElMessage.warning('请在左侧选择部门，或确认账号已绑定 departmentId');
-    return;
+  let dept = null;
+  if (isDeptAdminOnly.value) {
+    dept =
+      selectedDepartmentId.value != null && selectedDepartmentId.value !== ''
+        ? selectedDepartmentId.value
+        : userInfo.value.departmentId;
+  } else if (statsScope.value === 'tree' && selectedDepartmentId.value != null && selectedDepartmentId.value !== '') {
+    dept = selectedDepartmentId.value;
+  } else {
+    dept = row?.departmentId;
   }
-  projectDetailDlgRef.value?.show(row, { departmentId: Number(departmentId) });
+  const opts = {};
+  if (dept != null && dept !== '') {
+    opts.departmentId = Number(dept);
+  }
+  projectDetailDlgRef.value?.show(row, opts);
 }
 
-onMounted(() => {
-  const d = userInfo.value.departmentId;
-  if (d != null && d !== '') {
-    selectedDepartmentId.value = Number(d);
-    titleState.subTitle = '当前：账号默认部门';
-  } else {
-    titleState.subTitle = '请在左侧选择部门';
+onMounted(async () => {
+  if (!canViewInternshipCollegeStats(userInfo.value, roles.value)) {
+    ElMessage.error('无权查看实习统计');
+    nextTick(() => dataTableListRef.value?.initDataList?.(true));
+    return;
   }
 
+  if (isDeptAdminOnly.value) {
+    const uid = userInfo.value.departmentId;
+    if (uid == null || uid === '') {
+      ElMessage.error('院系管理员未绑定部门，无法查看实习统计');
+      nextTick(() => dataTableListRef.value?.initDataList?.(true));
+      return;
+    }
+    selectedDepartmentId.value = Number(uid);
+    titleState.subTitle = '本院及下级部门';
+    const kw = treeProps.value.keyWord;
+    const rootRow = await fetchDepartmentSubtreeRootRow(kw, uid);
+    nextTick(async () => {
+      if (rootRow) {
+        await dataTreeRef.value?.initDataTreeWithRootRows?.([rootRow]);
+      }
+      dataTableListRef.value?.initDataList?.(true);
+    });
+    return;
+  }
+
+  statsScope.value = 'whole';
+  await applyStatsScope('whole');
   nextTick(() => {
-    dataTreeRef.value?.initDataTree?.();
     dataTableListRef.value?.initDataList?.(true);
   });
 });
@@ -289,6 +407,38 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+.stats-table-flex {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.stats-table-flex :deep(> div) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.stats-scope-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+}
+.stats-scope-bar .scope-label {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  flex-shrink: 0;
+}
+.stats-scope-bar--hint .scope-hint {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
 }
 .stats-main :deep(.data-table-header) {
   display: flex;

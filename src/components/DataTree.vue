@@ -84,6 +84,39 @@ const virtualRootFlag = computed(() => {
 })
 const keyWord = computed(() => props.defaultProps.keyWord || null)
 const searchKey = computed(() => props.defaultProps.initSearchWords?.searchKey || {})
+const regKey = computed(() => props.defaultProps.initSearchWords?.regKey || {})
+const andor = computed(() => props.defaultProps.initSearchWords?.andor || {})
+const autoInit = computed(() => {
+  if (Object.prototype.hasOwnProperty.call(props.defaultProps, 'autoInit')) {
+    return props.defaultProps.autoInit
+  }
+  return true
+})
+
+/** 与 SimpleTreeSelect.fetchNodes 一致：补全 isLeaf，避免虚拟根被误判为叶子导致无展开箭头 */
+function normalizeTreeNodesForLazy(nodes) {
+  if (!Array.isArray(nodes)) return []
+  return nodes
+    .map((item) => {
+      if (!item || item.code === '0') return null
+      const id = item.id
+      const isVirtualRoot = id === -1 || id === '-1'
+      let isLeaf
+      if (isVirtualRoot) {
+        isLeaf = false
+      } else if (item.isLeaf === true || item.isLeaf === 1) {
+        isLeaf = true
+      } else if (item.isLeaf === false || item.isLeaf === 0) {
+        isLeaf = false
+      } else if (item.childNum != null && item.childNum !== '') {
+        isLeaf = Number(item.childNum) === 0
+      } else {
+        isLeaf = false
+      }
+      return { ...item, isLeaf }
+    })
+    .filter(Boolean)
+}
 
 const lazyLoad = (tree, resolve) => {
   if (!tree || !tree.key) {
@@ -99,25 +132,22 @@ const lazyLoad = (tree, resolve) => {
       return
     }
   }
-  
-  // 如果正在加载中，避免重复请求
-  if (loading.value) {
-    resolve([])
-    return
-  }
-  
+
   // 标记该节点正在加载
   maps.set(tree.key, { tree, resolve, loading: true })
   
   treeAPI.getAllNodes({
     keyWords: keyWord.value,
-    virtualRootFlag: virtualRootFlag.value,
+    // 拉取子节点时与 SimpleTreeSelect 一致用 false；true 仅用于首包虚拟根
+    virtualRootFlag: false,
     searchKey: searchKey.value,
+    regKey: regKey.value,
+    andor: andor.value,
     lazy: true,
     parentId: tree.key,
     sort: sort.value
   }).then(res => {
-    const data = res.data || []
+    const data = normalizeTreeNodesForLazy(res.data || [])
     // 更新缓存
     maps.set(tree.key, { tree: { ...tree, children: data }, resolve, loading: false })
     resolve(data)
@@ -146,11 +176,13 @@ const initDataTree = async (parentId = -1) => {
       keyWords: keyWord.value,
       virtualRootFlag: virtualRootFlag.value,
       searchKey: searchKey.value,
+      regKey: regKey.value,
+      andor: andor.value,
       lazy: lazy.value,
       parentId,
       sort: sort.value
     })
-    treeData.value = res.data || []
+    treeData.value = normalizeTreeNodesForLazy(res.data || [])
     // 数据加载完成后，手动展开根节点（如果存在）
     if (treeData.value.length > 0 && virtualRootFlag.value) {
       // 延迟展开，确保树已渲染
@@ -173,6 +205,37 @@ const initDataTree = async (parentId = -1) => {
   }
 }
 
+/**
+ * 以若干节点为顶层根初始化懒加载树（用于「仅展示某部门子树」等场景）。
+ * @param {Array<Object>} rows 须含 id、name；isLeaf 未传时按 false 处理以便展开
+ */
+const initDataTreeWithRootRows = async (rows) => {
+  if (!rows?.length) {
+    maps.clear()
+    treeData.value = []
+    defaultExpandedKeys.value = []
+    return
+  }
+  isInitializing = true
+  loading.value = true
+  try {
+    maps.clear()
+    treeData.value = normalizeTreeNodesForLazy(rows)
+    defaultExpandedKeys.value = rows.map((r) => r.id).filter((id) => id != null && id !== '')
+    setTimeout(() => {
+      if (dataTree.value && rows[0]?.id != null) {
+        dataTree.value.setCurrentKey(rows[0].id)
+      }
+    }, 100)
+  } catch (error) {
+    console.error('initDataTreeWithRootRows 失败:', error)
+    treeData.value = []
+  } finally {
+    loading.value = false
+    isInitializing = false
+  }
+}
+
 const handleNodeClick = (row) => {
   emit('node-click', row)
 }
@@ -183,11 +246,14 @@ const toggleCollapse = () => {
 
 defineExpose({
   dataTree,
-  initDataTree
+  initDataTree,
+  initDataTreeWithRootRows
 })
 
 onMounted(() => {
-  initDataTree()
+  if (autoInit.value) {
+    initDataTree()
+  }
 })
 </script>
 
