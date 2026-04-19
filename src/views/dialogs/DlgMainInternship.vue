@@ -213,7 +213,7 @@ const tableListProps = reactive({
   title: {},
   bottomOffset: 70,
   sortStr: { properties: 'theOrder', direction: 'ASC' },
-  pageInfo: { page: 1, size: 100 },
+  pageInfo: { page: 1, size: 25 },
   initSearchWords: { searchKey: {} },
   moveSearchWords: { searchKey: {} },
   someFlags: { operateShow: true, checkFlag: true, showPage: false, autoInit: false },

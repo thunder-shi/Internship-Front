@@ -161,7 +161,7 @@ const processTableProps = reactive({
   title: {},
   bottomOffset: 0,
   sortStr: { properties: 'theOrder', direction: 'ASC' },
-  pageInfo: { page: 1, size: 100 },
+  pageInfo: { page: 1, size: 25 },
   initSearchWords: { searchKey: {} },
   someFlags: {
     operateShow: false,
@@ -186,7 +186,7 @@ const auditTableProps = reactive({
   title: {},
   bottomOffset: 0,
   sortStr: { properties: 'id', direction: 'ASC' },
-  pageInfo: { page: 1, size: 100 },
+  pageInfo: { page: 1, size: 25 },
   initSearchWords: { searchKey: {} },
   someFlags: {
     operateShow: false,
@@ -215,7 +215,7 @@ const periodTableProps = reactive({
   title: {},
   bottomOffset: 0,
   sortStr: { properties: 'periodIndex', direction: 'ASC' },
-  pageInfo: { page: 1, size: 100 },
+  pageInfo: { page: 1, size: 25 },
   initSearchWords: { searchKey: {} },
   someFlags: {
     operateShow: false,

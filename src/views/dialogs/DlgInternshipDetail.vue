@@ -203,7 +203,7 @@ const tableListProps = reactive({
   title: {},
   bottomOffset: 70,
   sortStr: { properties: 'theOrder', direction: 'ASC' },
-  pageInfo: { page: 1, size: 100 },
+  pageInfo: { page: 1, size: 25 },
   initSearchWords: {
     searchKey: {}
   },
@@ -666,9 +666,9 @@ const CRON_OPTIONS = [
 ];
 
 const periodTableListProps = computed(() => ({
+  bottomOffset: 70,
   someFlags: {
     checkFlag: true,       // 开启复选框，支持批量删除
-    showPage: false,
     autoInit: true,
     operateShow: true,     // 显示行级编辑 / 删除按钮
   },
@@ -936,12 +936,4 @@ defineExpose({
   color: #e6a23c;
 }
 
-/* 期次表格：固定展示 6 行，内部滚动 */
-:deep(.period-config-section .el-table) {
-  height: 328px !important;
-}
-:deep(.period-config-section .el-table .el-table__body-wrapper) {
-  height: 288px !important;
-  overflow-y: auto !important;
-}
 </style>

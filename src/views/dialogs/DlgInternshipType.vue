@@ -82,7 +82,7 @@ const tableListProps = reactive({
   title: {},
   bottomOffset: 0, // 隐藏分页后不需要预留空间
   sortStr: { properties: 'theOrder', direction: 'ASC' },  // 按照 theOrder 排序
-  pageInfo: { page: 1, size: 100 }, // 设置较大的页面大小，确保所有数据在一页显示
+  pageInfo: { page: 1, size: 25 },
   initSearchWords: {
     // 初始查询条件：只显示当前实习类型相关的流程
     searchKey: {}

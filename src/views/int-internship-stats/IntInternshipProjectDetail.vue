@@ -188,7 +188,7 @@ const studentsDtlProps = reactive({
   keyWord: { view: 'IntInternshipProjectDetailStudents' },
   bottomOffset: 120,
   sortStr: { properties: '', direction: 'DESC' },
-  pageInfo: { page: 1, size: 20, sizes: [10, 20, 50, 100] },
+  pageInfo: { page: 1, size: 25, sizes: [25, 50, 100] },
   initSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   nowSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   someFlags: {
@@ -286,7 +286,7 @@ const teachersDtlProps = reactive({
   keyWord: { view: 'IntInternshipProjectDetailTeachers' },
   bottomOffset: 120,
   sortStr: { properties: '', direction: 'DESC' },
-  pageInfo: { page: 1, size: 20, sizes: [10, 20, 50, 100] },
+  pageInfo: { page: 1, size: 25, sizes: [25, 50, 100] },
   initSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   nowSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   someFlags: {

@@ -4,42 +4,51 @@
     icon="info"
     title="未到时间，请等候学校通知"
   />
-  <InternshipPostHeaderPage
-    v-else-if="ready"
-    ref="headerPageRef"
-    :page-title="'学生岗位报名'"
-    :no-project-message="'未安排实习项目'"
-    :project-select-search-key="projectSelectSearchKey"
-    :project-select-reg-key="projectSelectRegKey"
-    :default-d-t-l-props="defaultDTLProps"
-    :build-search-key="buildSearchKey"
-    :is-company-user="false"
-    @view-click="handleViewClick"
-    @submit-click="handleSubmitClick"
-    @project-selected="handleProjectSelected"
-  >
-    <!-- 已报名模式：行操作列中的"岗位详情"按钮 -->
-    <template v-if="hasApplication" #rightOperate="{ row }">
-      <el-button type="info" size="small" title="岗位详情" @click="handleViewPostDetail(row)">
-        <el-icon><InfoFilled /></el-icon>
-      </el-button>
-    </template>
-    <template #dialogs>
-      <!-- 岗位详情对话框（只读） -->
-      <DlgPostDetail ref="dlgPostDetail" :current-internship="currentInternship"
-        :custom-foot-button="rollbackButton" @success="handleRollbackSuccess" />
-      <!-- 审核进度对话框 -->
-      <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
-        :process-info="currentRow" key-words="ViewVerifyProcessRelStuInternshipPost" />
-    </template>
-  </InternshipPostHeaderPage>
+  <template v-else-if="ready">
+    <!-- Tab 切换行 -->
+    <el-card shadow="never" class="tab-card">
+      <el-radio-group v-model="activeTab">
+        <el-radio-button value="available">可选</el-radio-button>
+        <el-radio-button value="applied">已选（{{ selectedPosts.length }}）</el-radio-button>
+      </el-radio-group>
+    </el-card>
+
+    <InternshipPostHeaderPage
+      ref="headerPageRef"
+      :page-title="'学生岗位报名'"
+      :no-project-message="'未安排实习项目'"
+      :project-select-search-key="projectSelectSearchKey"
+      :project-select-reg-key="projectSelectRegKey"
+      :default-d-t-l-props="defaultDTLProps"
+      :build-search-key="buildSearchKey"
+      :is-company-user="false"
+      @view-click="handleViewClick"
+      @submit-click="handleSubmitClick"
+      @project-selected="handleProjectSelected"
+    >
+      <!-- 已选模式：行操作列中的"岗位详情"按钮 -->
+      <template v-if="activeTab === 'applied'" #rightOperate="{ row }">
+        <el-button type="info" size="small" title="岗位详情" @click="handleViewPostDetail(row)">
+          <el-icon><InfoFilled /></el-icon>
+        </el-button>
+      </template>
+      <template #dialogs>
+        <!-- 岗位详情对话框（只读） -->
+        <DlgPostDetail ref="dlgPostDetail" :current-internship="currentInternship"
+          :custom-foot-button="rollbackButton" @success="handleRollbackSuccess" />
+        <!-- 审核进度对话框 -->
+        <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
+          :process-info="currentRow" key-words="ViewVerifyProcessRelStuInternshipPost" />
+      </template>
+    </InternshipPostHeaderPage>
+  </template>
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue';
+import { reactive, ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { InfoFilled } from '@element-plus/icons-vue'; // used in template #rightOperate
+import { InfoFilled } from '@element-plus/icons-vue';
 import moment from 'moment';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgPostDetail from '@/views/internship-process/components/DlgPostDetail.vue';
@@ -84,7 +93,6 @@ async function loadStudentAssignment() {
 }
 
 // 加载学生专业的所有祖先 ID（含自身），实现层级专业匹配
-// 例如：学生是"软件工程"(id=15)，其父节点"计算机类"(id=10) → expandedMajorIds = [15, 10, ...]
 async function loadExpandedMajorIds() {
   const majorId = userInfo.value?.majorId;
   if (!majorId) return;
@@ -106,9 +114,19 @@ onMounted(async () => {
   ready.value = true;
 });
 
-// 当前已报名的岗位信息
-const currentSelectedPost = ref(null);
-const hasApplication = computed(() => !!currentSelectedPost.value);
+// ── Tab 状态 ──────────────────────────────────────────────────
+const activeTab = ref('available');   // 'available'（可选）| 'applied'（已选）
+
+// ── 已报名岗位列表（SAVE/SUBMIT/PASS） ────────────────────────
+const selectedPosts = ref([]);
+const ACTIVE_STATUSES = [CONSTANT.AUDIT_STATUS.SAVE, CONSTANT.AUDIT_STATUS.SUBMIT, CONSTANT.AUDIT_STATUS.PASS];
+
+// 已有有效报名的岗位 ID Set，用于在"可选"中排除这些岗位
+const selectedPostIds = computed(() =>
+  new Set(selectedPosts.value.map(p => p.internshipPostId))
+);
+
+const hasApplication = computed(() => selectedPosts.value.length > 0);
 
 // 审核进度对话框
 const showProgressDialog = ref(false);
@@ -148,64 +166,60 @@ const projectSelectRegKey = computed(() => {
   return regKey;
 });
 
-// 根据是否已报名切换查询条件
-function buildSearchKey(baseSearchKey) {
-  if (hasApplication.value) {
-    // 已报名：查询学生自己的报名记录
-    return { internshipId: baseSearchKey.internshipId, studentId: userInfo.value?.id };
-  }
-  // 未报名：查询所有审核通过的岗位
-  return { ...baseSearchKey, isAudit: CONSTANT.AUDIT_STATUS.PASS };
-}
-
-// 浏览模式：只显示未报满的岗位
-function filterAvailablePosts(dataList) {
-  return dataList.filter(row => (row.nowPersonNum || 0) < (row.allPersonNum || 0));
-}
-
-// 已报名模式：只显示有效的报名记录（SAVE/SUBMIT/PASS），过滤掉历史退回/不通过
-const ACTIVE_STATUSES = [CONSTANT.AUDIT_STATUS.SAVE, CONSTANT.AUDIT_STATUS.SUBMIT, CONSTANT.AUDIT_STATUS.PASS];
-function filterActiveApplications(dataList) {
-  return dataList.filter(row => ACTIVE_STATUSES.includes(row.isAudit));
-}
-
-// 查询学生是否已报名
-async function querySelectedPost(internshipId, studentId) {
-  if (!internshipId || !studentId) return null;
+// 查询当前实习项目下学生的全部有效报名记录（用非 Merge 视图，字段结构与原 querySelectedPost 一致）
+async function querySelectedPosts(internshipId, studentId) {
+  if (!internshipId || !studentId) return [];
   try {
     const response = await listAPI.getSomeRecords({
       keyWords: 'ViewVerifyProcessRelStuInternshipPost',
       searchKey: { internshipId, studentId },
+      reg: { internshipId: '=', studentId: '=' },
     });
     const dataList = response?.data?.content || response?.data || [];
-    if (dataList.length === 0) return null;
-    const record = dataList[0];
-    // 只有 SAVE/SUBMIT/PASS 视为有效报名，BACK/NOTPASS 视为无效（回到浏览模式）
-    const ACTIVE = [CONSTANT.AUDIT_STATUS.SAVE, CONSTANT.AUDIT_STATUS.SUBMIT, CONSTANT.AUDIT_STATUS.PASS];
-    return ACTIVE.includes(record.isAudit) ? record : null;
+    return dataList.filter(r => ACTIVE_STATUSES.includes(r.isAudit));
   } catch {
-    return null;
+    return [];
   }
 }
 
-// 项目选择后回调：查询报名状态，按需刷新
+// 根据 tab 切换查询条件
+function buildSearchKey(baseSearchKey) {
+  if (activeTab.value === 'applied') {
+    return { internshipId: baseSearchKey.internshipId, studentId: userInfo.value?.id };
+  }
+  return { ...baseSearchKey, isAudit: CONSTANT.AUDIT_STATUS.PASS };
+}
+
+// "可选" tab：排除满员 + 排除已有有效报名的岗位
+function filterAvailablePosts(dataList) {
+  return dataList.filter(row =>
+    (row.nowPersonNum || 0) < (row.allPersonNum || 0) &&
+    !selectedPostIds.value.has(row.internshipPostId)
+  );
+}
+
+// "已选" tab：排除 BACK/NOTPASS（视为失效，对应岗位重现于"可选"）
+function filterActiveApplications(dataList) {
+  return dataList.filter(row => ACTIVE_STATUSES.includes(row.isAudit));
+}
+
+// 项目选择后回调：清空旧状态 → 查询新项目报名记录 → 刷新列表
 async function handleProjectSelected(internship, title) {
   if (title) titleObj.mainTitle = title;
-
+  selectedPosts.value = [];
   if (internship?.internshipId || internship?.id) {
     const internshipId = internship.internshipId || internship.id;
-    const post = await querySelectedPost(internshipId, userInfo.value?.id);
-    currentSelectedPost.value = post;
-    // 如果已报名，需要用学生报名视图重新刷新（初次加载用的是岗位视图）
-    if (post) {
-      await headerPageRef.value?.updateSearchWordsAndRefresh?.();
-    }
-  } else {
-    currentSelectedPost.value = null;
+    selectedPosts.value = await querySelectedPosts(internshipId, userInfo.value?.id);
   }
+  await headerPageRef.value?.updateSearchWordsAndRefresh?.();
 }
 
-// 报名按钮（仅浏览模式）
+// tab 切换时刷新列表
+watch(activeTab, () => {
+  headerPageRef.value?.updateSearchWordsAndRefresh?.();
+});
+
+// 报名按钮（仅"可选" tab）
 async function handleSubmitClick(row) {
   await handleApply(row);
 }
@@ -230,7 +244,8 @@ async function handleApply(row) {
     const response = await otherAPI.stuSelPost(userInfo.value?.id, 0, Number(selectedRow.internshipPostId) || 0);
     if (response?.message === 'successful') {
       ElMessage.success('报名成功');
-      currentSelectedPost.value = response.data || selectedRow;
+      const internshipId = currentInternship.value?.internshipId || currentInternship.value?.id;
+      selectedPosts.value = await querySelectedPosts(internshipId, userInfo.value?.id);
       await headerPageRef.value?.updateSearchWordsAndRefresh?.();
     }
   } catch (e) {
@@ -266,12 +281,13 @@ const rollbackButton = {
   },
 };
 
-function handleRollbackSuccess() {
-  currentSelectedPost.value = null;
-  headerPageRef.value?.updateSearchWordsAndRefresh?.();
+async function handleRollbackSuccess() {
+  const internshipId = currentInternship.value?.internshipId || currentInternship.value?.id;
+  selectedPosts.value = await querySelectedPosts(internshipId, userInfo.value?.id);
+  await headerPageRef.value?.updateSearchWordsAndRefresh?.();
 }
 
-// 查看岗位详情（只读，从行操作列触发）
+// 查看岗位详情（只读，"已选" tab 行操作列触发）
 function handleViewPostDetail(row) {
   if (!row) return;
   const detailRow = { ...row, id: row.internshipPostId || row.relationId };
@@ -285,18 +301,12 @@ function handleViewClick(rowOrArray) {
   showProgressDialog.value = true;
 }
 
-// 动态 DTL 配置：根据是否已报名切换视图、按钮、列
+// 动态 DTL 配置：根据 activeTab 切换视图、按钮、列
 const defaultDTLProps = computed(() => {
-  const common = {
+  const applied = activeTab.value === 'applied';
+  return {
     title: titleObj,
     someFlags: { autoInit: false },
-  };
-
-  // 两个模式声明相同的按钮 key，用 show 控制显隐
-  const applied = hasApplication.value;
-
-  return {
-    ...common,
     enableAuditStatusCustom: true,
     getVerifyRoleName,
     clientFilterFn: applied ? filterActiveApplications : filterAvailablePosts,
@@ -334,3 +344,13 @@ defineExpose({
   updateSearchWordsAndRefresh: () => headerPageRef.value?.updateSearchWordsAndRefresh(),
 });
 </script>
+
+<style scoped>
+.tab-card {
+  margin-bottom: 0;
+}
+
+.tab-card :deep(.el-card__body) {
+  padding: 10px 16px;
+}
+</style>

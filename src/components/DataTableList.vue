@@ -24,7 +24,7 @@
             </template>
           </template>
         </template>
-        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border height="100%" :data="dataList"
+        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border stripe height="100%" :data="dataList"
           row-key="id" highlight-current-rows :row-class-name="rowClassNameFn" @current-change="handleColumnChange"
           @selection-change="handleSelectionChange" @sort-change="handleSortChange">
           <template v-if="showSelectColumn">
