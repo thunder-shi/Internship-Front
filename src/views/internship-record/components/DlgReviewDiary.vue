@@ -86,7 +86,7 @@ import { Document } from '@element-plus/icons-vue'
 import internshipProcessAPI from '@/api/internshipProcess'
 import CONSTANT from '@/utils/constant'
 import { getAuditStatusText, getAuditTagType } from '@/utils/verify'
-import { useDiaryFiles } from './useDiaryFiles'
+import { useDiaryFiles } from '@/utils/useDiaryFiles'
 
 defineOptions({ name: 'DlgReviewDiary' })
 

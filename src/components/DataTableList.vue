@@ -93,7 +93,7 @@
                   <component :is="updateButtonIcon" />
                 </el-icon></el-button>
               <el-button v-if="button?.audit?.show && isButtonVisible('audit', scope.row)" :type="button.audit.type"
-                size="small" :title="button.audit.name" @click="auditClick(scope.row)">
+                size="small" :title="button.audit.name" :disabled="isButtonDisabled('audit', scope.row)" @click="auditClick(scope.row)">
                 <svg-icon icon-class="verCode" />
               </el-button>
               <el-button v-if="button?.submit?.show && isButtonVisible('submit', scope.row)" :type="button.submit.type"
@@ -296,6 +296,12 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   },
+  // 按钮禁用条件配置：控制各按钮在不同行数据条件下的禁用状态
+  // 格式: { buttonName: (row) => boolean }，返回 true 表示禁用
+  buttonDisabledCondition: {
+    type: Object,
+    default: () => ({})
+  },
   // 客户端过滤函数：在数据加载后进行前端过滤
   // 格式: (dataList) => filteredDataList
   // 用于无法通过后端查询精确过滤的场景（如 verifyUserId 的精确匹配）
@@ -491,6 +497,24 @@ const isButtonVisible = (buttonName, row) => {
     return conditionFn(row);
   }
   return true;
+};
+
+// 判断按钮是否禁用（基于行数据的条件判断）
+const buttonDisabledCondition = computed(() => {
+  return props.defaultProps?.buttonDisabledCondition !== undefined
+    ? props.defaultProps.buttonDisabledCondition
+    : props.buttonDisabledCondition;
+});
+
+const isButtonDisabled = (buttonName, row) => {
+  if (!buttonDisabledCondition.value || !buttonDisabledCondition.value[buttonName]) {
+    return false;
+  }
+  const conditionFn = buttonDisabledCondition.value[buttonName];
+  if (typeof conditionFn === 'function') {
+    return conditionFn(row);
+  }
+  return false;
 };
 
 // 从 DataTableHeader 获取 tableColumnItem

@@ -141,7 +141,7 @@ import { Close, Upload, Download } from '@element-plus/icons-vue'
 import listAPI from '@/api/list'
 import CONSTANT from '@/utils/constant'
 import { canResubmitDiary } from '@/utils/verify'
-import { useDiaryFiles } from './useDiaryFiles'
+import { useDiaryFiles } from '@/utils/useDiaryFiles'
 
 defineOptions({ name: 'DlgSubmitDiary' })
 

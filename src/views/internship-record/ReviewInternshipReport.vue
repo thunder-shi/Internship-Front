@@ -8,7 +8,7 @@
     <DiaryStatsCard :submitted="submittedCount" :not-submitted="notSubmittedCount" :total="allStudents.length" />
 
     <!-- 学生列表 -->
-    <DataTableList ref="dtlRef" :default-props="dtlProps" :fetch-records="fetchRecordsFunc"
+    <DataTableList v-if="selectedInternshipId" ref="dtlRef" :default-props="dtlProps" :fetch-records="fetchRecordsFunc"
       :client-filter-fn="activeClientFilterFn" @audit-click="onAuditClick" @view-click="onViewClick">
       <template #left>
         <el-radio-group v-model="activeTab" @change="onTabChange">
@@ -32,7 +32,7 @@
       </template>
     </DataTableList>
 
-    <el-empty v-if="!selectedInternshipId" description="请先选择实习项目" :image-size="120" />
+    <el-empty v-else description="请先选择实习项目" :image-size="120" />
 
     <DlgReviewDiary ref="dlgReviewRef" @success="onReviewSuccess" />
     <DlgBatchReviewDiary ref="dlgBatchReviewRef" @success="onReviewSuccess" />
@@ -151,6 +151,9 @@ const dtlProps = computed(() => ({
   someFlags: {
     autoInit: true,
     checkFlag: true,
+  },
+  buttonDisabledCondition: {
+    audit: (row) => row.diary?.submit !== true,
   },
   sortStr: { properties: 'studentName', direction: 'ASC' },
   defaultDTHProps: {

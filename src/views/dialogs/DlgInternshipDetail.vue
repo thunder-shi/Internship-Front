@@ -210,7 +210,7 @@ const tableListProps = reactive({
   moveSearchWords: {
     searchKey: {}
   },
-  someFlags: { operateShow: true, checkFlag: true, showPage: false, autoInit: false },
+  someFlags: { operateShow: true, checkFlag: true, autoInit: false },
   defaultDTHProps: {
     keyWord: { edit: 'RelProcessInternship', view: 'ViewRelProcessInternship' },
     buttonProps: { create: { show: true }, update: { show: true }, delete: { show: true } },
@@ -936,12 +936,10 @@ defineExpose({
   color: #e6a23c;
 }
 
-/* 流程表格和期次表格：固定展示 6 行，内部滚动 */
-:deep(.tab-pane-content .el-table),
+/* 期次表格：固定展示 6 行，内部滚动 */
 :deep(.period-config-section .el-table) {
   height: 328px !important;
 }
-:deep(.tab-pane-content .el-table .el-table__body-wrapper),
 :deep(.period-config-section .el-table .el-table__body-wrapper) {
   height: 288px !important;
   overflow-y: auto !important;
