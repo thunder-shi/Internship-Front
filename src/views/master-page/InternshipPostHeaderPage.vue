@@ -441,6 +441,13 @@ async function initInternshipList() {
         isMore1Disabled.value = false;
         await nextTick();
         await nextTick();
+        if (typeof props.beforeRefreshOnProjectSelected === 'function') {
+          try {
+            await props.beforeRefreshOnProjectSelected(currentInternship.value);
+          } catch (error) {
+            console.error('beforeRefreshOnProjectSelected 调用失败', error);
+          }
+        }
         await updateSearchWordsAndRefresh();
       } else {
         emit('project-selected', null, props.pendingSelectMessage);
@@ -471,11 +478,29 @@ const mergedDefaultProps = computed(() => {
   };
 });
 
+// 以编程方式选中实习项目（供外部下拉选择器调用，与对话框确认路径等价）
+async function selectProject(project) {
+  if (!project) return;
+  currentInternship.value = _.cloneDeep({
+    ...project,
+    internshipId: project.internshipId || project.id,
+  });
+  if (typeof props.beforeRefreshOnProjectSelected === 'function') {
+    try {
+      await props.beforeRefreshOnProjectSelected(currentInternship.value);
+    } catch (error) {
+      console.error('beforeRefreshOnProjectSelected 调用失败', error);
+    }
+  }
+  await updateSearchWordsAndRefresh();
+}
+
 // 暴露给子组件的方法和属性
 defineExpose({
   baseListRef,
   currentInternship,
   updateSearchWordsAndRefresh,
+  selectProject,
   isMore1Disabled,
 });
 </script>
