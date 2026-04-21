@@ -167,7 +167,7 @@ const dtlProps = computed(() => ({
     },
     allTableColumns: [
       { id: 1, showName: '学生姓名', theOrder: 1, tableColumnName: 'studentName' },
-      { id: 2, showName: '学号', theOrder: 2, tableColumnName: 'studentNo' },
+      { id: 2, showName: '学号', theOrder: 2, tableColumnName: 'studentAccount' },
       { id: 3, showName: '岗位/题目', theOrder: 3, tableColumnName: '_postOrTitle' },
       { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: '_submitTime' },
       { id: 5, showName: '日志标题', theOrder: 5, tableColumnName: '_diaryTitle' },
