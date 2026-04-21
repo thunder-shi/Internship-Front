@@ -142,6 +142,7 @@ const defaultDTLProps = computed(() => ({
     keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelTitleStudentMerge' },
     allTableColumns: [
       { id: 1, showName: '学生姓名', tableColumnName: 'studentName', sortable: true },
+      { id: 6, showName: '学号', tableColumnName: 'studentAccount', sortable: true },
       { id: 2, showName: '题目名称', tableColumnName: 'name', sortable: true },
       { id: 3, showName: '申报教师', tableColumnName: 'teacherName', sortable: true },
       { id: 4, showName: '当前状态', tableColumnName: 'customize-status' },

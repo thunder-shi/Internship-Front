@@ -686,6 +686,7 @@ const defaultDTLProps = computed(() => ({
     allTableColumns: [
       { id: 1, showName: '教师名称', tableColumnName: 'teacherName', sortable: true },
       { id: 1, showName: '学生名称', tableColumnName: 'studentName', sortable: true },
+      { id: 6, showName: '学号', tableColumnName: 'studentAccount', sortable: true },
       { id: 2, showName: '实习岗位', tableColumnName: 'internshipPostName', sortable: true },
       { id: 3, showName: '实习项目', tableColumnName: 'internshipName', sortable: true },
       { id: 4, showName: '状态', tableColumnName: 'customize-status', sortable: true },

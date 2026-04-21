@@ -25,7 +25,7 @@ const defaultProps = reactive({
       buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true } },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelStuInternshipPostMerge' },
       allTableColumns: [
-        { id: 1, showName: '学号', tableColumnName: 'account', sortable: true },
+        { id: 1, showName: '学号', tableColumnName: 'studentAccount', sortable: true },
         { id: 2, showName: '学生名称', tableColumnName: 'studentName', sortable: true },
         { id: 3, showName: '实习岗位', tableColumnName: 'internshipPostName', sortable: true },
         { id: 4, showName: '实习项目', tableColumnName: 'internshipName', sortable: true },

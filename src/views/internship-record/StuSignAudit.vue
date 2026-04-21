@@ -98,6 +98,7 @@ const SIGN_AUDIT_KEY_WORD = {
 
 const VERIFY_MAIN_SIGN_COLUMNS = [
   { id: 1, showName: '学生', theOrder: 1, tableColumnName: 'studentName' },
+  { id: 8, showName: '学号', theOrder: 8, tableColumnName: 'studentAccount' },
   { id: 2, showName: '岗位', theOrder: 2, tableColumnName: 'internshipPostName' },
   // { id: 3, showName: '类型', theOrder: 3, tableColumnName: 'type' },
   { id: 4, showName: '地址', theOrder: 4, tableColumnName: 'address' },

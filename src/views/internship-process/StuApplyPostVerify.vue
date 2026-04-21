@@ -97,7 +97,7 @@ const defaultDTLProps = computed(() => ({
     },
     keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessRelStuInternshipPostMerge' },
     allTableColumns: [
-      { id: 1, showName: '学号', tableColumnName: 'account', sortable: true },
+      { id: 1, showName: '学号', tableColumnName: 'studentAccount', sortable: true },
       { id: 2, showName: '学生姓名', tableColumnName: 'studentName', sortable: true },
       { id: 3, showName: '企业名称', tableColumnName: 'companyName', sortable: true },
       { id: 4, showName: '岗位名称', tableColumnName: 'internshipPostName', sortable: true },

@@ -340,6 +340,7 @@ const defaultDTLProps = computed(() => ({
       { id: 1, showName: '题目名称', tableColumnName: 'name', sortable: true },
       { id: 2, showName: '题目详情', tableColumnName: 'remarks', sortable: true },
       { id: 3, showName: '学生姓名', tableColumnName: 'student_name', sortable: false },
+      { id: 5, showName: '学号', tableColumnName: 'studentAccount', sortable: false },
       { id: 4, showName: '是否限选', tableColumnName: 'isLimitText', sortable: false },
     ],
   },
