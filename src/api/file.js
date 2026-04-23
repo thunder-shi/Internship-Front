@@ -74,10 +74,23 @@ const downloadFile = async (id) => {
   window.open(res.data, '_blank')
 }
 
+/**
+ * 获取用于 kkFileView 在线预览的干净 presigned URL
+ * 与 download 的区别：不携带 response-content-disposition / response-content-type 覆写参数，
+ * 否则 MinIO 会返回 400，kkFileView 无法拉取文件内容
+ * @param {string|number} id - SysOssFile.id
+ * @returns {Promise<string>} 干净的 presigned URL
+ */
+const getPreviewUrl = async (id) => {
+  const res = await request({ url: `/common/minio/preview/${id}`, method: 'get' })
+  return res.data
+}
+
 export default {
   upload,
   deleteFile,
   downloadFile,
+  getPreviewUrl,
   getProgressPercent
 }
 

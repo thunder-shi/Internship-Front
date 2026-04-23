@@ -88,6 +88,7 @@
                 >{{ fileBadge(file.name).text }}</div>
                 <span class="file-card-name">{{ file.name }}</span>
                 <div class="file-card-actions">
+                  <el-icon class="action-icon" title="预览" @click.stop="triggerPreview(file)"><View /></el-icon>
                   <el-icon class="action-icon" title="下载" @click.stop="triggerDownload(file)"><Download /></el-icon>
                 </div>
                 <span
@@ -137,7 +138,7 @@
 <script setup>
 import { ref, computed, reactive, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Close, Upload, Download } from '@element-plus/icons-vue'
+import { Close, Upload, Download, View } from '@element-plus/icons-vue'
 import listAPI from '@/api/list'
 import CONSTANT from '@/utils/constant'
 import { canResubmitDiary } from '@/utils/verify'
@@ -217,6 +218,7 @@ const {
   filesLoading,
   loadFiles: loadExistingFiles,
   triggerDownload,
+  triggerPreview,
   deleteFile: deleteExistingFile,
 } = useDiaryFiles()
 const newFileList = ref([])

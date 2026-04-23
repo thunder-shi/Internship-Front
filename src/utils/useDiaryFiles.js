@@ -3,6 +3,11 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import fileAPI from '@/api/file'
 import listAPI from '@/api/list'
 
+// kkFileView 与 MinIO 部署在同一台服务器，端口固定 8012
+// 运行时从 presigned URL 里提取 hostname，无需手动配置 IP
+const KKFILEVIEW_PORT = 8012
+
+
 /**
  * 日志附件管理 composable
  * 供 DlgSubmitDiary（编辑）和 DlgReviewDiary（批阅）共用
@@ -40,6 +45,23 @@ export function useDiaryFiles() {
     }
   }
 
+  /**
+   * 通过 kkFileView 在线预览文件
+   * 从 MinIO presigned URL 中提取 hostname，kkFileView 与 MinIO 在同一台服务器
+   */
+  async function triggerPreview(file) {
+    try {
+      const minioUrl = await fileAPI.getPreviewUrl(file.id)
+      const { hostname } = new URL(minioUrl)
+      const kkFileViewBase = `http://${hostname}:${KKFILEVIEW_PORT}`
+      // base64 结果必须再做一次 encodeURIComponent，否则其中的 + / = 会被 URL 解析破坏
+      const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(minioUrl))))
+      window.open(`${kkFileViewBase}/onlinePreview?url=${encoded}`, '_blank')
+    } catch {
+      ElMessage.error('预览失败，请尝试下载后查看')
+    }
+  }
+
   async function deleteFile(file) {
     try {
       await ElMessageBox.confirm('删除后不可恢复，确定删除该文件吗？', '提示', {
@@ -59,5 +81,5 @@ export function useDiaryFiles() {
     files.value = []
   }
 
-  return { files, filesLoading, loadFiles, triggerDownload, deleteFile, reset }
+  return { files, filesLoading, loadFiles, triggerDownload, triggerPreview, deleteFile, reset }
 }
