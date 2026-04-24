@@ -50,6 +50,14 @@
               title="今日已在该岗位完成签到，无需重复签到；如需离开可提交签退。"
             />
             <el-alert
+              v-if="hasCheckedOutToday"
+              type="info"
+              :closable="false"
+              show-icon
+              class="mb-16"
+              title="今日已在该岗位完成签退，无需重复签退。"
+            />
+            <el-alert
               v-if="hasRejectedSignToday"
               type="warning"
               :closable="false"
@@ -76,7 +84,10 @@
                     v-for="opt in signTypeOptions"
                     :key="opt.value"
                     :label="opt.value"
-                    :disabled="opt.value === SIGN_IN && hasCheckedInToday"
+                    :disabled="
+                      (opt.value === SIGN_IN && hasCheckedInToday) ||
+                      (opt.value === SIGN_OUT && hasCheckedOutToday)
+                    "
                   >
                     {{ opt.label }}
                   </el-radio>
@@ -126,12 +137,7 @@
                         <span>预览</span>
                       </span>
                     </div>
-                    <el-button
-                      type="danger"
-                      plain
-                      class="remove-photo-btn"
-                      @click="clearPhoto"
-                    >
+                    <el-button type="danger" plain class="remove-photo-btn" @click="clearPhoto">
                       移除
                     </el-button>
                   </div>
@@ -325,6 +331,21 @@ const hasCheckedInToday = computed(() => {
   );
 });
 
+/** 当前岗位下今日是否已有签退记录 */
+const hasCheckedOutToday = computed(() => {
+  if (!ENFORCE_ONE_SIGN_IN_PER_DAY) return false;
+  const post = currentPost.value;
+  if (!post) return false;
+  const rid = Number(post.relationId);
+  return historyRows.value.some(
+    (row) =>
+      Number(row.stuInternshipId ?? row.stu_internship_id) === rid &&
+      getRowSignType(row) === SIGN_OUT &&
+      isRecordCreateTimeToday(row) &&
+      !isAuditBack(row)
+  );
+});
+
 const hasRejectedSignToday = computed(() => {
   const post = currentPost.value;
   if (!post) return false;
@@ -337,9 +358,27 @@ const hasRejectedSignToday = computed(() => {
   );
 });
 
+function getTodayRejectedRecordForCurrentPost(signType = null) {
+  const post = currentPost.value;
+  if (!post) return null;
+  const rid = Number(post.relationId);
+  const todayRejectedRows = historyRows.value.filter(
+    (row) =>
+      Number(row.stuInternshipId ?? row.stu_internship_id) === rid &&
+      isRecordCreateTimeToday(row) &&
+      isAuditBack(row)
+  );
+  if (!todayRejectedRows.length) return null;
+  if (signType == null) return todayRejectedRows[0];
+  return (
+    todayRejectedRows.find((row) => getRowSignType(row) === Number(signType)) || todayRejectedRows[0]
+  );
+}
+
 const canSubmit = computed(() => {
   if (!currentPost.value) return false;
   if (form.signType === SIGN_IN && hasCheckedInToday.value) return false;
+  if (form.signType === SIGN_OUT && hasCheckedOutToday.value) return false;
   if (!form.address?.trim()) return false;
   if (!photoRaw.value) return false;
   return true;
@@ -463,6 +502,38 @@ function parseImgIdFromUpload(res) {
   return null;
 }
 
+async function querySignProcessVerifyRoles(internshipId) {
+  if (!internshipId) return null;
+  try {
+    const processTypeCode =
+      CONSTANT?.PROCESS_TYPE?.STUDENT_SIGN ?? CONSTANT?.PROCESS_TYPE?.STU_SIGN ?? 'STUDENT_SIGN';
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelProcessInternship',
+      pageInfo: { page: 1, size: 1 },
+      searchKey: { internshipId, processTypeCode },
+      reg: { internshipId: '=', processTypeCode: '=' },
+      sort: { properties: 'id', direction: 'DESC' },
+    });
+    const first = res?.data?.content?.[0] ?? res?.data?.[0];
+    if (!first) return null;
+    return {
+      verifyFirstRoleId: first.verifyFirstRoleId ?? null,
+      verifyFirstRoleName: first.verifyFirstRoleName ?? null,
+      verifySecondRoleId: first.verifySecondRoleId ?? null,
+      verifySecondRoleName: first.verifySecondRoleName ?? null,
+      verifyThirdRoleId: first.verifyThirdRoleId ?? null,
+      verifyThirdRoleName: first.verifyThirdRoleName ?? null,
+      verifyFourthRoleId: first.verifyFourthRoleId ?? null,
+      verifyFourthRoleName: first.verifyFourthRoleName ?? null,
+      verifyFifthRoleId: first.verifyFifthRoleId ?? null,
+      verifyFifthRoleName: first.verifyFifthRoleName ?? null,
+    };
+  } catch (error) {
+    console.error('查询打卡流程角色失败:', error);
+    return null;
+  }
+}
+
 async function handleSubmit() {
   try {
     await formRef.value?.validate();
@@ -481,6 +552,10 @@ async function handleSubmit() {
     ElMessage.warning('今日已签到，无需重复签到');
     return;
   }
+  if (form.signType === SIGN_OUT && hasCheckedOutToday.value) {
+    ElMessage.warning('今日已签退，无需重复签退');
+    return;
+  }
   const uid = userInfo.value?.id;
   if (!uid) {
     ElMessage.error('用户信息缺失，请重新登录');
@@ -496,13 +571,28 @@ async function handleSubmit() {
       signType: form.signType,
       address: form.address.trim(),
     };
+    const pendingRejected = getTodayRejectedRecordForCurrentPost(form.signType);
+    const pendingRelationId = pendingRejected?.relationId ?? pendingRejected?.id;
+    if (pendingRelationId != null && pendingRelationId !== '') {
+      // 当天存在退回记录时复用该记录（relationId 指向待提交的 MainSign.id）
+      node.id = Number(pendingRelationId);
+    }
+    const internshipId = post?.internshipId ?? post?.mainInternshipId ?? post?.internship_id;
+    const verifyRoleInfo = await querySignProcessVerifyRoles(internshipId);
+    if (verifyRoleInfo) {
+      Object.keys(verifyRoleInfo).forEach((k) => {
+        if (verifyRoleInfo[k] != null && verifyRoleInfo[k] !== '') {
+          node[k] = verifyRoleInfo[k];
+        }
+      });
+    }
 
     const saveRes = await listAPI.editOneNode('MainSign', node);
     if (saveRes?.message !== 'successful') {
       ElMessage.warning(saveRes?.message || '保存失败');
       return;
     }
-    const signId = saveRes?.data?.id ?? saveRes?.data?.nodeInfo?.id;
+    const signId = saveRes?.data?.id ?? saveRes?.data?.nodeInfo?.id ?? node.id;
     if (signId == null || signId === '') {
       ElMessage.error('保存成功但未返回打卡记录编号，无法上传照片');
       return;
@@ -581,6 +671,12 @@ watch(currentPost, () => {
 watch(hasCheckedInToday, (checked) => {
   if (checked && form.signType === SIGN_IN) {
     form.signType = SIGN_OUT;
+  }
+});
+
+watch(hasCheckedOutToday, (checked) => {
+  if (checked && form.signType === SIGN_OUT) {
+    form.signType = SIGN_IN;
   }
 });
 
