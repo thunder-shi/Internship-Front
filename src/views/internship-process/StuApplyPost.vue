@@ -1,9 +1,5 @@
 <template>
-  <el-result
-    v-if="internshipType === null"
-    icon="info"
-    title="未到时间，请等候学校通知"
-  />
+  <el-result v-if="internshipType === null" icon="info" title="未到时间，请等候学校通知" />
   <template v-else-if="ready">
     <!-- 控制栏：项目选择 + Tab 切换 -->
     <el-card shadow="never" class="control-bar">
@@ -58,11 +54,19 @@
       </template>
       <template #dialogs>
         <!-- 岗位详情对话框（只读） -->
-        <DlgPostDetail ref="dlgPostDetail" :current-internship="currentInternship"
-          :custom-foot-button="rollbackButton" @success="handleRollbackSuccess" />
+        <DlgPostDetail
+          ref="dlgPostDetail"
+          :current-internship="currentInternship"
+          :custom-foot-button="rollbackButton"
+          @success="handleRollbackSuccess"
+        />
         <!-- 审核进度对话框 -->
-        <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
-          :process-info="currentRow" key-words="ViewVerifyProcessRelStuInternshipPost" />
+        <DlgVerifyProgress
+          v-model="showProgressDialog"
+          :main-internship-id="currentRow.internshipId"
+          :process-info="currentRow"
+          key-words="ViewVerifyProcessRelStuInternshipPost"
+        />
       </template>
     </InternshipPostHeaderPage>
   </template>
@@ -103,14 +107,17 @@ const ready = ref(false);
 
 async function loadStudentAssignment() {
   const userId = userInfo.value?.id;
-  if (!userId) { ready.value = true; return; }
+  if (!userId) {
+    ready.value = true;
+    return;
+  }
   try {
     const res = await listAPI.getSomeRecords({
       keyWords: 'RelIntershipUser',
       searchKey: { userId },
     });
     const records = res?.data?.content || res?.data || [];
-    studentInternshipIds.value = records.map(r => r.internshipId).filter(Boolean);
+    studentInternshipIds.value = records.map((r) => r.internshipId).filter(Boolean);
   } catch (e) {
     console.error('查询学生分配记录失败:', e);
   }
@@ -123,7 +130,7 @@ async function loadExpandedMajorIds() {
   try {
     const res = await treeAPI.getAllParentIndex('BaseMajor', majorId);
     if (res.data && res.data.length > 0) {
-      expandedMajorIds.value = res.data.map(item => item.id).filter(Boolean);
+      expandedMajorIds.value = res.data.map((item) => item.id).filter(Boolean);
     } else {
       expandedMajorIds.value = [majorId];
     }
@@ -156,7 +163,7 @@ async function loadProjectList() {
     const list = res?.data?.content || res?.data || [];
     const seen = new Set();
     const unique = [];
-    list.forEach(item => {
+    list.forEach((item) => {
       const key = item.internshipId || item.id;
       if (!key || seen.has(key)) return;
       seen.add(key);
@@ -173,7 +180,7 @@ async function loadProjectList() {
 async function handleDropdownProjectChange(internshipId) {
   selectedPosts.value = [];
   if (!internshipId) return;
-  const project = projectList.value.find(p => String(p.internshipId) === String(internshipId));
+  const project = projectList.value.find((p) => String(p.internshipId) === String(internshipId));
   if (!project) return;
   // 通过 InternshipPostHeaderPage 的标准选项方法触发数据加载，避免直接操作内部 ref
   await headerPageRef.value?.selectProject?.(project);
@@ -186,25 +193,30 @@ onMounted(async () => {
 });
 
 // ── Tab 状态 ──────────────────────────────────────────────────
-const activeTab = ref('available');   // 'available'（可选）| 'applied'（已选）
+const activeTab = ref('available'); // 'available'（可选）| 'applied'（已选）
 
 // ── 已报名岗位列表（SAVE/SUBMIT/PASS） ────────────────────────
 const selectedPosts = ref([]);
-const ACTIVE_STATUSES = [CONSTANT.AUDIT_STATUS.SAVE, CONSTANT.AUDIT_STATUS.SUBMIT, CONSTANT.AUDIT_STATUS.PASS];
+const ACTIVE_STATUSES = [
+  CONSTANT.AUDIT_STATUS.SAVE,
+  CONSTANT.AUDIT_STATUS.SUBMIT,
+  CONSTANT.AUDIT_STATUS.PASS,
+];
 
 // 已有有效报名的岗位 ID Set（字符串化，避免视图间 number/string 类型不一致导致比对失败）
-const selectedPostIds = computed(() =>
-  new Set(
-    selectedPosts.value
-      .map(p => p.internshipPostId)
-      .filter(id => id != null)
-      .map(String)
-  )
+const selectedPostIds = computed(
+  () =>
+    new Set(
+      selectedPosts.value
+        .map((p) => p.internshipPostId)
+        .filter((id) => id != null)
+        .map(String)
+    )
 );
 
 // 是否已有审核通过的报名（通过后锁定，不允许再报其他岗位）
 const hasApprovedPost = computed(() =>
-  selectedPosts.value.some(p => Number(p.isAudit) === CONSTANT.AUDIT_STATUS.PASS)
+  selectedPosts.value.some((p) => Number(p.isAudit) === CONSTANT.AUDIT_STATUS.PASS)
 );
 
 // 审核进度对话框
@@ -264,7 +276,7 @@ async function querySelectedPosts(internshipId, studentId) {
       reg: { internshipId: '=', studentId: '=' },
     });
     const dataList = response?.data?.content || response?.data || [];
-    const filtered = dataList.filter(r => ACTIVE_STATUSES.includes(Number(r.isAudit)));
+    const filtered = dataList.filter((r) => ACTIVE_STATUSES.includes(Number(r.isAudit)));
     // 按 internshipPostId 去重，同一岗位存在多条审核步骤时优先保留 PASS 记录
     const map = new Map();
     for (const r of filtered) {
@@ -280,6 +292,32 @@ async function querySelectedPosts(internshipId, studentId) {
   }
 }
 
+// 查询学生在全部实习项目下已选择的岗位数量（不传 internshipId）
+// 规则与 querySelectedPosts 一致：仅统计有效状态，按 internshipPostId 去重，PASS 优先
+async function querySelectedPostCount(studentId) {
+  if (!studentId) return 0;
+  try {
+    const response = await listAPI.getSomeRecords({
+      keyWords: 'ViewVerifyProcessRelStuInternshipPost',
+      searchKey: { studentId },
+      reg: { studentId: '=' },
+    });
+    const dataList = response?.data?.content || response?.data || [];
+    const filtered = dataList.filter((r) => ACTIVE_STATUSES.includes(Number(r.isAudit)));
+    const map = new Map();
+    for (const r of filtered) {
+      const key = String(r.internshipPostId);
+      if (!map.has(key) || Number(r.isAudit) === CONSTANT.AUDIT_STATUS.PASS) {
+        map.set(key, r);
+      }
+    }
+    return map.size;
+  } catch (e) {
+    console.error('querySelectedPostCount 失败:', e);
+    return 0;
+  }
+}
+
 // 根据 tab 切换查询条件
 function buildSearchKey(baseSearchKey) {
   if (activeTab.value === 'applied') {
@@ -291,15 +329,16 @@ function buildSearchKey(baseSearchKey) {
 // "可选" tab：已有审核通过的报名则返回空（锁定）；否则排除满员 + 已报名岗位
 function filterAvailablePosts(dataList) {
   if (hasApprovedPost.value) return [];
-  return dataList.filter(row =>
-    (row.nowPersonNum || 0) < (row.allPersonNum || 0) &&
-    !selectedPostIds.value.has(String(row.internshipPostId))
+  return dataList.filter(
+    (row) =>
+      (row.nowPersonNum || 0) < (row.allPersonNum || 0) &&
+      !selectedPostIds.value.has(String(row.internshipPostId))
   );
 }
 
 // "已选" tab：软删除保证 BACK/NOTPASS 不会出现，Number() 防止视图返回字符串 isAudit
 function filterActiveApplications(dataList) {
-  return dataList.filter(row => ACTIVE_STATUSES.includes(Number(row.isAudit)));
+  return dataList.filter((row) => ACTIVE_STATUSES.includes(Number(row.isAudit)));
 }
 
 // 项目选择后回调：清空旧状态（表格标题不更新，项目信息由顶部下拉框展示）
@@ -322,6 +361,12 @@ watch(activeTab, () => {
 
 // 报名按钮（仅"可选" tab）
 async function handleSubmitClick(row) {
+  querySelectedPostCount(userInfo.value?.id).then((count) => {
+    if (count >= 3) {
+      ElMessage.warning('您已报名3个岗位，无法继续报名');
+      return;
+    }
+  });
   await handleApply(row);
 }
 
@@ -337,7 +382,7 @@ async function handleApply(row) {
 
   // 已有报名记录时拦截（防止过滤器未及时生效时的重复操作）
   const existing = selectedPosts.value.find(
-    p => String(p.internshipPostId) === String(selectedRow.internshipPostId)
+    (p) => String(p.internshipPostId) === String(selectedRow.internshipPostId)
   );
   if (existing) {
     if (Number(existing.isAudit) === CONSTANT.AUDIT_STATUS.PASS) {
@@ -357,12 +402,19 @@ async function handleApply(row) {
   try {
     await ElMessageBox.confirm(
       `确定报名「${selectedRow.internshipPostName || ''}」岗位吗？`,
-      '确认报名', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' },
+      '确认报名',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
     );
-  } catch { return; }
+  } catch {
+    return;
+  }
 
   try {
-    const response = await otherAPI.stuSelPost(userInfo.value?.id, 0, Number(selectedRow.internshipPostId) || 0);
+    const response = await otherAPI.stuSelPost(
+      userInfo.value?.id,
+      0,
+      Number(selectedRow.internshipPostId) || 0
+    );
     if (response?.message === 'successful') {
       ElMessage.success('报名成功');
       // 直接使用后端返回的真实 isAudit，不再依赖视图查询
@@ -387,15 +439,21 @@ const rollbackButton = {
   name: '退回报名',
   type: 'warning',
   show: (rowData) => {
-    return rowData?.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
-      rowData?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY;
+    return (
+      rowData?.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
+      rowData?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
+    );
   },
   action: async (rowData) => {
     try {
       await ElMessageBox.confirm('确定退回该报名吗？退回后可以重新选择岗位。', '确认退回', {
-        confirmButtonText: '确定退回', cancelButtonText: '取消', type: 'warning',
+        confirmButtonText: '确定退回',
+        cancelButtonText: '取消',
+        type: 'warning',
       });
-    } catch { return false; }
+    } catch {
+      return false;
+    }
     try {
       const postId = rowData?.internshipPostId || rowData?.relationId;
       const response = await otherAPI.stuSelPost(userInfo.value?.id, postId, 0);
@@ -403,7 +461,7 @@ const rollbackButton = {
         ElMessage.success('退回成功，可以重新选择岗位');
         // 乐观更新：立即移除此岗位，防止后端视图时序问题导致计数暂时归零
         selectedPosts.value = selectedPosts.value.filter(
-          p => String(p.internshipPostId) !== String(rowData?.internshipPostId)
+          (p) => String(p.internshipPostId) !== String(rowData?.internshipPostId)
         );
         return true;
       }
@@ -420,7 +478,7 @@ async function handleRollbackSuccess() {
   // 后台同步：若后端有结果则以后端为准，为空时保留乐观状态
   const internshipId = currentInternship.value?.internshipId || currentInternship.value?.id;
   if (internshipId) {
-    querySelectedPosts(internshipId, userInfo.value?.id).then(fresh => {
+    querySelectedPosts(internshipId, userInfo.value?.id).then((fresh) => {
       if (fresh.length > 0) selectedPosts.value = fresh;
     });
   }
@@ -457,7 +515,9 @@ const defaultDTLProps = computed(() => {
       },
       keyWord: {
         edit: 'MainVerifyProcess',
-        view: applied ? 'ViewVerifyProcessRelStuInternshipPostMerge' : 'ViewVerifyProcessInternshipPostMerge',
+        view: applied
+          ? 'ViewVerifyProcessRelStuInternshipPostMerge'
+          : 'ViewVerifyProcessInternshipPostMerge',
       },
       allTableColumns: applied
         ? [
