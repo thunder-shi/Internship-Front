@@ -64,7 +64,7 @@
               选择文件
             </el-button>
             <span class="upload-hint">
-              支持 Office/WPS/PDF/图片/视频/压缩包，单个 ≤20MB，最多 5 个
+              支持 Office/WPS/PDF/图片/视频/压缩包，单个 ≤50MB，最多 5 个
               <span :class="totalSizeWarning ? 'size-warn' : 'size-normal'">
                 {{ totalSizeText }}
               </span>
@@ -231,7 +231,7 @@ const totalFileSize = computed(() => {
   return existing + added
 })
 
-const MAX_TOTAL = 50 * 1024 * 1024
+const MAX_TOTAL = 100 * 1024 * 1024
 
 function formatSize(bytes) {
   if (bytes === 0) return '0 MB'
@@ -239,7 +239,7 @@ function formatSize(bytes) {
   return (bytes / 1024 / 1024).toFixed(1) + ' MB'
 }
 
-const totalSizeText = computed(() => `${formatSize(totalFileSize.value)} / 50 MB`)
+const totalSizeText = computed(() => `${formatSize(totalFileSize.value)} / 100 MB`)
 const totalSizeWarning = computed(() => totalFileSize.value > MAX_TOTAL * 0.8)
 
 const dialogTitle = computed(() => {
@@ -298,8 +298,8 @@ function addFile(file) {
     ElMessage.warning(`不支持 .${ext} 格式`)
     return
   }
-  if (file.size > 20 * 1024 * 1024) {
-    ElMessage.warning(`「${file.name}」超过 20MB 限制`)
+  if (file.size > 50 * 1024 * 1024) {
+    ElMessage.warning(`「${file.name}」超过 50MB 限制`)
     return
   }
   if (totalFileCount.value >= 5) {
@@ -307,7 +307,7 @@ function addFile(file) {
     return
   }
   if (totalFileSize.value + file.size > MAX_TOTAL) {
-    ElMessage.warning('所有文件总大小不超过 50MB')
+    ElMessage.warning('所有文件总大小不超过 100MB')
     return
   }
   if (newFileList.value.some(f => f.name === file.name && f.size === file.size)) {

@@ -1,5 +1,5 @@
 <template>
-  <div v-loading="loading" element-loading-text="保存中...">
+  <div>
     <el-form ref="mainForm" :model="form" :rules="formRule" label-position="right" label-width="120px" class="personal-form" label-suffix=":">
       <el-form-item label="账号" prop="account">
         <el-input v-model="form.account" />
@@ -47,7 +47,7 @@
       <!-- <el-button size="small" plain round @click="$router.go(-1)">
         返 回
       </el-button> -->
-      <el-button size="small" type="primary" round :loading="loading" @click="handleSave()">
+      <el-button size="small" type="primary" round @click="handleSave()">
         保 存
       </el-button>
     </div>    
@@ -57,7 +57,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElLoading } from 'element-plus'
 import UserAPI from '@/api/user'
 import treeAPI from '@/api/tree'
 import SimpleSelect from '@/components/SimpleSelect.vue'
@@ -66,7 +66,6 @@ const store = useStore()
 
 // 响应式数据
 const mainForm = ref(null)
-const loading = ref(false)
 const editable = ref(false)
 
 const userInfo = computed(() => store.getters.userInfo)
@@ -119,16 +118,14 @@ async function handleSave() {
   
   await mainForm.value.validate(async (valid) => {
     if (valid) {
-      loading.value = true
-      // 信息保存
+      const loadingInstance = ElLoading.service({ fullscreen: true, text: '保存中...' })
       try {
         const obj = JSON.parse(JSON.stringify(form))
         await UserAPI.editUserInfo(userId.value, obj)
         await store.dispatch('user/updateUserInfo', obj)
         ElMessage.success('保存成功！')
-        loading.value = false
-      } catch (error) {
-        loading.value = false
+      } finally {
+        loadingInstance.close()
       }
     }
   })

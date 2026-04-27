@@ -41,7 +41,7 @@ StuSignAudit.vue            (打卡审核)
 
 - 原生 `<input type="file">` + `fileInputRef.click()`（禁用 el-upload）
 - 格式: pdf / office(doc/docx/xls/xlsx/ppt/pptx) / 压缩包(zip/rar/7z) / 图片 / 视频
-- 限制: 最多 5 个，单个 ≤ 20MB，总计 ≤ 50MB
+- 限制: 最多 5 个，单个 ≤ 50MB，总计 ≤ 100MB
 - 文件徽章: Office 风格（W=蓝/#2b579a，X=绿/#217346，P=橙/#d24726，PDF=红）
 - 查询已上传: `SysOssFile`，条件 `{ relationIds: diaryId, tableName: 'MainDiary' }`
 - 文件管理共用: `useDiaryFiles()` composable（DlgSubmitDiary + DlgReviewDiary）
