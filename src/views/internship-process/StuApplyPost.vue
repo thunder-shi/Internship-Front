@@ -259,7 +259,7 @@ const projectSelectRegKey = computed(() => {
     regKey.internshipId = CONSTANT.SEARCH_OPERATOR.IN;
   }
   if (expandedMajorIds.value.length > 0) {
-    regKey.majorIds = 'fi()';
+    regKey.majorIds = CONSTANT.SEARCH_OPERATOR.FIND_IN_SET;
   }
   return regKey;
 });
@@ -361,12 +361,11 @@ watch(activeTab, () => {
 
 // 报名按钮（仅"可选" tab）
 async function handleSubmitClick(row) {
-  querySelectedPostCount(userInfo.value?.id).then((count) => {
-    if (count >= 3) {
-      ElMessage.warning('您已报名3个岗位，无法继续报名');
-      return;
-    }
-  });
+  const count = await querySelectedPostCount(userInfo.value?.id);
+  if (count >= 3) {
+    ElMessage.warning('您已报名3个岗位，无法继续报名');
+    return;
+  }
   await handleApply(row);
 }
 
@@ -441,7 +440,7 @@ const rollbackButton = {
   show: (rowData) => {
     return (
       rowData?.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
-      rowData?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      Number(rowData?.verifyTypeId) === CONSTANT.VERIFY_LEVEL.NO_VERIFY
     );
   },
   action: async (rowData) => {

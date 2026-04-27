@@ -96,7 +96,8 @@ SEARCH_OPERATOR: {
   EQ: '=', NE: '!=', LIKE: '≈',
   IN: '()', NOT_IN: '!()',
   GT: '>', LT: '<', GE: '>=', LE: '<=',
-  RANGE: '<=>', OR: '||', AND: '&&'
+  RANGE: '<=>', OR: '||', AND: '&&',
+  FIND_IN_SET: 'fi()'   // MySQL FIND_IN_SET，用于逗号分隔列表的包含查询
 }
 ```
 

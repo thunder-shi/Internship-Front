@@ -24,6 +24,7 @@ const SEARCH_OPERATOR = Object.freeze({
   IN: '()',
   NOT_IN: '!()',
   RANGE: '<=>',
+  FIND_IN_SET: 'fi()',
 });
 
 // 分割操作符

@@ -621,6 +621,7 @@ async function handleSubmit() {
     activeTab.value = 'history';
   } catch (e) {
     if (!e?.response) {
+      // HTTP 错误由 request 拦截器统一弹窗，此处只处理网络/逻辑异常
       ElMessage.error('提交失败：' + (e?.message || ''));
     }
   } finally {
@@ -639,7 +640,7 @@ async function loadHistory() {
     }
     const res = await listAPI.getSomeRecords({
       keyWords: 'ViewVerifyMainSignMerge',
-      pageInfo: { page: 1, size: 50 },
+      pageInfo: { page: 1, size: 25 },
       searchKey,
       reg: {
         studentId: '=',
