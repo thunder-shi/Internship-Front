@@ -73,7 +73,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, watch, onMounted } from 'vue';
+import { reactive, ref, computed, watch, onMounted, onActivated } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { InfoFilled } from '@element-plus/icons-vue';
@@ -190,6 +190,16 @@ onMounted(async () => {
   await Promise.all([loadStudentAssignment(), loadExpandedMajorIds()]);
   ready.value = true;
   await loadProjectList();
+});
+
+onActivated(async () => {
+  await Promise.all([loadStudentAssignment(), loadExpandedMajorIds()]);
+  await loadProjectList();
+  const internshipId = currentInternship.value?.internshipId;
+  if (internshipId) {
+    selectedPosts.value = await querySelectedPosts(internshipId, userInfo.value?.id);
+    headerPageRef.value?.updateSearchWordsAndRefresh?.();
+  }
 });
 
 // ── Tab 状态 ──────────────────────────────────────────────────

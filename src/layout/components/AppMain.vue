@@ -2,28 +2,15 @@
   <section id="app-main" class="app-main">
     <!-- <reset-login :dialog-visible.sync="dialogVisible" /> -->
     <router-view v-slot="{ Component }">
-      <transition name="fade-transform" mode="out-in">
-        <keep-alive v-if="$route.meta.isCache && Component">
-          <component :is="Component" class="router-view" />
-        </keep-alive>
-        <component v-else-if="Component" :is="Component" class="router-view" />
-      </transition>
+      <keep-alive>
+        <component :is="Component" class="router-view" />
+      </keep-alive>
     </router-view>
   </section>
 </template>
 <script>
 export default {
-  name: 'AppMain',
-  data() {
-    return {
-      dialogVisible: false
-    }
-  },
-  computed: {
-    key() {
-      return this.$route.path
-    }
-  }
+  name: 'AppMain'
 }
 </script>
 
