@@ -256,32 +256,21 @@ async function loadAssignedStudentIds() {
     return;
   }
   try {
-    const titleRes = await listAPI.getSomeRecords({
-      keyWords: 'RelTitleTeacher',
-      searchKey: { internshipId, isLimit: 1 },
-      pageInfo: { page: 1, size: 1000 },
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelTitleTeacherStudent',
+      searchKey: { internshipId },
+      pageInfo: { page: 1, size: 5000 },
       sort: { properties: 'id', direction: 'DESC' },
     });
-    const titleList = titleRes?.data?.content ?? titleRes?.data ?? [];
-    const titleIds = titleList.map((r) => r?.id).filter((id) => id != null);
+    const list = res?.data?.content ?? res?.data ?? [];
     const ids = [];
-    if (titleIds.length > 0) {
-      const relRes = await listAPI.getSomeRecords({
-        keyWords: 'RelTitleStudent',
-        searchKey: { titleId: titleIds.join(',') },
-        reg: { titleId: CONSTANT.SEARCH_OPERATOR.IN },
-        pageInfo: { page: 1, size: 1000 },
-        sort: { properties: 'id', direction: 'DESC' },
-      });
-      const relList = relRes?.data?.content ?? relRes?.data ?? [];
-      for (const rel of relList) {
-        const stuId = rel?.stuId ?? rel?.stu_id;
-        if (stuId != null) ids.push(Number(stuId));
-      }
+    for (const row of list) {
+      const stuId = row?.stuId ?? row?.stu_id ?? row?.studentId ?? row?.student_id;
+      if (stuId != null) ids.push(Number(stuId));
     }
     assignedStudentIds.value = new Set(ids);
   } catch (e) {
-    console.error('加载已分配题目学生失败:', e);
+    console.error('加载正式占用题目的学生失败:', e);
     assignedStudentIds.value = new Set();
   }
 }
@@ -292,22 +281,20 @@ async function loadApprovedSelectionStudentIds() {
   if (!internshipId) return;
   try {
     const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewVerifyProcessRelTitleStudentMerge',
-      searchKey: { internshipId, isAudit: CONSTANT.AUDIT_STATUS.PASS },
+      keyWords: 'ViewRelTitleTeacherStudent',
+      searchKey: { internshipId },
       pageInfo: { page: 1, size: 5000 },
       sort: { properties: 'id', direction: 'DESC' },
     });
     const list = res?.data?.content ?? res?.data ?? [];
     const ids = new Set();
     for (const row of list) {
-      const isAllVerified = row?.isAllVerified;
-      if (isAllVerified === false || isAllVerified === 0 || isAllVerified === '0') continue;
       const uid = row?.stuId ?? row?.stu_id ?? row?.studentId ?? row?.student_id;
       if (uid != null) ids.add(Number(uid));
     }
     approvedSelectionStudentIds.value = ids;
   } catch (e) {
-    console.error('加载审核通过选题学生失败:', e);
+    console.error('加载最终确认选题学生失败:', e);
     approvedSelectionStudentIds.value = new Set();
   }
 }

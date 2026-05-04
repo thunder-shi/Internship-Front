@@ -193,6 +193,17 @@ function acknowledgeRejectedTitleSelection(node) {
   });
 }
 
+/** 老师最终确认学生自主选题（可选入口，auditProcess 通过也会触发后端确认） */
+function confirmStudentTopicSelection(node) {
+  return request({
+    url: '/internshipProcess/confirmStudentTopicSelection',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
 export default {
   auditProcess,
   activateProcess,
@@ -210,5 +221,6 @@ export default {
   getExternalInternshipStudentPostBreakdown,
   getLatestRejectedTitleSelection,
   acknowledgeRejectedTitleSelection,
+  confirmStudentTopicSelection,
   // getNowInternship
 };
