@@ -1,6 +1,7 @@
 <template>
   <div>
     <DataTableList ref="dataTableList" :default-props="defaultProps.defaultDTLProps" :button-condition="buttonCondition"
+      :fetch-records="fetchRecords"
       :client-filter-fn="clientFilterFn" :enable-audit-status-custom="enableAuditStatusCustom"
       :get-verify-role-name="getVerifyRoleName" @append-click="appendClick" @edit-click="editClick"
       @view-click="viewClick" @update-column="updateColumn" @delete-click="deleteClick" @export-click="exportClick"
@@ -153,6 +154,10 @@ const getVerifyRoleName = computed(() => {
   return props.defaultProps?.defaultDTLProps?.getVerifyRoleName !== undefined
     ? props.defaultProps.defaultDTLProps.getVerifyRoleName
     : props.getVerifyRoleName;
+});
+
+const fetchRecords = computed(() => {
+  return props.defaultProps?.defaultDTLProps?.fetchRecords || null;
 });
 
 

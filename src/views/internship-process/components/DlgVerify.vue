@@ -296,13 +296,19 @@ function verifyValid(showMessage = true) {
 
 // ---------- 加载审核角色配置 ----------
 
+function resolvePositiveId(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 async function loadVerifyRoleIds(processId) {
-  if (!processId) return;
+  const id = resolvePositiveId(processId);
+  if (!id) return;
   try {
     const res = await listAPI.getSomeRecords({
       keyWords: 'ViewRelProcessInternship',
       pageInfo: { page: 1, size: 1 },
-      searchKey: { id: processId },
+      searchKey: { id },
     });
     if (res?.data?.content?.length > 0) {
       const processInfo = res.data.content[0];
@@ -322,8 +328,9 @@ async function loadVerifyRoleIds(processId) {
 // ---------- 加载审核记录（Tab 页） ----------
 
 async function loadAuditRecords() {
-  if (!props.auditRecordsViewName || !form.processId) return;
-  auditTableProps.initSearchWords.searchKey = { processId: form.processId };
+  const processId = resolvePositiveId(form.processId);
+  if (!props.auditRecordsViewName || !processId) return;
+  auditTableProps.initSearchWords.searchKey = { processId };
   await nextTick();
   auditTableRef.value?.initDataList(true);
 }

@@ -425,9 +425,13 @@ const title = computed(() => {
 
 // 从 defaultProps 中读取属性，如果没有则使用单独的 props（向后兼容）
 const buttonCondition = computed(() => {
-  return props.defaultProps?.buttonCondition !== undefined
-    ? props.defaultProps.buttonCondition
-    : props.buttonCondition;
+  if (props.defaultProps?.buttonCondition !== undefined) {
+    return props.defaultProps.buttonCondition;
+  }
+  if (props.defaultProps?.defaultDTHProps?.buttonCondition !== undefined) {
+    return props.defaultProps.defaultDTHProps.buttonCondition;
+  }
+  return props.buttonCondition;
 });
 
 const clientFilterFn = computed(() => {

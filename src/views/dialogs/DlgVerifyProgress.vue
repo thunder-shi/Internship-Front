@@ -305,14 +305,20 @@ async function loadRoleNames() {
   }
 }
 
+function resolvePositiveId(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 // 加载流程配置（包含审核角色 ID）
 async function loadProcessConfig(processId) {
-  if (!processId) return;
+  const id = resolvePositiveId(processId);
+  if (!id) return;
   try {
     const res = await listAPI.getSomeRecords({
       keyWords: 'ViewRelProcessInternship',
       pageInfo: { page: 1, size: 1 },
-      searchKey: { id: processId },
+      searchKey: { id },
     });
     if (res?.data?.content?.length > 0) {
       processConfig.value = res.data.content[0];
