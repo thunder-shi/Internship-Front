@@ -100,6 +100,16 @@ const getAvailableUsersForInternship = (form) => {
   });
 };
 
+const batchInitRelIntershipUserFromAvailable = (node) => {
+  return request({
+    url: '/internshipProcess/batchInitRelIntershipUserFromAvailable',
+    method: 'post',
+    data: {
+      node,
+    },
+  });
+};
+
 export default {
   getKey,
   getWholeKey,
@@ -108,4 +118,5 @@ export default {
   stuSelPost,
   stuSelTopic,
   getAvailableUsersForInternship,
+  batchInitRelIntershipUserFromAvailable,
 };

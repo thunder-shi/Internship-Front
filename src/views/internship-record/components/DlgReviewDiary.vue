@@ -35,6 +35,7 @@
           <div v-for="file in files" :key="file.id" class="file-item">
             <el-icon class="file-icon"><Document /></el-icon>
             <span class="file-name" :title="file.name">{{ file.name }}</span>
+            <el-button type="success" link size="small" @click="triggerPreview(file)">预览</el-button>
             <el-button type="primary" link size="small" @click="triggerDownload(file)">下载</el-button>
           </div>
         </div>
@@ -98,7 +99,7 @@ const visible = ref(false)
 const submitting = ref(false)
 const student = ref(null)
 
-const { files, filesLoading: loading, loadFiles, triggerDownload, reset: resetFiles } = useDiaryFiles()
+const { files, filesLoading: loading, loadFiles, triggerDownload, triggerPreview, reset: resetFiles } = useDiaryFiles()
 
 const isAlreadyPassed = computed(() => student.value?.diary?.isAllVerified === true)
 

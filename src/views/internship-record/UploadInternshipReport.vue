@@ -86,7 +86,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, reactive, watch, nextTick, onMounted, onActivated } from 'vue'
 import { ElMessage, ElLoading } from 'element-plus'
 import { Edit, Position } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
@@ -367,6 +367,17 @@ async function handleDirectSubmit(row) {
 onMounted(async () => {
   await loadStudentPosts()
   if (studentPosts.value.length === 1) {
+    selectedPostKey.value = studentPosts.value[0]._key
+    await nextTick()
+    dtlRef.value?.initDataList()
+  }
+})
+
+onActivated(async () => {
+  await loadStudentPosts()
+  if (selectedPostKey.value) {
+    dtlRef.value?.initDataList()
+  } else if (studentPosts.value.length === 1) {
     selectedPostKey.value = studentPosts.value[0]._key
     await nextTick()
     dtlRef.value?.initDataList()
