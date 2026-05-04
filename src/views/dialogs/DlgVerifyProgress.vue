@@ -482,11 +482,20 @@ async function loadVerifyProgress() {
     const searchKey = hasRelationId
       ? { relationId: props.processInfo.relationId }
       : { internshipId: props.mainInternshipId };
+    const tn = props.processInfo?.tableName;
+    if (hasRelationId && tn != null && tn !== '') {
+      searchKey.tableName = tn;
+    }
+
+    // 仅在与其它业务可能共用 relationId 时附带 tableName；此时必须传 reg，避免改变无 tableName 的历史请求
+    const reg =
+      hasRelationId && tn != null && tn !== '' ? { relationId: '=', tableName: '=' } : undefined;
 
     const res = await listAPI.getSomeRecords({
       keyWords: props.keyWords,
       pageInfo: { page: 1, size: 100 },
       searchKey,
+      ...(reg ? { reg } : {}),
       sort: { properties: 'id', direction: 'ASC' }
     });
     if (res && res.data && res.data.content) {

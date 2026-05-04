@@ -145,7 +145,7 @@ const nowSearchWordsStudent = reactive({
 
 const initSearchWordsStudent = buildVerifySearchWords();
 
-const { getVerifyRoleName } = useVerifyFilter();
+const { clientFilterFn, getVerifyRoleName } = useVerifyFilter();
 
 function resolveInternshipPostId(row) {
   if (!row) return null;
@@ -176,7 +176,7 @@ function syncSelectedStudentForPost() {
   }
 }
 
-/** 仅按打卡日期筛「今日」。勿套用 useVerifyFilter：打卡视图中 verifyUserId 可能为「系统自动通过」、isAllVerified 常为空，会被误过滤。 */
+/** 「今日」列表：先筛当日打卡，再与其它审核页一致按 verifyUserId / isAudit 等做当前审核人可见过滤 */
 function clientFilterToday(dataList) {
   if (!Array.isArray(dataList)) return dataList;
   const today = moment().format('YYYY-MM-DD');
@@ -185,6 +185,10 @@ function clientFilterToday(dataList) {
     if (!t) return false;
     return moment(t).format('YYYY-MM-DD') === today;
   });
+}
+
+function clientFilterSignAuditToday(dataList) {
+  return clientFilterFn(clientFilterToday(dataList));
 }
 
 const postTitle = computed(() => {
@@ -338,7 +342,7 @@ const defaultPropsToday = computed(() => ({
     pageInfo: { page: 1, size: 5000 },
     nowSearchWords: nowSearchWordsToday,
     initSearchWords: { searchKey: {}, regKey: {}, andor: {} },
-    clientFilterFn: clientFilterToday,
+    clientFilterFn: clientFilterSignAuditToday,
     enableAuditStatusCustom: true,
     getVerifyRoleName,
     defaultDTHProps: {
@@ -356,6 +360,7 @@ const defaultPropsStudent = computed(() => ({
     pageInfo: { page: 1, size: 5000 },
     nowSearchWords: nowSearchWordsStudent,
     initSearchWords: { searchKey: {}, regKey: {}, andor: {} },
+    clientFilterFn,
     enableAuditStatusCustom: true,
     getVerifyRoleName,
     defaultDTHProps: {

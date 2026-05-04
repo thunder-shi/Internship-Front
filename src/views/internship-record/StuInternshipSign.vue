@@ -158,51 +158,43 @@
           <el-empty v-else description="请先在上方选择实习岗位" :image-size="100" />
         </el-tab-pane>
         <el-tab-pane label="打卡记录" name="history">
-          <el-table
-            v-loading="historyLoading"
-            :data="historyRows"
-            stripe
-            style="width: 100%"
-            empty-text="暂无记录"
-          >
-            <el-table-column
-              prop="internshipPostName"
-              label="岗位"
-              min-width="140"
-              show-overflow-tooltip
-            />
-            <el-table-column label="类型" width="100">
-              <template #default="{ row }">
+          <div v-if="currentPost" class="sign-history-dtl">
+            <DataTableList
+              ref="historyListRef"
+              :default-props="defaultHistoryDTLProps"
+              @view-click="onHistoryViewClick"
+            >
+              <template #signType="{ row }">
                 {{ signTypeLabel(row.signType ?? row.type) }}
               </template>
-            </el-table-column>
-            <el-table-column label="审核状态" width="110" align="center">
-              <template #default="{ row }">
-                <el-tag :type="getAuditTagType(Number(row.isAudit))" size="small">
-                  {{ getAuditStatusText(Number(row.isAudit)) }}
-                </el-tag>
+              <template #reason="{ row }">
+                {{ row.reason || row.rejectReason || '—' }}
               </template>
-            </el-table-column>
-            <el-table-column prop="address" label="地址" min-width="180" show-overflow-tooltip />
-            <el-table-column label="照片" width="88">
-              <template #default="{ row }">
+              <template #photo="{ row }">
                 <el-button
                   v-if="row.imgId"
                   link
                   type="primary"
                   size="small"
-                  @click="previewSignImage(row.imgId)"
+                  @click.stop="previewSignImage(row.imgId)"
                 >
                   查看
                 </el-button>
                 <span v-else>—</span>
               </template>
-            </el-table-column>
-            <el-table-column prop="createTime" label="时间" width="170" />
-          </el-table>
+            </DataTableList>
+          </div>
+          <el-empty v-else description="请先在上方选择实习岗位" :image-size="100" />
         </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <DlgVerifyProgress
+      v-model="showProgressDialog"
+      :main-internship-id="progressProcessInfo.internshipId ?? null"
+      :process-info="progressProcessInfo"
+      key-words="MainVerifyProcess"
+    />
 
     <el-dialog
       v-model="previewDialogVisible"
@@ -221,17 +213,32 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { ZoomIn } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
 import listAPI from '@/api/list';
 import fileAPI from '@/api/file';
 import { submitSignAudit } from '@/api/mainSign';
+import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
+import DataTableList from '@/components/DataTableList.vue';
 import CONSTANT from '@/utils/constant';
-import { getAuditStatusText, getAuditTagType } from '@/utils/verify';
+import { useVerifyFilter } from '@/utils/useVerifyFilter';
 
 defineOptions({ name: 'StuInternshipSign' });
+
+/** 供提交页「今日是否已打卡 / 退回」判断：单独拉取足够多的记录，与列表分页请求分离 */
+const HISTORY_ROWS_SYNC_PAGE_SIZE = 500;
+
+const HISTORY_SIGN_COLUMNS = [
+  { id: 1, showName: '岗位', tableColumnName: 'internshipPostName', sortable: false },
+  { id: 2, showName: '类型', tableColumnName: 'customize-signType', sortable: false, width: 100 },
+  { id: 3, showName: '审核状态', tableColumnName: 'customize-status', sortable: false, width: 120 },
+  { id: 4, showName: '审核意见', tableColumnName: 'customize-reason', sortable: false },
+  { id: 5, showName: '地址', tableColumnName: 'address', sortable: false },
+  { id: 6, showName: '照片', tableColumnName: 'customize-photo', sortable: false, width: 88 },
+  { id: 7, showName: '时间', tableColumnName: 'createTime', sortable: false, width: 170 },
+];
 
 /**
  * 是否启用「同一岗位当天仅能签到一次」（提示、禁用签到、提交校验）
@@ -274,15 +281,122 @@ const formRules = {
 const locLoading = ref(false);
 const submitting = ref(false);
 
-const historyLoading = ref(false);
 const historyRows = ref([]);
+const historyListRef = ref(null);
+const historySearchWords = reactive({
+  searchKey: {},
+  regKey: {},
+  andor: {},
+});
+const historyTitleObj = reactive({ mainTitle: '' });
+
+const { getVerifyRoleName } = useVerifyFilter();
+
+const defaultHistoryDTLProps = computed(() => ({
+  title: historyTitleObj,
+  someFlags: {
+    autoInit: false,
+    checkFlag: false,
+    hideSelectColumn: true,
+    showPage: true,
+    noAdvancedSearch: true,
+    operateShow: true,
+  },
+  sortStr: { properties: 'id', direction: 'DESC' },
+  nowSearchWords: historySearchWords,
+  initSearchWords: { searchKey: {}, regKey: {}, andor: {} },
+  enableAuditStatusCustom: true,
+  getVerifyRoleName,
+  bottomOffset: 24,
+  defaultDTHProps: {
+    buttonProps: {
+      visible: { show: true, type: 'primary', name: '查看审核进度' },
+      update: { show: false },
+      create: { show: false },
+      delete: { show: false },
+      audit: { show: false },
+      submit: { show: false },
+      more1: { show: false },
+      buttonGroup: { show: false },
+    },
+    keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyMainSignMerge' },
+    allTableColumns: HISTORY_SIGN_COLUMNS,
+  },
+}));
+
+const showProgressDialog = ref(false);
+const progressProcessInfo = ref({});
 
 /** 提交记录 | 打卡记录 */
 const activeTab = ref('submit');
 
+function applyHistorySearchWords() {
+  const uid = userInfo.value?.id;
+  const post = currentPost.value;
+  if (!uid || !post?.relationId) {
+    historySearchWords.searchKey = {};
+    historySearchWords.regKey = {};
+    historySearchWords.andor = {};
+    return;
+  }
+  historySearchWords.searchKey = {
+    studentId: uid,
+    stuInternshipId: post.relationId,
+  };
+  historySearchWords.regKey = {
+    studentId: '=',
+    stuInternshipId: '=',
+  };
+  historySearchWords.andor = {};
+}
+
+/** 列表未挂载时（仅提交页）仍须拉取同一数据源，供今日签到/退回判断 */
+async function syncHistoryRowsFromApi() {
+  const uid = userInfo.value?.id;
+  if (!uid || !currentPost.value?.relationId) {
+    historyRows.value = [];
+    return;
+  }
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewVerifyMainSignMerge',
+      pageInfo: { page: 1, size: HISTORY_ROWS_SYNC_PAGE_SIZE },
+      searchKey: {
+        studentId: uid,
+        stuInternshipId: currentPost.value.relationId,
+      },
+      reg: {
+        studentId: '=',
+        stuInternshipId: '=',
+      },
+      sort: { properties: 'id', direction: 'DESC' },
+    });
+    historyRows.value = res?.data?.content || res?.data || [];
+    await nextTick();
+    syncFormSignTypeToPriorityRejected();
+  } catch (e) {
+    console.error(e);
+    historyRows.value = [];
+  }
+}
+
+async function refreshHistoryList() {
+  applyHistorySearchWords();
+  await nextTick();
+  await syncHistoryRowsFromApi();
+  if (historyListRef.value?.initDataList) {
+    await historyListRef.value.initDataList(true);
+  }
+}
+
+function onHistoryViewClick(val) {
+  const row = Array.isArray(val) ? val[0] : val;
+  if (row) openSignVerifyProgress(row);
+}
+
 function onTabChange(name) {
   if (name === 'history') {
-    loadHistory();
+    refreshHistoryList();
   }
 }
 
@@ -311,9 +425,10 @@ function isRecordCreateTimeToday(row) {
   );
 }
 
+/** 打卡合并视图中：-1 表示退回待重提（待提交）；3 为审核退回；此类记录不占「当日已成功签到/签退」，且重新提交时按 MainSign.id 编辑 */
 function isAuditBack(row) {
-  const status = row?.isAudit;
-  return String(status) === String(CONSTANT.AUDIT_STATUS.BACK);
+  const status = Number(row?.isAudit);
+  return status === CONSTANT.AUDIT_STATUS.SAVE || status === CONSTANT.AUDIT_STATUS.BACK;
 }
 
 /** 当前岗位下今日是否已有签到记录 */
@@ -358,21 +473,49 @@ const hasRejectedSignToday = computed(() => {
   );
 });
 
-function getTodayRejectedRecordForCurrentPost(signType = null) {
+/** 当日退回记录：签到退回优先于签退退回（优先处理被退回的签到） */
+function getTodayRejectedRowsForCurrentPostSorted() {
   const post = currentPost.value;
-  if (!post) return null;
+  if (!post) return [];
   const rid = Number(post.relationId);
-  const todayRejectedRows = historyRows.value.filter(
+  const rows = historyRows.value.filter(
     (row) =>
       Number(row.stuInternshipId ?? row.stu_internship_id) === rid &&
       isRecordCreateTimeToday(row) &&
       isAuditBack(row)
   );
-  if (!todayRejectedRows.length) return null;
-  if (signType == null) return todayRejectedRows[0];
-  return (
-    todayRejectedRows.find((row) => getRowSignType(row) === Number(signType)) || todayRejectedRows[0]
-  );
+  return rows.sort((a, b) => {
+    const ta = getRowSignType(a);
+    const tb = getRowSignType(b);
+    if (ta === SIGN_IN && tb !== SIGN_IN) return -1;
+    if (tb === SIGN_IN && ta !== SIGN_IN) return 1;
+    return 0;
+  });
+}
+
+/** 优先选用与当前选择一致的退回行；否则选用签到退回优先的一条（避免误用另一条 MainSign.id） */
+function pickRejectedRecordForResubmit(formSignType) {
+  const sorted = getTodayRejectedRowsForCurrentPostSorted();
+  if (!sorted.length) return null;
+  const hit = sorted.find((r) => getRowSignType(r) === Number(formSignType));
+  return hit ?? sorted[0];
+}
+
+function syncFormSignTypeToPriorityRejected() {
+  const sorted = getTodayRejectedRowsForCurrentPostSorted();
+  if (!sorted.length) return;
+  if (!sorted.some((r) => getRowSignType(r) === form.signType)) {
+    form.signType = getRowSignType(sorted[0]);
+  }
+}
+
+/** ViewVerifyMainSignMerge 行：MainVerifyProcess.id（与 StuSignAudit / BaseList 审核行一致；relationId 为 MainSign.id） */
+function resolveMainVerifyProcessIdFromSignHistoryRow(row) {
+  if (!row) return null;
+  const raw = row.auditId ?? row.id ?? row.verifyProcessId ?? row.mainVerifyProcessId ?? row.mvpId;
+  if (raw == null || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 const canSubmit = computed(() => {
@@ -425,7 +568,7 @@ async function loadExternalPosts() {
 }
 
 function onPostChange() {
-  loadHistory();
+  refreshHistoryList();
 }
 
 function onPhotoChange(e) {
@@ -548,11 +691,14 @@ async function handleSubmit() {
     ElMessage.warning('请上传现场照片');
     return;
   }
-  if (form.signType === SIGN_IN && hasCheckedInToday.value) {
+  const pendingRejected = pickRejectedRecordForResubmit(form.signType);
+  const effectiveSignType = pendingRejected ? getRowSignType(pendingRejected) : form.signType;
+
+  if (effectiveSignType === SIGN_IN && hasCheckedInToday.value) {
     ElMessage.warning('今日已签到，无需重复签到');
     return;
   }
-  if (form.signType === SIGN_OUT && hasCheckedOutToday.value) {
+  if (effectiveSignType === SIGN_OUT && hasCheckedOutToday.value) {
     ElMessage.warning('今日已签退，无需重复签退');
     return;
   }
@@ -568,14 +714,14 @@ async function handleSubmit() {
     const node = {
       stuInternshipId: post.relationId,
       studentId: uid,
-      signType: form.signType,
+      signType: effectiveSignType,
       address: form.address.trim(),
     };
-    const pendingRejected = getTodayRejectedRecordForCurrentPost(form.signType);
-    const pendingRelationId = pendingRejected?.relationId ?? pendingRejected?.id;
-    if (pendingRelationId != null && pendingRelationId !== '') {
-      // 当天存在退回记录时复用该记录（relationId 指向待提交的 MainSign.id）
-      node.id = Number(pendingRelationId);
+    // 合并视图行里 relationId 即 MainSign.id
+    const pendingMainSignId =
+      pendingRejected?.relationId ?? pendingRejected?.id ?? pendingRejected?.mainSignId;
+    if (pendingMainSignId != null && pendingMainSignId !== '') {
+      node.id = Number(pendingMainSignId);
     }
     const internshipId = post?.internshipId ?? post?.mainInternshipId ?? post?.internship_id;
     const verifyRoleInfo = await querySignProcessVerifyRoles(internshipId);
@@ -608,7 +754,22 @@ async function handleSubmit() {
       await listAPI.editOneNode('MainSign', { id: signId, imgId });
     }
 
-    const auditRes = await submitSignAudit(signId);
+    let auditIdForSubmit = null;
+    if (pendingRejected) {
+      auditIdForSubmit = resolveMainVerifyProcessIdFromSignHistoryRow(pendingRejected);
+      if (auditIdForSubmit != null) {
+        const vpRes = await listAPI.editOneNode('MainVerifyProcess', {
+          id: auditIdForSubmit,
+          isAudit: CONSTANT.AUDIT_STATUS.SUBMIT,
+        });
+        if (vpRes?.message !== 'successful') {
+          ElMessage.warning(vpRes?.message || '更新审核流程状态失败');
+          return;
+        }
+      }
+    }
+
+    const auditRes = await submitSignAudit(signId, internshipId);
     if (!auditRes || auditRes.message !== 'successful') {
       ElMessage.warning(auditRes?.message || '打卡已保存，但审核提交失败，请联系管理员处理');
     } else {
@@ -617,7 +778,7 @@ async function handleSubmit() {
     clearPhoto();
     form.address = '';
     form.signType = 1;
-    await loadHistory();
+    await refreshHistoryList();
     activeTab.value = 'history';
   } catch (e) {
     if (!e?.response) {
@@ -629,34 +790,6 @@ async function handleSubmit() {
   }
 }
 
-async function loadHistory() {
-  const uid = userInfo.value?.id;
-  if (!uid) return;
-  historyLoading.value = true;
-  try {
-    const searchKey = { studentId: uid };
-    if (currentPost.value?.relationId) {
-      searchKey.stuInternshipId = currentPost.value.relationId;
-    }
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewVerifyMainSignMerge',
-      pageInfo: { page: 1, size: 25 },
-      searchKey,
-      reg: {
-        studentId: '=',
-        ...(currentPost.value?.relationId ? { stuInternshipId: '=' } : {}),
-      },
-      sort: { properties: 'id', direction: 'DESC' },
-    });
-    historyRows.value = res?.data?.content || res?.data || [];
-  } catch (e) {
-    console.error(e);
-    historyRows.value = [];
-  } finally {
-    historyLoading.value = false;
-  }
-}
-
 async function previewSignImage(imgId) {
   try {
     await fileAPI.downloadFile(imgId);
@@ -665,8 +798,23 @@ async function previewSignImage(imgId) {
   }
 }
 
+/** MainSign 审核轨迹：relationId 为打卡主表 id，与 DlgVerifyProgress 基表查询一致 */
+function openSignVerifyProgress(row) {
+  const relationId = row?.relationId ?? row?.relation_id;
+  if (relationId == null || relationId === '') {
+    ElMessage.warning('无法查看审核进度：缺少关联编号');
+    return;
+  }
+  progressProcessInfo.value = {
+    ...row,
+    relationId,
+    tableName: 'MainSign',
+  };
+  showProgressDialog.value = true;
+}
+
 watch(currentPost, () => {
-  loadHistory();
+  refreshHistoryList();
 });
 
 watch(hasCheckedInToday, (checked) => {
@@ -683,7 +831,9 @@ watch(hasCheckedOutToday, (checked) => {
 
 onMounted(async () => {
   await loadExternalPosts();
-  await loadHistory();
+  if (currentPost.value?.relationId) {
+    await refreshHistoryList();
+  }
 });
 
 onBeforeUnmount(() => {
@@ -711,6 +861,18 @@ onBeforeUnmount(() => {
 
 .sign-tabs :deep(.el-tabs__content) {
   padding-top: 16px;
+}
+
+.sign-history-dtl {
+  min-height: 200px;
+}
+
+.sign-history-dtl :deep(.el-card) {
+  border: none;
+}
+
+.sign-history-dtl :deep(.el-card__header) {
+  display: none;
 }
 
 .block-card :deep(.el-card__header) {
