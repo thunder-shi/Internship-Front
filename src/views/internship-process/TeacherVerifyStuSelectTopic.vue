@@ -66,7 +66,8 @@ const { projectSelectSearchKey, projectSelectRegKey } = useProcessWindowProjectS
 );
 
 const { getVerifyRoleName } = useVerifyFilter();
-const { handleBatchAuditCommand, handleAuditClick } = useBatchVerifyAuditDialog(dlgVerifyRef);
+const batchAuditDialog = useBatchVerifyAuditDialog(dlgVerifyRef);
+const { handleBatchAuditCommand } = batchAuditDialog;
 
 /** 与题目申报审核一致：校/院系管理员等可看到全部待审（不必出现在 verifyUserId 里） */
 const PRIVILEGED_AUDIT_ROLES = [
@@ -89,13 +90,90 @@ function rowAuditStatus(row) {
   return Number.isFinite(n) ? n : null;
 }
 
+function resolveVerifyProcessId(row) {
+  const candidates = [
+    row?.verifyProcessId,
+    row?.verify_process_id,
+    row?.mainVerifyProcessId,
+    row?.main_verify_process_id,
+    row?.mvpId,
+    row?.mvp_id,
+    row?.id,
+  ];
+  for (const c of candidates) {
+    if (c === undefined || c === null || c === '') continue;
+    const n = Number(c);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+function normalizeAuditRow(row) {
+  if (!row || typeof row !== 'object') return row;
+  const verifyProcessId = resolveVerifyProcessId(row);
+  const isAudit = rowAuditStatus(row);
+  const relationId =
+    Number(
+      row?.relationId ??
+        row?.relation_id ??
+        row?.relTitleStudentId ??
+        row?.rel_title_student_id ??
+        0
+    ) || 0;
+  return {
+    ...row,
+    id: verifyProcessId || row.id,
+    verifyProcessId,
+    relationId,
+    relTitleStudentId: row?.relTitleStudentId ?? row?.rel_title_student_id ?? relationId,
+    isAudit,
+    is_audit: isAudit,
+    sourceType: row?.sourceType ?? row?.source_type,
+    source_type: row?.sourceType ?? row?.source_type,
+    isFinal: Number(row?.isFinal ?? row?.is_final ?? 0),
+    is_final: Number(row?.isFinal ?? row?.is_final ?? 0),
+  };
+}
+
+function handleAuditClick(row) {
+  const rows = Array.isArray(row) ? row.map(normalizeAuditRow) : row ? [normalizeAuditRow(row)] : [];
+  if (!rows.length) return;
+
+  if (
+    rows.length > 1 &&
+    batchAuditDialog.lastBatchAuditCommand.value === CONSTANT.AUDIT_STATUS.PASS
+  ) {
+    const pendingRows = rows.filter((r) => rowAuditStatus(r) === CONSTANT.AUDIT_STATUS.SUBMIT);
+    const studentKeys = new Set();
+    const titleKeys = new Set();
+    for (const r of pendingRows) {
+      const stuKey = `${r?.stuId ?? r?.stu_id ?? ''}:${r?.internshipId ?? r?.internship_id ?? ''}`;
+      const titleKey = String(r?.titleId ?? r?.title_id ?? '');
+      if (studentKeys.has(stuKey)) {
+        ElMessage.warning('批量通过时，同一学生同一项目只能选择一条候选题目');
+        return;
+      }
+      if (titleKey && titleKeys.has(titleKey)) {
+        ElMessage.warning('批量通过时，同一题目只能最终确认给一名学生');
+        return;
+      }
+      studentKeys.add(stuKey);
+      if (titleKey) titleKeys.add(titleKey);
+    }
+  }
+
+  batchAuditDialog.handleAuditClick(Array.isArray(row) ? rows : rows[0]);
+}
+
 function clientFilterFn(dataList) {
   if (!Array.isArray(dataList)) return dataList;
   const uid = store.getters.userInfo?.id;
   if (!uid) return dataList;
   const bypassSubmit = canBypassVerifyUserIdForSubmit();
 
-  return dataList.filter((row) => {
+  return dataList.map(normalizeAuditRow).filter((row) => {
+    const sourceType = row?.sourceType ?? row?.source_type;
+    if (sourceType && sourceType !== 'STUDENT_CANDIDATE') return false;
     if (row.reason && row.reason.includes('系统自动通过')) return false;
 
     const isAudit = rowAuditStatus(row);
@@ -157,10 +235,10 @@ function resolveTopicIdFromRow(row) {
     Number(
       row?.titleId ??
         row?.title_id ??
-        row?.relationId ??
-        row?.relation_id ??
         row?.topicId ??
         row?.topic_id ??
+        row?.relTitleTeacherId ??
+        row?.rel_title_teacher_id ??
         0
     ) || 0
   );

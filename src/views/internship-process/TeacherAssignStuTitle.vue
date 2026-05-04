@@ -114,19 +114,31 @@ function handleProjectSelected(internship, title) {
 // 查看按钮 - 只读查看题目详情
 function handleViewClick(rowOrArray) {
   const row = Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
-  const relationId = row?.titleId ?? row?.title_id ?? row?.relationId ?? row?.relation_id ?? row?.id;
-  const topicRow = { ...row, id: relationId };
+  const topicId = getTopicId(row);
+  const topicRow = { ...row, id: topicId };
   dlgTopicDetailRef.value?.showDialog(true, {}, topicRow, currentInternship.value, true);
 }
 
 function getTopicId(row) {
   return Number(
-    row?.relationId ??
-    row?.relation_id ??
     row?.titleId ??
     row?.title_id ??
+    row?.relTitleTeacherId ??
+    row?.rel_title_teacher_id ??
     row?.id ??
+    row?.relationId ??
+    row?.relation_id ??
     0
+  ) || 0;
+}
+
+function resolveRelTitleStudentId(row) {
+  return Number(
+    row?.relTitleStudentId ??
+      row?.rel_title_student_id ??
+      row?.relationId ??
+      row?.relation_id ??
+      0
   ) || 0;
 }
 
@@ -134,7 +146,7 @@ async function queryTitleStudentByTitleId(titleId) {
   if (!titleId) return null;
   try {
     const res = await listAPI.getSomeRecords({
-      keyWords: 'RelTitleStudent',
+      keyWords: 'ViewRelTitleTeacherStudent',
       searchKey: { titleId },
       pageInfo: { page: 1, size: 1 },
       sort: { properties: 'id', direction: 'DESC' },
@@ -150,32 +162,15 @@ async function queryTitleStudentByTitleId(titleId) {
 async function queryTitleStudentByStuId(stuId, internshipId) {
   if (!stuId || !internshipId) return null;
   try {
-    const relRes = await listAPI.getSomeRecords({
-      keyWords: 'RelTitleStudent',
-      searchKey: { stuId, stu_id: stuId },
-      pageInfo: { page: 1, size: 200 },
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelTitleTeacherStudent',
+      searchKey: { stuId, stu_id: stuId, internshipId },
+      pageInfo: { page: 1, size: 1 },
       sort: { properties: 'id', direction: 'DESC' },
     });
-    const relList = relRes?.data?.content ?? relRes?.data ?? [];
-    if (!relList.length) return null;
-
-    for (const rel of relList) {
-      const titleId = rel?.titleId ?? rel?.title_id;
-      if (!titleId) continue;
-      const titleRes = await listAPI.getSomeRecords({
-        keyWords: 'RelTitleTeacher',
-        searchKey: { id: Number(titleId), internshipId },
-        pageInfo: { page: 1, size: 1 },
-      });
-      const titleRow = (titleRes?.data?.content ?? titleRes?.data ?? [])[0];
-      if (titleRow) {
-        return {
-          ...rel,
-          titleName: titleRow.name,
-        };
-      }
-    }
-    return null;
+    const list = res?.data?.content ?? res?.data ?? [];
+    const row = list[0] || null;
+    return row ? { ...row, titleName: row.name } : null;
   } catch (e) {
     console.error('查询学生绑定关系失败:', e);
     return null;
@@ -193,7 +188,7 @@ async function handleEditClick(rowOrArray) {
   const relation = await queryTitleStudentByTitleId(topicId);
   if (relation) {
     const stuId = relation?.stuId ?? relation?.stu_id;
-    const studentName = stuId ? `ID:${stuId}` : '当前学生';
+    const studentName = relation?.studentName ?? relation?.student_name ?? (stuId ? `ID:${stuId}` : '当前学生');
     try {
       await ElMessageBox.confirm(`该题目已指定给“${studentName}”，确认取消指定吗？`, '提示', {
         confirmButtonText: '确定',
@@ -203,7 +198,12 @@ async function handleEditClick(rowOrArray) {
     } catch {
       return;
     }
-    const ok = await cancelAssignTopic(topicId, relation.id);
+    const relationId = resolveRelTitleStudentId(relation);
+    if (!relationId) {
+      ElMessage.warning('未获取到正式占用记录ID，无法取消指定');
+      return;
+    }
+    const ok = await cancelAssignTopic(topicId, relationId);
     if (ok) {
       ElMessage.success('取消指定成功');
       headerPageRef.value?.baseListRef?.initDataList?.(true);
@@ -265,19 +265,17 @@ async function handleAssignStudentConfirm(studentRow) {
     return;
   }
 
-  let relationId = null;
   try {
     const createRes = await listAPI.editOneNode('RelTitleStudent', {
       stuId,
-      stu_id: stuId,
       titleId: topicId,
-      currentVerifyTypeId: CONSTANT.VERIFY_LEVEL.NO_VERIFY,
+      sourceType: 'TEACHER_ASSIGN',
+      isFinal: 1,
     });
     if (!createRes || createRes.message !== 'successful') {
       ElMessage.error(createRes?.message || '指定失败');
       return;
     }
-    relationId = createRes?.data?.id;
 
     ElMessage.success('指定成功');
     headerPageRef.value?.baseListRef?.initDataList?.(true);
