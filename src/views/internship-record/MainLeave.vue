@@ -93,6 +93,13 @@ const LEAVE_PROCESS_NAME = '请假';
 const LEAVE_TABLE_NAME = 'MainLeave';
 const APPROVED_POST_MERGE_KEY = 'ViewVerifyProcessRelStuInternshipPostMerge';
 const APPROVED_TITLE_MERGE_KEY = 'ViewVerifyProcessRelTitleStudentMerge';
+const VERIFY_ROLE_NAME_FIELDS = [
+  'verifyFirstRoleName',
+  'verifySecondRoleName',
+  'verifyThirdRoleName',
+  'verifyFourthRoleName',
+  'verifyFifthRoleName',
+];
 
 const store = useStore();
 const dtlRef = ref(null);
@@ -107,6 +114,7 @@ const showProgressDialog = ref(false);
 const currentRow = ref({});
 
 const stuInternshipOptions = ref([]);
+const leaveProcessCache = new Map();
 
 const userInfo = computed(() => store.getters.userInfo || {});
 const studentId = computed(() => userInfo.value?.id || null);
@@ -221,6 +229,28 @@ function resolveLeaveId(row) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function resolveStuInternshipId(row) {
+  const raw = row?.stuInternshipId ?? row?.stu_internship_id;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function resolveInternshipId(row) {
+  const raw = row?.internshipId ?? row?.internship_id;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return n;
+
+  const stuInternshipId = resolveStuInternshipId(row);
+  if (!stuInternshipId) return null;
+  const option = stuInternshipOptions.value.find(
+    (item) => String(item.value) === String(stuInternshipId)
+  );
+  const optionInternshipId = Number(option?.internshipId);
+  return Number.isFinite(optionInternshipId) && optionInternshipId > 0
+    ? optionInternshipId
+    : null;
+}
+
 function resolveVerifyProcessId(row) {
   const raw = row?.verifyProcessId ?? row?.mainVerifyProcessId ?? row?.mvpId;
   const n = Number(raw);
@@ -255,6 +285,51 @@ function normalizeFlowRecord(record, leaveId) {
     isAllVerified:
       record?.isAllVerified === true ||
       Number(record?.isAudit ?? record?.is_audit) === CONSTANT.AUDIT_STATUS.PASS,
+  };
+}
+
+function resolveCurrentVerifyRoleName(processInfo, row) {
+  const currentRoleName = resolveCurrentRoleName(row);
+  if (currentRoleName) return currentRoleName;
+
+  const rawCurrentLevel =
+    row?.currentVerifyTypeId ??
+    row?.current_verify_type_id ??
+    processInfo?.currentVerifyTypeId;
+  const currentLevel = Number(rawCurrentLevel);
+  const roleIndex = Number.isFinite(currentLevel)
+    ? Math.max(0, currentLevel - CONSTANT.VERIFY_LEVEL.ONE_VERIFY)
+    : 0;
+  const roleField = VERIFY_ROLE_NAME_FIELDS[roleIndex];
+  if (!roleField) return '';
+
+  return processInfo?.[roleField] ?? row?.[roleField] ?? '';
+}
+
+async function loadLeaveProcessForInternshipCached(internshipId) {
+  const id = Number(internshipId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const key = String(id);
+  if (leaveProcessCache.has(key)) return leaveProcessCache.get(key);
+  const processInfo = await loadLeaveProcessForInternship(id);
+  leaveProcessCache.set(key, processInfo);
+  return processInfo;
+}
+
+async function enrichLeaveStatusRole(row) {
+  if (rowAuditStatus(row) !== CONSTANT.AUDIT_STATUS.SUBMIT) return row;
+  if (resolveCurrentRoleName(row)) return row;
+
+  const internshipId = resolveInternshipId(row);
+  const processInfo = await loadLeaveProcessForInternshipCached(internshipId);
+  const roleName = resolveCurrentVerifyRoleName(processInfo, row);
+  if (!roleName) return row;
+
+  return {
+    ...row,
+    currentRoleName: roleName,
+    _currentRoleName: roleName,
+    processId: row.processId ?? row.process_id ?? processInfo?.id,
   };
 }
 
@@ -341,7 +416,7 @@ async function fetchLeaveRecords(params) {
   });
 
   const latestStateMap = await loadLatestLeaveAuditStateMap(rawContent.map((row) => row.leaveId));
-  const content = rawContent.map((row) => {
+  const mergedContent = rawContent.map((row) => {
     const latestState = latestStateMap.get(String(row.leaveId));
     if (!latestState) return row;
     return {
@@ -353,6 +428,7 @@ async function fetchLeaveRecords(params) {
       isAudit: latestState.isAudit ?? row.isAudit,
     };
   });
+  const content = await Promise.all(mergedContent.map(enrichLeaveStatusRole));
   const totalElements = Number(
     res?.data?.page?.totalElements ?? res?.data?.totalElements ?? content.length
   );
