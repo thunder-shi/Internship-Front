@@ -1,7 +1,35 @@
 <template>
   <div class="build-internship-plan-container">
     <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" ref="baseList" @append-click="appendClick"
-      @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick" @submit-click="handleSubmitClick">
+      @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick" @submit-click="handleSubmitClick"
+      @more2-click="handleBatchSubmitClick" @more3-click="handleSubmitAllClick">
+      <template #dlg>
+        <!-- 自定义新增对话框：基本信息 + 模板流程预览 -->
+        <DlgBasic ref="createDlgRef" :default-props="createDlgProps" :dlgbasic-confirm="onCreateDlgConfirm" @close-dialog="onCreateDlgClose">
+          <template #mainForm>
+            <el-tabs v-model="createDlgTab" class="create-dlg-tabs">
+              <el-tab-pane label="基本信息" name="basic">
+                <FormItemsforDialog
+                  ref="createFormItemsRef"
+                  :form="createForm"
+                  :form-items="createDlgFormItems"
+                  :form-rules="createDlgFormRules"
+                  label-width="100px"
+                  @simple-select-change="onCreateSelectChange"
+                />
+              </el-tab-pane>
+              <el-tab-pane label="模板流程" name="process">
+                <div v-if="!processTableInternshipTypeId" class="process-empty-hint">
+                  请先在「基本信息」页选择实习模板
+                </div>
+                <div v-show="processTableInternshipTypeId" class="process-dtl-wrapper">
+                  <DataTableList ref="processTableRef" :default-props="processTableProps" />
+                </div>
+              </el-tab-pane>
+            </el-tabs>
+          </template>
+        </DlgBasic>
+      </template>
     </BaseList>
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
     <DlgInternshipDetail ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin"
@@ -23,10 +51,13 @@
  * - 提交：行内提交审核（isAudit = 0），无需审核则系统自动通过
  * - 提交后显示查看进度按钮
  */
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import BaseList from '@/views/master-page/BaseList.vue';
+import DlgBasic from '@/components/DlgBasic.vue';
+import DataTableList from '@/components/DataTableList.vue';
+import FormItemsforDialog from '@/components/FormItemsforDialog.vue';
 import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import CONSTANT from '@/utils/constant';
@@ -74,6 +105,91 @@ const showProgressDialog = ref(false);
 // Merge View 已按 processId 聚合，无需前端分组
 const { getVerifyRoleName } = useVerifyFilter();
 
+// ── 新增对话框（带 Tab）──────────────────────────────────────────
+const createDlgRef = ref(null);
+const createFormItemsRef = ref(null);
+const createForm = reactive({});
+const createDlgTab = ref('basic');
+
+// 模板流程预览表格
+const processTableRef = ref(null);
+const processTableInternshipTypeId = ref(null);
+
+const createDlgFormItems = computed(() => [
+  { name: '实习模板', field: 'internshipTypeId', type: 'select', keyWords: 'BaseInternshipType', sortJson: { properties: 'Id', direction: 'DESC' }, searchKeys: templateSearchKey.value },
+  { name: '项目编号', field: 'code', type: 'input' },
+  { name: '实习名称', field: 'name', type: 'input' },
+  { name: '备注', field: 'remarks', type: 'textarea' },
+]);
+
+const createDlgFormRules = {
+  name: [{ required: true, message: '实习名称不能为空', trigger: 'blur' }],
+  internshipTypeId: [{ required: true, message: '请选择实习模板', trigger: 'blur' }],
+};
+
+const processTableProps = computed(() => ({
+  sortStr: { properties: 'theOrder', direction: 'ASC' },
+  someFlags: {
+    operateShow: false,
+    checkFlag: false,
+    hideSelectColumn: true,
+    showPage: false,
+    autoInit: false,
+    noAdvancedSearch: true,
+  },
+  initSearchWords: processTableInternshipTypeId.value
+    ? { searchKey: { internshipTypeId: processTableInternshipTypeId.value }, regKey: { internshipTypeId: '=' }, andor: {} }
+    : {},
+  defaultDTHProps: {
+    showTopButtons: false,
+    keyWord: { view: 'ViewRelProcessInternshipType' },
+    allTableColumns: [
+      { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName' },
+      { id: 2, showName: '审核要求', theOrder: 2, tableColumnName: 'verifyTypeName' },
+    ],
+  },
+}));
+
+const createDlgProps = reactive({
+  dlgTitle: '新增实习项目',
+  width: '55%',
+  footButtons: {
+    cancel: { show: true, name: '取 消', type: '' },
+    confirm: { show: true, name: '新增', type: 'primary' },
+    submit: { show: false },
+    repeatAdd: { show: false },
+  },
+  someFlags: {
+    autoMax: false,
+    needMaxBtn: false,
+    needValidate: false,
+  },
+});
+
+function onCreateSelectChange(val, field) {
+  if (field === 'internshipTypeId') {
+    processTableInternshipTypeId.value = val || null;
+    if (val) {
+      nextTick(() => processTableRef.value?.initDataList(true));
+    }
+  }
+}
+
+// DlgBasic 确认回调：校验表单后直接调用 handleConfirm
+async function onCreateDlgConfirm(option, type) {
+  try {
+    await createFormItemsRef.value?.formPanelRef?.validate();
+  } catch {
+    return false; // 校验未通过，保持对话框打开
+  }
+  const success = await handleConfirm(option, type, createForm);
+  return success === false ? false : undefined; // false 保持打开，undefined 让 DlgBasic 自动关闭
+}
+
+function onCreateDlgClose() {
+  processTableInternshipTypeId.value = null;
+  createDlgTab.value = 'basic';
+}
 
 // 处理编辑按钮点击事件
 // 所有状态均可打开弹窗查看，DlgInternshipDetail 内部根据 isAudit 控制按钮显隐
@@ -165,9 +281,16 @@ const handleConfirm = async (option, _type, form) => {
   }
 };
 
-// 处理新增按钮点击事件
+// 处理新增按钮点击事件：打开自定义的 tabbed 对话框
 const appendClick = () => {
-  baseList.value?.openDlg('append', {});
+  // 重置表单
+  Object.keys(createForm).forEach(k => delete createForm[k]);
+  processTableInternshipTypeId.value = null;
+  createDlgTab.value = 'basic';
+  createDlgRef.value?.showDialog(true, {}, 'append');
+  nextTick(() => {
+    createFormItemsRef.value?.formPanelRef?.clearValidate();
+  });
 };
 
 // 自定义删除处理
@@ -253,6 +376,79 @@ const handleSubmitClick = async (row) => {
   }
 };
 
+/** 提交单条记录的核心逻辑（供批量/全部提交复用） */
+async function submitSingleRow(row) {
+  const isNoVerify = row.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY;
+  const status = isNoVerify ? CONSTANT.AUDIT_STATUS.PASS : CONSTANT.AUDIT_STATUS.SUBMIT;
+  const extraFields = isNoVerify
+    ? { verifyUserName: '系统', reason: '无需审核，系统自动通过' }
+    : {};
+  const res = await listAPI.editOneNode('MainVerifyProcess', {
+    id: row.id,
+    isAudit: status,
+    ...extraFields,
+  });
+  return res?.message === 'successful';
+}
+
+/** 批量提交：提交勾选的待提交记录 */
+async function handleBatchSubmitClick(rows) {
+  const rowsArray = Array.isArray(rows) ? rows : [rows].filter(Boolean);
+  if (!rowsArray.length) {
+    ElMessage.warning('请先勾选需要提交的记录');
+    return;
+  }
+  const pendingRows = rowsArray.filter(
+    (row) => row && (row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK)
+  );
+  if (!pendingRows.length) {
+    ElMessage.warning('选中的记录中没有可以提交的记录');
+    return;
+  }
+  let successCount = 0;
+  for (const row of pendingRows) {
+    if (await submitSingleRow(row)) successCount++;
+  }
+  if (successCount > 0) {
+    ElMessage.success(`批量提交完成，共成功提交 ${successCount} 条记录`);
+    baseList.value?.initDataList();
+  }
+}
+
+/** 全部提交：查询所有待提交/退回的实习计划并批量提交 */
+async function handleSubmitAllClick() {
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewVerifyProcessInternshipMerge',
+      searchKey: { isAudit: `${CONSTANT.AUDIT_STATUS.SAVE},${CONSTANT.AUDIT_STATUS.BACK}` },
+      reg: { isAudit: CONSTANT.SEARCH_OPERATOR.IN },
+    });
+    const allRows = res?.data?.content || res?.data || [];
+    const pendingRows = allRows.filter(
+      (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK
+    );
+    if (!pendingRows.length) {
+      ElMessage.info('没有待提交的记录');
+      return;
+    }
+    await ElMessageBox.confirm(
+      `确定提交全部 ${pendingRows.length} 条待提交的实习计划吗？`,
+      '全部提交',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    );
+    let successCount = 0;
+    for (const row of pendingRows) {
+      if (await submitSingleRow(row)) successCount++;
+    }
+    if (successCount > 0) {
+      ElMessage.success(`全部提交完成，共成功提交 ${successCount} 条记录`);
+      baseList.value?.initDataList();
+    }
+  } catch (e) {
+    if (e !== 'cancel') console.error('全部提交失败:', e);
+  }
+}
+
 const handleUpdateRecord = () => {
   baseList.value?.initDataList();
 };
@@ -264,6 +460,7 @@ onMounted(() => {
 // 组件销毁前关闭所有对话框，防止遮罩层残留
 onBeforeUnmount(() => {
   dlgMainInternship.value?.closeAllDialogs?.();
+  createDlgRef.value?.showDialog?.(false);
 });
 
 // 列表配置
@@ -272,6 +469,7 @@ const defaultProps = computed(() => ({
     // 启用审核状态自定义显示（Merge View 提供 currentRoleName）
     enableAuditStatusCustom: true,
     getVerifyRoleName,
+    someFlags: { checkFlag: true },
     buttonCondition: {},
     defaultDTHProps: {
       buttonProps: {
@@ -279,7 +477,9 @@ const defaultProps = computed(() => ({
         visible: { show: true, type: 'primary', name: '查看进度' },
         update: { show: true, name: '编辑' },
         submit: { show: true, type: 'warning', name: '提交' },
-        delete: { show: true }
+        delete: { show: true },
+        more2: { show: true, name: '批量提交', type: 'primary' },
+        more3: { show: true, name: '全部提交', type: 'warning' },
       },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipMerge' },
       allTableColumns: [
@@ -292,6 +492,7 @@ const defaultProps = computed(() => ({
       ]
     }
   },
+  // defaultSDProps 仍需保留（BaseList 编辑模式会用到），但新增模式使用自定义 #dlg
   defaultSDProps: {
     keyWord: 'MainInternship',
     formItems: [
@@ -316,3 +517,45 @@ const defaultProps = computed(() => ({
   }
 }));
 </script>
+
+<style scoped>
+.create-dlg-tabs {
+  width: 100%;
+}
+
+.create-dlg-tabs :deep(.el-tabs__content) {
+  padding-top: 16px;
+}
+
+.process-empty-hint {
+  color: #909399;
+  text-align: center;
+  padding: 40px 0;
+  font-size: 14px;
+}
+
+.process-dtl-wrapper {
+  height: 260px;
+  overflow: hidden;
+}
+
+/* 去掉 el-card 边框和 padding，使内部 el-table 高度精确匹配容器，避免底部被裁 */
+.process-dtl-wrapper :deep(.el-card) {
+  border: none;
+  box-shadow: none;
+}
+
+.process-dtl-wrapper :deep(.el-card__body) {
+  padding: 0;
+}
+
+/* 覆盖 v-adaptive 基于视口计算的高度，固定在对话框内 */
+.process-dtl-wrapper :deep(.el-table) {
+  height: 260px !important;
+}
+
+.process-dtl-wrapper :deep(.el-table__body-wrapper) {
+  height: 220px !important;
+  overflow-y: auto;
+}
+</style>
