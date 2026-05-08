@@ -2,6 +2,37 @@
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import store from '@/store'
+
+/**
+ * 是否在请求期间对列表主区域显示 loading 遮罩（DataTableList 根节点 v-loading）
+ * - 默认启用：不传或传 true 时，在请求发出到响应/错误结束期间计数 +1
+ * - 显式关闭：config.loadingMask === false
+ * - 登录/退出/拉取当前用户信息等不触发遮罩，避免全站闪烁
+ */
+function shouldUseLoadingMask(config) {
+  if (config.loadingMask === false) return false
+  const url = config.url || ''
+  const base = config.baseURL || ''
+  const path = url.startsWith('http') ? url : `${base}${url}`
+  const skip = ['/sign/login', '/sign/logout', '/sign/info'].some(
+    (p) => path.includes(p) || url.includes(p)
+  )
+  if (skip) return false
+  return true
+}
+
+function beginLoadingMask(config) {
+  if (!shouldUseLoadingMask(config)) return
+  config._loadingMaskHeld = true
+  store.commit('requestMask/increment')
+}
+
+function endLoadingMask(config) {
+  if (!config?._loadingMaskHeld) return
+  config._loadingMaskHeld = false
+  store.commit('requestMask/decrement')
+}
+
 // 创建aaxios实例
 const service = axios.create({
   // baseURL: process.env.VUE_APP_BASE_API, // url = base url + request url
@@ -14,17 +45,19 @@ const service = axios.create({
 service.interceptors.request.use(
   config => {
     // do something before request is sent
-    
-    // 登录接口不需要 token
-    const isLoginRequest = config.url?.includes('/sign/login')
-    
-    if (store.getters.token && !isLoginRequest) {
-      // let each request carry token
-      // ['X-Token'] is a custom headers key
-      // please modify it according to the actual situation
-      config.headers['X-Token'] = store.getters.token
+    beginLoadingMask(config)
+    try {
+      // 登录接口不需要 token
+      const isLoginRequest = config.url?.includes('/sign/login')
+
+      if (store.getters.token && !isLoginRequest) {
+        config.headers['X-Token'] = store.getters.token
+      }
+      return config
+    } catch (e) {
+      endLoadingMask(config)
+      throw e
     }
-    return config
   },
   error => {
     // do something with request error
@@ -56,6 +89,7 @@ service.interceptors.response.use(
    * You can also judge the status by HTTP Status Code
    */
   response => {
+    endLoadingMask(response.config)
     const res = response.data
     const requestUrl = response.config?.url || ''
     if (!res.code) { // 文件下载
@@ -77,6 +111,7 @@ service.interceptors.response.use(
     }
   },
   (error) => {
+    endLoadingMask(error.config)
     const errorData = error?.response?.data
     // 获取请求 URL（可能是相对路径或完整路径）
     const configUrl = error?.config?.url || ''

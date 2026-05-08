@@ -1,4 +1,9 @@
 <template>
+  <div
+    class="data-table-list-root"
+    v-loading="listAreaLoading"
+    element-loading-text="加载中..."
+  >
   <DataTableHeader ref="dataTBLMother" v-model:selected-columns="selectedColumns"
     :default-props="defaultDTHPropsWithButtonCondition" @init-click="refreshInit" @show-search="showSearchPanel"
     @append-click="appendClick" @edit-click="editClick" @delete-click="deleteClick" @export-click="exportClick"
@@ -24,7 +29,7 @@
             </template>
           </template>
         </template>
-        <el-table ref="table" v-adaptive="{ bottomOffset }" v-loading="loading" border stripe height="100%" :data="dataList"
+        <el-table ref="table" v-adaptive="{ bottomOffset }" border stripe height="100%" :data="dataList"
           row-key="id" highlight-current-rows :row-class-name="rowClassNameFn" @current-change="handleColumnChange"
           @selection-change="handleSelectionChange" @sort-change="handleSortChange">
           <template v-if="showSelectColumn">
@@ -125,6 +130,7 @@
       </el-card>
     </template>
   </DataTableHeader>
+  </div>
 </template>
 
 <script setup>
@@ -148,6 +154,7 @@ import moment from 'moment';
 import adaptive from '@/directive/el-table';
 import CONSTANT from '@/utils/constant';
 import { formatDateTimeShort } from '@/utils/common';
+import { useStore } from 'vuex';
 import _ from 'lodash';
 import '@/assets/css/table.scss';
 
@@ -387,6 +394,11 @@ const pageInfo = reactive(
 );
 const totalSize = ref(0);
 const loading = ref(false);
+const store = useStore();
+/** 工具栏 + 表格 + 分页：表格自身 loading 与 axios 请求遮罩（默认开启，见 request loadingMask） */
+const listAreaLoading = computed(
+  () => loading.value || store.getters.requestMaskCount > 0
+);
 const buttonLoading = reactive({ up: false, down: false });
 const tableRadio = ref(null);
 // 列表中的字体颜色

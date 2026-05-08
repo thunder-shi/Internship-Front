@@ -8,13 +8,15 @@ import permission from './modules/permission'
 import settings from './modules/settings'
 import tagsView from './modules/tagsView'
 import user from './modules/user'
+import requestMask from './modules/requestMask'
 
 const modules = {
   app,
   permission,
   settings,
   tagsView,
-  user
+  user,
+  requestMask,
 }
 
 // 创建 store
