@@ -91,6 +91,8 @@ const props = defineProps({
   tableColumns: { type: Array, required: true },
   /** 选择弹窗组件：DlgStudentSelect 或 DlgTeacherSelect */
   selectDialogComponent: { type: Object, required: true },
+  /** 是否显示表头「批量新增」（按部门批量初始化学生名单） */
+  showBatchAppend: { type: Boolean, default: true },
 });
 const store = useStore();
 const userInfo = computed(() => store.getters.userInfo || {});
@@ -160,7 +162,7 @@ const buttonPropsComputed = computed(() => ({
   visible: { show: true, type: 'primary', name: '查看进度' },
   more2: { show: true, name: '批量提交', type: 'primary' },
   more3: {
-    show: true,
+    show: props.showBatchAppend,
     name: '批量新增',
     type: 'primary',
     disabled: !currentInternship.value || !currentInternship.value.internshipId,

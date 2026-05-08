@@ -9,10 +9,28 @@ export const ASSIGNMENT_KEY_WORD = {
   view: 'ViewVerifyProcessRelIntershipUserMerge',
 };
 
-/** 分配校内导师审核：列表与 RelTeacherStudent 审核一致 */
+/** 分配校内导师：安排页列表视图 */
+export const TUTOR_ASSIGNMENT_INTERNAL_LIST_KEY_WORD = {
+  edit: 'ViewVerifyProcessRelIntTeacherStudentMerge',
+  view: 'ViewVerifyProcessRelIntTeacherStudentMerge',
+};
+
+/** 分配企业导师：安排页列表视图 */
+export const TUTOR_ASSIGNMENT_ENTERPRISE_LIST_KEY_WORD = {
+  edit: 'ViewVerifyProcessRelEntTeacherStudentMerge',
+  view: 'ViewVerifyProcessRelEntTeacherStudentMerge',
+};
+
+/** 分配校内导师审核：MainVerifyProcess + 校内导师合并视图 */
 export const VERIFY_INTERNAL_TUTOR_ASSIGNMENT_KEY_WORD = {
-  edit: 'MainVerifyProcess',
-  view: 'ViewVerifyProcessRelTeacherStudentMerge',
+  edit: 'ViewVerifyProcessRelIntTeacherStudentMerge',
+  view: 'ViewVerifyProcessRelIntTeacherStudentMerge',
+};
+
+/** 分配企业导师审核：MainVerifyProcess + 企业导师合并视图 */
+export const VERIFY_ENTERPRISE_TUTOR_ASSIGNMENT_KEY_WORD = {
+  edit: 'ViewVerifyProcessRelEntTeacherStudentMerge',
+  view: 'ViewVerifyProcessRelEntTeacherStudentMerge',
 };
 
 /** 安排页 - 学生：表格列 */
@@ -55,7 +73,7 @@ export const VERIFY_TEACHER_COLUMNS = [
   { id: 7, showName: '审核理由', theOrder: 7, tableColumnName: 'reason' },
 ];
 
-/** 审核页 - 分配校内导师（ViewVerifyProcessRelTeacherStudentMerge） */
+/** 审核页 - 分配校内导师（ViewVerifyProcessRelIntTeacherStudentMerge） */
 export const VERIFY_INTERNAL_TUTOR_ASSIGNMENT_COLUMNS = [
   { id: 1, showName: '实习项目', theOrder: 1, tableColumnName: 'internshipName' },
   { id: 2, showName: '教师名称', theOrder: 2, tableColumnName: 'teacherName' },
@@ -64,7 +82,7 @@ export const VERIFY_INTERNAL_TUTOR_ASSIGNMENT_COLUMNS = [
   { id: 5, showName: '当前状态', theOrder: 5, tableColumnName: 'customize-status' },
 ];
 
-/** 审核页 - 分配企业导师：同视图，列表筛选 jobCode=COMPANY_TUTOR，列头文案区分 */
+/** 审核页 - 分配企业导师（ViewVerifyProcessRelEntTeacherStudentMerge），列头文案区分 */
 export const VERIFY_ENTERPRISE_TUTOR_ASSIGNMENT_COLUMNS = [
   { id: 1, showName: '实习项目', theOrder: 1, tableColumnName: 'internshipName' },
   { id: 2, showName: '企业导师', theOrder: 2, tableColumnName: 'teacherName' },

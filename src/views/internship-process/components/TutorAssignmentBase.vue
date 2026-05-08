@@ -126,7 +126,17 @@ const props = defineProps({
   noProjectMessage: { type: String, required: true },
   pendingSelectMessage: { type: String, default: '当前实习项目：待选择' },
   mainTitle: { type: String, required: true },
-  initSearchWords: { type: Object, required: true },
+  /** 列表视图：校内 ViewVerifyProcessRelIntTeacherStudentMerge / 企业 ViewVerifyProcessRelEntTeacherStudentMerge */
+  listKeyWord: {
+    type: Object,
+    required: true,
+    validator: (v) => v && typeof v.edit === 'string' && typeof v.view === 'string',
+  },
+  /** 已废弃：改由 listKeyWord 对应的后端视图区分数据；仅在与 nowSearchWords 合并时仍可传 */
+  initSearchWords: {
+    type: Object,
+    default: () => ({ searchKey: {}, regKey: {}, andor: {} }),
+  },
   progressKeyWords: { type: String, default: 'ViewVerifyProcessRelTeacherStudent' },
 
   systemAssignMode: {
@@ -134,7 +144,6 @@ const props = defineProps({
     default: 'manual', // 'manual' | 'autoOnEmpty'
     validator: (v) => ['manual', 'autoOnEmpty'].includes(v),
   },
-  tutorAssignKind: { type: Number, default: null }, // Enterprise=2；Internal 默认不传
 
   // submit 按钮行条件，满足则可提交
   submitRowCondition: { type: Function, default: null },
@@ -207,9 +216,7 @@ function handleProjectSelectedWrap(internship, title) {
 }
 
 function getSubmitStatus(row) {
-  return row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
-    ? CONSTANT.AUDIT_STATUS.PASS
-    : CONSTANT.AUDIT_STATUS.SUBMIT;
+  return row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY;
 }
 
 async function updateVerifyProcessStatus(rows, isBatch = false) {
@@ -272,8 +279,8 @@ function handleViewClick(rowOrArray) {
 }
 
 async function runSystemAssign() {
-  // 该接口仅用于“分配校内导师”，企业导师页面不执行系统分配接口
-  if (props.tutorAssignKind === 2) {
+  // 仅「分配校内导师」等 manual 页展示系统分配按钮；企业导师 autoOnEmpty 不走此接口
+  if (props.systemAssignMode !== 'manual') {
     return;
   }
 
@@ -314,7 +321,6 @@ async function runSystemAssign() {
       verifyUserId,
       currentVerifyTypeId,
     };
-    if (props.tutorAssignKind != null) payload.tutorAssignKind = props.tutorAssignKind;
 
     const res = await internshipProcessAPI.initTeacherStudentByInternshipId(payload);
     if (!res || res.message !== 'successful') {
@@ -545,18 +551,50 @@ async function confirmManualAssign() {
   }
   if (manualAssignTeacherOnly.value) {
     const relId = manualAssignTargetRow.value?.relTeaStuId;
+    const mainRowId = manualAssignTargetRow.value?.id;
     if (!relId) {
       ElMessage.warning('当前记录缺少关系ID');
       return;
     }
+    if (!mainRowId) {
+      ElMessage.warning('当前记录缺少流程ID');
+      return;
+    }
+    const cur = unref(headerPageRef.value?.currentInternship);
+    const internshipId = Number(cur?.internshipId ?? cur?.id);
+    const createUserId = Number(store.getters.userInfo?.id);
+    const verifyRoleId = cur?.verifyFirstRoleId;
+    if (!internshipId || Number.isNaN(internshipId)) {
+      ElMessage.warning('请先选择实习项目');
+      return;
+    }
+    if (!createUserId || Number.isNaN(createUserId)) {
+      ElMessage.warning('无法获取当前用户信息');
+      return;
+    }
     manualAssignSubmitting.value = true;
     try {
+      const verifyResp = await internshipProcessAPI.getVerifyUserIds({
+        verifyRoleId,
+        createUserId,
+        internshipId,
+      });
+      const verifyUserId = verifyResp?.data ?? verifyResp;
       const res = await listAPI.editOneNode('RelTeacherStudent', {
         id: relId,
         teacherId: manualAssignForm.teacherId,
       });
       if (!res || res.message !== 'successful') {
         ElMessage.warning(res?.message || '分配老师失败');
+        return;
+      }
+      const resMvp = await listAPI.editOneNode('MainVerifyProcess', {
+        id: mainRowId,
+        createUserId,
+        verifyUserId,
+      });
+      if (!resMvp || resMvp.message !== 'successful') {
+        ElMessage.warning(resMvp?.message || '更新审核流程失败');
         return;
       }
       ElMessage.success('分配老师成功');
@@ -650,7 +688,7 @@ const defaultDTLProps = computed(() => ({
   someFlags: { autoInit: false, checkFlag: true },
   initSearchWords: props.initSearchWords,
   defaultDTHProps: {
-    keyWord: { edit: 'RelTeacherStudent', view: 'ViewVerifyProcessRelTeacherStudentMerge' },
+    keyWord: props.listKeyWord,
     buttonProps: {
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
       create: { show: false, name: '批量提交', type: 'primary' },
@@ -698,6 +736,7 @@ const defaultDTLProps = computed(() => ({
 defineExpose({
   refreshList: () => headerPageRef.value?.baseListRef?.initDataList(true),
   openManualAssignDialog,
+  getCurrentInternship: () => unref(headerPageRef.value?.currentInternship),
 });
 </script>
 

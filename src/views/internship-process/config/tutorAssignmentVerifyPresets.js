@@ -1,12 +1,14 @@
 /**
- * 校内 / 企业导师分配审核：共用 ViewVerifyProcessRelTeacherStudentMerge，
- * 仅流程类型、文案与列表 jobId 不同，集中在此维护。
+ * 校内 / 企业导师分配审核：按合并视图区分数据
+ * - ViewVerifyProcessRelIntTeacherStudentMerge：校内导师
+ * - ViewVerifyProcessRelEntTeacherStudentMerge：企业导师（Ass）
  */
 import CONSTANT from '@/utils/constant';
 import {
   VERIFY_ENTERPRISE_TUTOR_ASSIGNMENT_COLUMNS,
   VERIFY_INTERNAL_TUTOR_ASSIGNMENT_COLUMNS,
   VERIFY_INTERNAL_TUTOR_ASSIGNMENT_KEY_WORD,
+  VERIFY_ENTERPRISE_TUTOR_ASSIGNMENT_KEY_WORD,
 } from './assignmentPresets';
 
 /** 供路由页传入 TutorAssignmentVerifyPage */
@@ -17,13 +19,6 @@ export const TUTOR_ASSIGNMENT_VERIFY_VARIANT = Object.freeze({
 
 const REL_TEACHER_STUDENT_TABLE = 'RelTeacherStudent';
 
-function buildJobCodeSearchExtra(jobCode) {
-  return {
-    searchKey: { jobCode },
-    regKey: { jobCode: CONSTANT.SEARCH_OPERATOR.EQ },
-  };
-}
-
 const TUTOR_VERIFY_CONFIG = {
   [TUTOR_ASSIGNMENT_VERIFY_VARIANT.INTERNAL]: {
     processTypeCode: CONSTANT.PROCESS_TYPE.EXTERNAL_ASSIGN_INTERNAL_TUTOR,
@@ -31,7 +26,7 @@ const TUTOR_VERIFY_CONFIG = {
     noProjectMessage: '当前没有需要审核的校内导师分配数据',
     dlgTitle: '分配校内导师审核',
     recallTitle: '退回已通过的校内导师分配',
-    jobCode: 'SCHOOL_TEACHER',
+    listKeyWord: VERIFY_INTERNAL_TUTOR_ASSIGNMENT_KEY_WORD,
     tableColumns: VERIFY_INTERNAL_TUTOR_ASSIGNMENT_COLUMNS,
   },
   [TUTOR_ASSIGNMENT_VERIFY_VARIANT.ENTERPRISE]: {
@@ -40,7 +35,7 @@ const TUTOR_VERIFY_CONFIG = {
     noProjectMessage: '当前没有需要审核的企业导师分配数据',
     dlgTitle: '分配企业导师审核',
     recallTitle: '退回已通过的企业导师分配',
-    jobCode: 'COMPANY_TUTOR',
+    listKeyWord: VERIFY_ENTERPRISE_TUTOR_ASSIGNMENT_KEY_WORD,
     tableColumns: VERIFY_ENTERPRISE_TUTOR_ASSIGNMENT_COLUMNS,
   },
 };
@@ -63,8 +58,7 @@ export function getTutorAssignmentVerifyBindProps(variant) {
     dlgTitle: c.dlgTitle,
     recallTitle: c.recallTitle,
     assignmentTableName: REL_TEACHER_STUDENT_TABLE,
-    listKeyWord: VERIFY_INTERNAL_TUTOR_ASSIGNMENT_KEY_WORD,
-    initSearchWordsExtra: buildJobCodeSearchExtra(c.jobCode),
+    listKeyWord: c.listKeyWord,
     tableColumns: c.tableColumns,
   };
 }

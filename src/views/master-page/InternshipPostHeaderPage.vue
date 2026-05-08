@@ -212,7 +212,9 @@ async function updateSearchWordsAndRefresh() {
   nowSearchWords.searchKey = { ...searchKey };
   // 为所有搜索字段设置精确匹配操作符
   const regKey = {};
-  Object.keys(searchKey).forEach(key => { regKey[key] = '='; });
+  Object.keys(searchKey).forEach((key) => {
+    regKey[key] = '=';
+  });
   nowSearchWords.regKey = regKey;
 
   // 等待响应式更新完成（多等待几个 tick，确保 computed 能检测到变化）

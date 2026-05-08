@@ -6,6 +6,7 @@
     :process-type-code="processTypeCode"
     :table-columns="ASSIGNMENT_TEACHER_COLUMNS"
     :select-dialog-component="DlgTeacherSelect"
+    :show-batch-append="false"
   />
 </template>
 

@@ -5,11 +5,9 @@
     page-title="分配企业导师"
     no-project-message="当前没有可分配企业导师的实习项目"
     main-title="分配企业导师"
-    :init-search-words="initSearchWords"
+    :list-key-word="TUTOR_ASSIGNMENT_ENTERPRISE_LIST_KEY_WORD"
     system-assign-mode="autoOnEmpty"
-    :tutor-assign-kind="2"
     :submit-row-condition="submitRowCondition"
-    :before-refresh-on-project-selected="beforeRefreshOnProjectSelected"
   >
     <template #rightOperate="{ row }">
       <el-button
@@ -41,9 +39,9 @@ import { reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useStore } from 'vuex';
 import CONSTANT from '@/utils/constant';
+import { TUTOR_ASSIGNMENT_ENTERPRISE_LIST_KEY_WORD } from './config/assignmentPresets';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
-import { initDiariesByInternship } from '@/api/diary';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import { Avatar } from '@element-plus/icons-vue';
 import TutorAssignmentBase from './components/TutorAssignmentBase.vue';
@@ -57,52 +55,7 @@ const store = useStore();
 
 const processTypeCode = CONSTANT.PROCESS_TYPE.EXTERNAL_ENTERPRISE_ASSIGN_TUTOR;
 
-// 复用当前页面的服务端筛选条件（用于查询候选行）
-const initSearchWords = {
-  searchKey: { jobCode: 'DEFAULT,COMPANY_TUTOR' },
-  regKey: { jobCode: CONSTANT.SEARCH_OPERATOR.IN },
-};
-
 const submitRowCondition = (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE && !!row.teacherId;
-
-async function beforeRefreshOnProjectSelected(internship) {
-  const internshipId = Number(internship?.internshipId ?? internship?.id);
-  const processId = Number(internship?.processId ?? internship?.realId ?? internship?.id);
-  const createUserId = Number(store.getters.userInfo?.id);
-  const verifyRoleId = internship?.verifyFirstRoleId;
-  const currentVerifyTypeId =
-    internship?.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY
-      ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
-      : CONSTANT.VERIFY_LEVEL.ONE_VERIFY;
-
-  if (!internshipId || Number.isNaN(internshipId)) return;
-  if (!processId || Number.isNaN(processId)) return;
-
-  try {
-    const verifyResp = await internshipProcessAPI.getVerifyUserIds({
-      verifyRoleId,
-      createUserId,
-      internshipId,
-    });
-    const verifyUserId = verifyResp?.data ?? verifyResp;
-
-    const res = await internshipProcessAPI.initEnterpriseTutorByInternshipId({
-      internshipId,
-      processId,
-      createUserId,
-      verifyUserId,
-      currentVerifyTypeId,
-    });
-    if (!res || res.message !== 'successful') {
-      ElMessage.warning(res?.message || '初始化失败');
-    } else {
-      try { await initDiariesByInternship({ internshipId }) } catch {}
-    }
-  } catch (error) {
-    console.error('initEnterpriseTutorByInternshipId 调用失败:', error);
-    ElMessage.error('初始化失败');
-  }
-}
 
 const assignDlgRef = ref(null);
 const assignTargetRow = ref(null);
@@ -171,8 +124,13 @@ async function openAssignEnterpriseTutor(row) {
 async function confirmAssignEnterpriseTutor(_option, _type, form) {
   const row = assignTargetRow.value;
   const relId = row?.relationId;
+  const mainRowId = row?.id;
   if (!relId) {
     ElMessage.warning('缺少 relationId');
+    return false;
+  }
+  if (!mainRowId) {
+    ElMessage.warning('当前记录缺少流程ID');
     return false;
   }
 
@@ -182,13 +140,41 @@ async function confirmAssignEnterpriseTutor(_option, _type, form) {
     return false;
   }
 
+  const cur = baseRef.value?.getCurrentInternship?.();
+  const internshipId = Number(cur?.internshipId ?? cur?.id);
+  const createUserId = Number(store.getters.userInfo?.id);
+  const verifyRoleId = cur?.verifyFirstRoleId;
+  if (!internshipId || Number.isNaN(internshipId)) {
+    ElMessage.warning('请先选择实习项目');
+    return false;
+  }
+  if (!createUserId || Number.isNaN(createUserId)) {
+    ElMessage.warning('无法获取当前用户信息');
+    return false;
+  }
+
   try {
+    const verifyResp = await internshipProcessAPI.getVerifyUserIds({
+      verifyRoleId,
+      createUserId,
+      internshipId,
+    });
+    const verifyUserId = verifyResp?.data ?? verifyResp;
     const res = await listAPI.editOneNode('RelTeacherStudent', {
       id: relId,
       teacherId,
     });
     if (!res || res.message !== 'successful') {
       ElMessage.warning(res?.message || '保存失败');
+      return false;
+    }
+    const resMvp = await listAPI.editOneNode('MainVerifyProcess', {
+      id: mainRowId,
+      createUserId,
+      verifyUserId,
+    });
+    if (!resMvp || resMvp.message !== 'successful') {
+      ElMessage.warning(resMvp?.message || '更新审核流程失败');
       return false;
     }
 
