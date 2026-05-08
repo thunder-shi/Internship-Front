@@ -5,7 +5,7 @@
       :client-filter-fn="clientFilterFn" :enable-audit-status-custom="enableAuditStatusCustom"
       :get-verify-role-name="getVerifyRoleName" @append-click="appendClick" @edit-click="editClick"
       @view-click="viewClick" @update-column="updateColumn" @delete-click="deleteClick" @export-click="exportClick"
-      @more1-click="more1Click" @more2-click="more2Click" @more3-click="more3Click" @more4-click="more4Click" @after-init-data="afterInitData" @audit-click="auditClick"
+      @more1-click="more1Click" @more2-click="more2Click" @more3-click="more3Click" @more4-click="more4Click" @more5-click="more5Click" @after-init-data="afterInitData" @audit-click="auditClick"
       @audit-command="auditCommand" @submit-click="submitClick">
       <!--数据操作按钮类 -->
       <!-- <template #searchPanel>
@@ -31,6 +31,7 @@ import { ref, reactive, computed, onMounted, useAttrs, getCurrentInstance } from
 import DataTableList from '@/components/DataTableList.vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import { resetForm } from '@/utils/common';
+import { runSubmitAllByQuery } from '@/utils/submitAllByQuery';
 
 defineOptions({
   name: 'BaseList',
@@ -111,6 +112,7 @@ const emit = defineEmits([
   'more2-click',
   'more3-click',
   'more4-click',
+  'more5-click',
   'submit-more',
   'simple-select-change',
   'simple-select-init-finish',
@@ -282,6 +284,30 @@ const more2Click = async (row) => {
   emit('more2-click', row);
 };
 
+const buttonPropsNode = () => props.defaultProps?.defaultDTLProps?.defaultDTHProps?.buttonProps ?? {};
+
+/** moreN.submitAll：函数 | { handler } | { keyWords, ... }；已消费则不再 emit */
+async function tryConsumeSubmitAll(row, submitAllRaw) {
+  if (submitAllRaw == null) return false;
+  if (typeof submitAllRaw === 'function') {
+    await submitAllRaw({ selectedRows: row, initDataList });
+    return true;
+  }
+  if (typeof submitAllRaw === 'object' && typeof submitAllRaw.handler === 'function') {
+    await submitAllRaw.handler({ selectedRows: row, initDataList });
+    return true;
+  }
+  if (typeof submitAllRaw === 'object' && submitAllRaw.keyWords) {
+    try {
+      await runSubmitAllByQuery(submitAllRaw, { initDataList });
+    } catch (e) {
+      if (e !== 'cancel') console.error('全部提交失败:', e);
+    }
+    return true;
+  }
+  return false;
+}
+
 // 更多内容3
 const more3Click = async (row) => {
   emit('more3-click', row);
@@ -290,6 +316,12 @@ const more3Click = async (row) => {
 // 更多内容4
 const more4Click = async (row) => {
   emit('more4-click', row);
+};
+
+// 更多内容5（全部提交：仅 more5 支持 submitAll）
+const more5Click = async (row) => {
+  if (await tryConsumeSubmitAll(row, buttonPropsNode().more5?.submitAll)) return;
+  emit('more5-click', row);
 };
 
 // 审核按钮点击

@@ -14,7 +14,6 @@
     @delete-click="handleDeleteClick"
     @submit-click="handleRowSubmitClick"
     @more2-click="handleBatchSubmitClick"
-    @more3-click="handleSubmitAllClick"
     @post-detail-close="handlePostDetailClose"
     @post-detail-success="handlePostDetailSuccess"
   />
@@ -55,15 +54,44 @@ function getButtonProps(currentInternship, isMore1Disabled) {
     visible: { show: true, type: 'primary', name: '查看进度' },
     more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled },
     more2: { show: true, name: '批量提交', type: 'primary' },
-    more3: { show: true, name: '全部提交', type: 'warning' },
+    more5: {
+      show: true,
+      name: '全部提交',
+      type: 'warning',
+      submitAll: {
+        guard: () => {
+          if (!currentInternship?.internshipId) {
+            ElMessage.warning('请先选择实习项目');
+            return false;
+          }
+          return true;
+        },
+        keyWords: 'ViewVerifyProcessInternshipPostMerge',
+        searchKey: {
+          internshipId: currentInternship?.internshipId,
+          isAudit: `${CONSTANT.AUDIT_STATUS.SAVE},${CONSTANT.AUDIT_STATUS.BACK}`,
+        },
+        reg: {
+          internshipId: '=',
+          isAudit: CONSTANT.SEARCH_OPERATOR.IN,
+        },
+        filterRows: (row) =>
+          row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK,
+        autoPassExtra: {},
+        buildConfirmText: (n) => `确定提交当前实习项目下全部 ${n} 条待提交记录吗？`,
+      },
+    },
   };
 }
 
 /** 操作列按钮显示条件 */
 const buttonCondition = {
-  submit: (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE ||
-    (row?.isAudit === CONSTANT.AUDIT_STATUS.PASS && row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY),
-  update: (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row?.isAudit === CONSTANT.AUDIT_STATUS.BACK,
+  submit: (row) =>
+    row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE ||
+    (row?.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
+      row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY),
+  update: (row) =>
+    row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row?.isAudit === CONSTANT.AUDIT_STATUS.BACK,
 };
 
 function buildSearchKey(baseSearchKey) {
@@ -113,7 +141,8 @@ function handleAppendClick(currentInternship) {
 
 function handleEditClick(row) {
   if (!row) return;
-  const editable = row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK;
+  const editable =
+    row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK;
   const editRow = { ...row, id: row.internshipPostId || row.relationId };
   const dlgPostDetail = internshipPostPageRef.value?.dlgPostDetail;
   dlgPostDetail?.showDialog(true, {}, editRow, !editable);
@@ -123,13 +152,19 @@ function handleEditClick(row) {
 async function handleRowSubmitClick(row) {
   if (!row) return;
   // 自动通过的记录：提供退回选项
-  if (row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
-      row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+  if (
+    row.isAudit === CONSTANT.AUDIT_STATUS.PASS &&
+    row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
+  ) {
     try {
       await ElMessageBox.confirm('该记录为自动通过，是否退回以重新编辑？', '提示', {
-        confirmButtonText: '退回', cancelButtonText: '取消', type: 'warning',
+        confirmButtonText: '退回',
+        cancelButtonText: '取消',
+        type: 'warning',
       });
-    } catch { return; }
+    } catch {
+      return;
+    }
     try {
       const res = await listAPI.editOneNode('MainVerifyProcess', {
         id: row.id,
@@ -144,7 +179,9 @@ async function handleRowSubmitClick(row) {
       } else {
         ElMessage.error(res?.message || '退回失败');
       }
-    } catch (e) { console.error('退回失败:', e); }
+    } catch (e) {
+      console.error('退回失败:', e);
+    }
     return;
   }
   if (row.isAudit !== CONSTANT.AUDIT_STATUS.SAVE) {
@@ -175,42 +212,6 @@ async function handleBatchSubmitClick(rows) {
   if (successCount > 0) {
     ElMessage.success(`批量提交完成，共成功提交 ${successCount} 条记录`);
     refreshList();
-  }
-}
-
-/** 全部提交：查询当前实习项目下所有待提交记录并批量提交 */
-async function handleSubmitAllClick() {
-  const internshipId = internshipPostPageRef.value?.currentInternship?.value?.internshipId;
-  if (!internshipId) {
-    ElMessage.warning('请先选择实习项目');
-    return;
-  }
-  try {
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewVerifyProcessInternshipPostMerge',
-      searchKey: { internshipId, isAudit: `${CONSTANT.AUDIT_STATUS.SAVE},${CONSTANT.AUDIT_STATUS.BACK}` },
-      reg: { internshipId: '=', isAudit: CONSTANT.SEARCH_OPERATOR.IN },
-    });
-    const allRows = res?.data?.content || res?.data || [];
-    const pendingRows = allRows.filter(
-      (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK
-    );
-    if (!pendingRows.length) {
-      ElMessage.info('没有待提交的记录');
-      return;
-    }
-    await ElMessageBox.confirm(
-      `确定提交当前实习项目下全部 ${pendingRows.length} 条待提交记录吗？`,
-      '全部提交',
-      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-    );
-    const successCount = await submitMainVerifyRows(pendingRows);
-    if (successCount > 0) {
-      ElMessage.success(`全部提交完成，共成功提交 ${successCount} 条记录`);
-      refreshList();
-    }
-  } catch (e) {
-    if (e !== 'cancel') console.error('全部提交失败:', e);
   }
 }
 

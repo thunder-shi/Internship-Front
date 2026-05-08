@@ -152,6 +152,42 @@ function handleProjectSelected(internship, title) {
 
 const { getVerifyRoleName } = useVerifyFilter();
 
+/** 与列表 nowSearchWords 一致：processTypeCode + internshipId + RelIntershipUser（+ 企业 companyId） */
+const submitAllAssignment = computed(() => {
+  const cur = currentInternship.value;
+  const searchKey = {
+    processTypeCode: props.processTypeCode,
+    internshipId: cur?.internshipId,
+    tableName: 'RelIntershipUser',
+    isAudit: String(CONSTANT.AUDIT_STATUS.SAVE),
+  };
+  const reg = {
+    processTypeCode: '=',
+    internshipId: '=',
+    tableName: '=',
+    isAudit: '=',
+  };
+  if (isCompanyUser.value && userInfo.value?.departmentId) {
+    searchKey.companyId = userInfo.value.departmentId;
+    reg.companyId = '=';
+  }
+  return {
+    guard: () => {
+      if (!currentInternship.value?.internshipId) {
+        ElMessage.warning('请先选择实习项目');
+        return false;
+      }
+      return true;
+    },
+    keyWords: ASSIGNMENT_KEY_WORD.view,
+    searchKey,
+    reg,
+    filterRows: (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE,
+    autoPassExtra: {},
+    buildConfirmText: (n) => `确定提交当前项目下全部 ${n} 条暂存记录吗？`,
+  };
+});
+
 const buttonPropsComputed = computed(() => ({
   create: {
     show: true,
@@ -166,6 +202,13 @@ const buttonPropsComputed = computed(() => ({
     name: '批量新增',
     type: 'primary',
     disabled: !currentInternship.value || !currentInternship.value.internshipId,
+  },
+  more5: {
+    show: true,
+    name: '全部提交',
+    type: 'warning',
+    disabled: !currentInternship.value || !currentInternship.value.internshipId,
+    submitAll: submitAllAssignment.value,
   },
   more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
 }));

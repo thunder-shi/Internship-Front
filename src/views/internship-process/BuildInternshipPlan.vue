@@ -2,7 +2,7 @@
   <div class="build-internship-plan-container">
     <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" ref="baseList" @append-click="appendClick"
       @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick" @submit-click="handleSubmitClick"
-      @more2-click="handleBatchSubmitClick" @more3-click="handleSubmitAllClick">
+      @more2-click="handleBatchSubmitClick">
       <template #dlg>
         <!-- 自定义新增对话框：基本信息 + 模板流程预览 -->
         <DlgBasic ref="createDlgRef" :default-props="createDlgProps" :dlgbasic-confirm="onCreateDlgConfirm" @close-dialog="onCreateDlgClose">
@@ -415,40 +415,6 @@ async function handleBatchSubmitClick(rows) {
   }
 }
 
-/** 全部提交：查询所有待提交/退回的实习计划并批量提交 */
-async function handleSubmitAllClick() {
-  try {
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewVerifyProcessInternshipMerge',
-      searchKey: { isAudit: `${CONSTANT.AUDIT_STATUS.SAVE},${CONSTANT.AUDIT_STATUS.BACK}` },
-      reg: { isAudit: CONSTANT.SEARCH_OPERATOR.IN },
-    });
-    const allRows = res?.data?.content || res?.data || [];
-    const pendingRows = allRows.filter(
-      (row) => row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK
-    );
-    if (!pendingRows.length) {
-      ElMessage.info('没有待提交的记录');
-      return;
-    }
-    await ElMessageBox.confirm(
-      `确定提交全部 ${pendingRows.length} 条待提交的实习计划吗？`,
-      '全部提交',
-      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-    );
-    let successCount = 0;
-    for (const row of pendingRows) {
-      if (await submitSingleRow(row)) successCount++;
-    }
-    if (successCount > 0) {
-      ElMessage.success(`全部提交完成，共成功提交 ${successCount} 条记录`);
-      baseList.value?.initDataList();
-    }
-  } catch (e) {
-    if (e !== 'cancel') console.error('全部提交失败:', e);
-  }
-}
-
 const handleUpdateRecord = () => {
   baseList.value?.initDataList();
 };
@@ -479,7 +445,21 @@ const defaultProps = computed(() => ({
         submit: { show: true, type: 'warning', name: '提交' },
         delete: { show: true },
         more2: { show: true, name: '批量提交', type: 'primary' },
-        more3: { show: true, name: '全部提交', type: 'warning' },
+        more5: {
+          show: true,
+          name: '全部提交',
+          type: 'warning',
+          submitAll: {
+            keyWords: 'ViewVerifyProcessInternshipMerge',
+            searchKey: {
+              isAudit: `${CONSTANT.AUDIT_STATUS.SAVE},${CONSTANT.AUDIT_STATUS.BACK}`,
+            },
+            reg: { isAudit: CONSTANT.SEARCH_OPERATOR.IN },
+            filterRows: (row) =>
+              row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK,
+            buildConfirmText: (n) => `确定提交全部 ${n} 条待提交的实习计划吗？`,
+          },
+        },
       },
       keyWord: { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipMerge' },
       allTableColumns: [

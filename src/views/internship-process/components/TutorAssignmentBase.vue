@@ -119,6 +119,7 @@ import internshipProcessAPI from '@/api/internshipProcess';
 import { useAssignmentPageConfig } from '@/utils/useAssignmentPageConfig';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { initDiariesByInternship } from '@/api/diary';
+import { runSubmitAllByQuery } from '@/utils/submitAllByQuery';
 
 const props = defineProps({
   processTypeCode: { type: String, required: true },
@@ -716,6 +717,49 @@ const defaultDTLProps = computed(() => ({
         show: true,
         name: '批量提交',
         type: 'primary',
+      },
+      more5: {
+        show: true,
+        name: '全部提交',
+        type: 'warning',
+        disabled: assigning.value,
+        submitAll: async ({ initDataList }) => {
+          const cur = unref(headerPageRef.value?.currentInternship);
+          if (!cur?.internshipId) {
+            ElMessage.warning('请先选择实习项目');
+            return;
+          }
+          const searchKey = {
+            processTypeCode: props.processTypeCode,
+            internshipId: cur.internshipId,
+            tableName: 'RelTeacherStudent',
+          };
+          const reg = {
+            processTypeCode: '=',
+            internshipId: '=',
+            tableName: '=',
+          };
+          if (isCompanyUser.value && store.getters.userInfo?.departmentId) {
+            searchKey.companyId = store.getters.userInfo.departmentId;
+            reg.companyId = '=';
+          }
+          await runSubmitAllByQuery(
+            {
+              keyWords: props.listKeyWord.view,
+              searchKey,
+              reg,
+              filterRows: (row) =>
+                row.isAudit === CONSTANT.AUDIT_STATUS.SAVE &&
+                (!props.submitRowCondition || props.submitRowCondition(row)),
+              mapNode: (row) => ({
+                id: row.id,
+                isAudit: row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY,
+              }),
+              buildConfirmText: (n) => `确定提交全部 ${n} 条可提交记录吗？`,
+            },
+            { initDataList }
+          );
+        },
       },
     },
     buttonCondition: {
