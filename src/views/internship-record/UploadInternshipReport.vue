@@ -35,6 +35,12 @@
       </el-form-item>
     </el-card>
 
+    <div v-if="Object.keys(periodDrafts).length > 0" class="submit-all-bar">
+      <el-button type="warning" :loading="submitAllLoading" @click="handleSubmitAllClick">
+        全部提交（{{ Object.keys(periodDrafts).length }} 篇草稿）
+      </el-button>
+    </div>
+
     <DataTableList
       ref="dtlRef"
       :default-props="dtlProps"
@@ -87,7 +93,7 @@
 
 <script setup>
 import { ref, computed, reactive, watch, nextTick, onMounted, onActivated } from 'vue'
-import { ElMessage, ElLoading } from 'element-plus'
+import { ElMessage, ElLoading, ElMessageBox } from 'element-plus'
 import { Edit, Position } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import DataTableList from '@/components/DataTableList.vue'
@@ -280,6 +286,7 @@ function onViewClick(rowOrArray) {
 // ── 草稿缓存（仅存内存，页面刷新后失效）────────────────────────
 // periodId → { title, content, files: File[] }
 const periodDrafts = reactive({})
+const submitAllLoading = ref(false)
 
 // ── 提交日志对话框 ────────────────────────────────────────────
 const dlgSubmitRef = ref(null)
@@ -363,6 +370,72 @@ async function handleDirectSubmit(row) {
   }
 }
 
+/** 全部提交：提交所有草稿日志 */
+async function handleSubmitAllClick() {
+  const draftEntries = Object.entries(periodDrafts)
+  if (!draftEntries.length) {
+    ElMessage.info('没有待提交的草稿')
+    return
+  }
+  const post = selectedPost.value
+  if (!post) {
+    ElMessage.warning('请先选择实习项目')
+    return
+  }
+  // 校验所有草稿
+  for (const [periodId, draft] of draftEntries) {
+    if (!draft.title?.trim()) {
+      ElMessage.warning(`第 ${periodId} 期草稿缺少标题，请先填写`)
+      return
+    }
+    if (!draft.content?.trim()) {
+      ElMessage.warning(`第 ${periodId} 期草稿缺少内容，请先填写`)
+      return
+    }
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确定提交全部 ${draftEntries.length} 篇草稿日志吗？`,
+      '全部提交',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch { return }
+  submitAllLoading.value = true
+  const loading = ElLoading.service({ text: '全部提交中…', background: 'rgba(0,0,0,0.45)' })
+  let successCount = 0
+  for (const [periodId, draft] of draftEntries) {
+    try {
+      loading.setText(`提交中 (${successCount + 1}/${draftEntries.length})…`)
+      const res = await submitDiary({
+        ...buildIdParam(post),
+        periodId: Number(periodId),
+        title: draft.title,
+        content: draft.content,
+        submit: true,
+      })
+      if (res?.message === 'successful') {
+        const diaryId = res.data
+        if (draft.files?.length > 0 && diaryId) {
+          loading.setText(`上传附件中 (${successCount + 1}/${draftEntries.length})…`)
+          await fileAPI.upload({ files: draft.files, relationIds: diaryId, tableName: 'main_diary' })
+        }
+        delete periodDrafts[periodId]
+        successCount++
+      }
+    } catch (e) {
+      console.error(`提交第 ${periodId} 期失败:`, e)
+    }
+  }
+  loading.close()
+  submitAllLoading.value = false
+  if (successCount > 0) {
+    ElMessage.success(`全部提交完成，成功提交 ${successCount} 篇日志`)
+    dtlRef.value?.initDataList()
+  } else {
+    ElMessage.warning('提交失败，请稍后重试')
+  }
+}
+
 // ── 初始化 ────────────────────────────────────────────────────
 onMounted(async () => {
   await loadStudentPosts()
@@ -394,6 +467,11 @@ onActivated(async () => {
 
 .selector-card :deep(.el-card__body) {
   padding: 14px 16px;
+}
+
+.submit-all-bar {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .mb-0 {

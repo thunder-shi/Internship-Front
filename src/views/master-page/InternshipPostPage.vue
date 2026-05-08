@@ -18,6 +18,7 @@
     @project-selected="handleProjectSelected"
     @submit-click="handleSubmitClick"
     @more2-click="handleMore2Click"
+    @more3-click="handleMore3Click"
   >
     <!-- 岗位详情对话框（新增/编辑/审核） -->
     <template #dialogs>
@@ -138,6 +139,7 @@ const emit = defineEmits([
   'post-detail-success',
   'submit-click',
   'more2-click',
+  'more3-click',
 ]);
 
 const headerPageRef = ref(null);
@@ -207,6 +209,11 @@ function handleSubmitClick(row) {
 // 批量操作（如批量提交，参数为当前勾选行）
 function handleMore2Click(rows) {
   emit('more2-click', rows);
+}
+
+// 全部操作（如全部提交）
+function handleMore3Click(rows) {
+  emit('more3-click', rows);
 }
 
 // 处理删除按钮点击（转发给父组件）
