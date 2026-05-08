@@ -47,6 +47,9 @@
               :multiple="true"
               :check-strictly="false"
               :lazy="true"
+              :auto-prefetch-subtree="true"
+              :auto-prefetch-root-only="true"
+              :auto-prefetch-max-depth="24"
               placeholder="请选择部门（可多选）"
             />
           </el-form-item>

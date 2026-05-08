@@ -1,9 +1,23 @@
 <template>
   <div>
     <!-- :simpledialog-confirm-more="confirmMore" -->
-    <SimpleDialog ref="simpleDlg" :default-props="defaultMainSDProps" :simpledialog-confirm="confirm" @update-record="updateRecord" @close-dialog="closeDialog" @open-dialog="openDialog">
+    <SimpleDialog
+      ref="simpleDlg"
+      :default-props="defaultMainSDProps"
+      :simpledialog-confirm="confirm"
+      @update-record="updateRecord"
+      @close-dialog="closeDialog"
+      @open-dialog="openDialog"
+    >
       <template #otherItems>
-        <el-form-item label="角色" prop="roleIds"><SimpleSelect ref="spsRole" v-model="form.roleIds" multiple key-words="SysRole" @update-value="onSelRoles" /></el-form-item>
+        <el-form-item label="角色" prop="roleIds"
+          ><SimpleSelect
+            ref="spsRole"
+            v-model="form.roleIds"
+            multiple
+            key-words="SysRole"
+            @update-value="onSelRoles"
+        /></el-form-item>
       </template>
     </SimpleDialog>
   </div>
@@ -68,6 +82,21 @@ const defaultMainSDProps = reactive({
     },
     { name: '手机号', field: 'phone', type: 'input' },
     { name: '工号', field: 'workId', type: 'input' },
+    {
+      name: '学制',
+      field: 'schoolLength',
+      type: 'select_noremote',
+      options: [
+        { id: '1', name: '1年' },
+        { id: '2', name: '2年' },
+        { id: '3', name: '3年' },
+        { id: '4', name: '4年' },
+        { id: '5', name: '5年' },
+        { id: '6', name: '6年' },
+        { id: '7', name: '7年' },
+        { id: '8', name: '8年' },
+      ],
+    },
     { name: '入学年份', field: 'startYear', type: 'input' },
     { name: '毕业年份', field: 'endYear', type: 'input' },
     { name: '备注', field: 'remarks', type: 'textarea' },

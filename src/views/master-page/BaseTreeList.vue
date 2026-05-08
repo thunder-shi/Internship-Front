@@ -68,6 +68,12 @@ _.mergeWith(defaultDTLProps, props.defaultProps.defaultDTLProps, customize);
 _.mergeWith(defaultSDProps, props.defaultProps.defaultSDProps, customize);
 _.mergeWith(defaultDBIProps, props.defaultProps.defaultDBIProps, customize);
 
+// customize 会深拷贝 searchItems，导致父级异步写入的 options（如专业树）无法反映到表格；保留父组件数组引用
+const parentDtl = props.defaultProps?.defaultDTLProps;
+if (Array.isArray(parentDtl?.searchItems)) {
+  defaultDTLProps.searchItems = parentDtl.searchItems;
+}
+
 const treeInfo = reactive({});
 Object.assign(treeInfo, defaultDTLProps.treeInfo || {});
 defaultDTLProps.treeInfo = treeInfo;

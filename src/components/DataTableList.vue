@@ -1116,34 +1116,47 @@ const searchClick = (searchInfo) => {
 };
 
 const advancedSearchClick = (searchInfo) => {
-  const searchKey = {};
-  const regKey = {};
-  const keys = Object.keys(searchInfo);
-  for (let i = 0; i < keys.length; i++) {
-    const item = searchItems.value.filter((item) => item.field === keys[i]);
-    if (item.length > 0) {
-      if (item[0].type === 'input') {
-        searchKey[keys[i]] = searchInfo[keys[i]];
-        regKey[keys[i]] = CONSTANT.SEARCH_OPERATOR.LIKE;
-      } else if (item[0].type === 'select') {
-        searchKey[keys[i]] = searchInfo[keys[i]];
-      } else if (item[0].type === 'date') {
-        searchKey[keys[i]] = { beginDate: searchInfo[keys[i]][0], endDate: searchInfo[keys[i]][1] };
-        regKey[keys[i]] = CONSTANT.SEARCH_OPERATOR.RANGE;
-      }
-    }
-  }
   if (!props.defaultProps.nowSearchWords) {
     props.defaultProps.nowSearchWords = { searchKey: {}, regKey: {}, andor: {} };
   }
-  props.defaultProps.nowSearchWords.searchKey = {
-    ...(props.defaultProps.nowSearchWords.searchKey || {}),
-    ...searchKey,
-  };
-  props.defaultProps.nowSearchWords.regKey = {
-    ...(props.defaultProps.nowSearchWords.regKey || {}),
-    ...regKey,
-  };
+  const searchKey = { ...(props.defaultProps.nowSearchWords.searchKey || {}) };
+  const regKey = { ...(props.defaultProps.nowSearchWords.regKey || {}) };
+
+  for (const item of searchItems.value) {
+    const field = item.field;
+    const val = searchInfo[field];
+    const isEmpty =
+      val === undefined ||
+      val === null ||
+      val === '' ||
+      (Array.isArray(val) && val.length === 0);
+
+    if (isEmpty) {
+      delete searchKey[field];
+      delete regKey[field];
+      continue;
+    }
+
+    if (item.type === 'input') {
+      searchKey[field] = val;
+      regKey[field] = CONSTANT.SEARCH_OPERATOR.LIKE;
+    } else if (item.type === 'select') {
+      searchKey[field] = val;
+      regKey[field] = CONSTANT.SEARCH_OPERATOR.EQ;
+    } else if (item.type === 'cascader') {
+      const path = Array.isArray(val) ? val : [];
+      if (path.length > 0) {
+        searchKey[field] = path[path.length - 1];
+        regKey[field] = CONSTANT.SEARCH_OPERATOR.EQ;
+      }
+    } else if (item.type === 'date') {
+      searchKey[field] = { beginDate: val[0], endDate: val[1] };
+      regKey[field] = CONSTANT.SEARCH_OPERATOR.RANGE;
+    }
+  }
+
+  props.defaultProps.nowSearchWords.searchKey = searchKey;
+  props.defaultProps.nowSearchWords.regKey = regKey;
   pageInfo.page = 1;
   setTimeout(() => {
     initDataList(true);

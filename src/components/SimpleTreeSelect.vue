@@ -24,7 +24,13 @@ const props = defineProps({
   searchKeys: { type: Object, default: () => ({}) },
   lazy: { type: Boolean, default: true },
   multiple: { type: Boolean, default: false },
-  disabled: { type: Boolean, default: false }
+  disabled: { type: Boolean, default: false },
+  /** 为 true 时：拉取到非叶子节点后自动继续请求子节点，直到叶子或达到 maxDepth（与 DataTree 叶子判断一致） */
+  autoPrefetchSubtree: { type: Boolean, default: false },
+  /** 与 autoPrefetchSubtree 配合：仅对根查询 parentId=-1 做深度预取；展开子级时仍只拉一层，避免过量请求 */
+  autoPrefetchRootOnly: { type: Boolean, default: true },
+  /** 从当前批次根算起最大预取深度 */
+  autoPrefetchMaxDepth: { type: Number, default: 24 },
 });
 
 const emit = defineEmits(['update:modelValue', 'update-value']);
@@ -161,6 +167,26 @@ async function onLazyLoad(node, resolve) {
 
 // --- 下面是辅助函数，逻辑保持不变 ---
 
+/** 与 DataTree.normalizeTreeNodesForLazy 一致，供 el-cascader lazy 的 leaf 字段 */
+function mapTreeItemToCascaderNode(item) {
+  if (!item || item.code === '0') return null;
+  const id = item.id;
+  const isVirtualRoot = id === -1 || id === '-1';
+  let leaf;
+  if (isVirtualRoot) {
+    leaf = false;
+  } else if (item.isLeaf === true || item.isLeaf === 1) {
+    leaf = true;
+  } else if (item.isLeaf === false || item.isLeaf === 0) {
+    leaf = false;
+  } else if (item.childNum != null && item.childNum !== '') {
+    leaf = Number(item.childNum) === 0;
+  } else {
+    leaf = false;
+  }
+  return { ...item, leaf };
+}
+
 async function loadFullTree() {
   const res = await treeAPI.getAllNodes({
     keyWords: props.keyWords,
@@ -193,19 +219,41 @@ async function loadPartialTree(pathIds) {
   }
 }
 
+async function fetchNodesRaw(parentId) {
+  const res = await treeAPI.getAllNodes({
+    keyWords: props.keyWords,
+    virtualRootFlag: false,
+    searchKey: props.searchKeys,
+    lazy: true,
+    parentId,
+  });
+  return (res.data || []).map(mapTreeItemToCascaderNode).filter(Boolean);
+}
+
+/** 对有子节点的项继续 readAllTreeNodes，直到叶子或深度上限 */
+async function prefetchDescendants(nodes, depth, maxDepth) {
+  if (!props.autoPrefetchSubtree || !Array.isArray(nodes) || depth >= maxDepth) return;
+  for (const node of nodes) {
+    if (!node || node.leaf) continue;
+    const children = await fetchNodesRaw(node.id);
+    node.children = children;
+    await prefetchDescendants(children, depth + 1, maxDepth);
+  }
+}
+
 async function fetchNodes(parentId) {
   try {
-    const res = await treeAPI.getAllNodes({
-      keyWords: props.keyWords,
-      virtualRootFlag: false,
-      searchKey: props.searchKeys,
-      lazy: true,
-      parentId: parentId
-    });
-    return (res.data || []).map(item => ({
-      ...item,
-      leaf: item.childNum === 0
-    }));
+    const nodes = await fetchNodesRaw(parentId);
+    const pid = parentId === '-1' ? -1 : Number(parentId);
+    const atRoot = pid === -1 || Number.isNaN(pid);
+    const doDeep =
+      props.autoPrefetchSubtree &&
+      (!props.autoPrefetchRootOnly || atRoot);
+    if (doDeep && nodes.length) {
+      const maxD = Math.max(1, Number(props.autoPrefetchMaxDepth) || 24);
+      await prefetchDescendants(nodes, 0, maxD);
+    }
+    return nodes;
   } catch (e) {
     return [];
   }
