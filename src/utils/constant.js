@@ -94,6 +94,16 @@ const AUDIT_STATUS = Object.freeze({
   BACKNAME: '审核退回',
 });
 
+// 自主实习（校外）
+// 虚拟岗位在 MainInternshipPost 中用 POST_CODE 识别；
+// allPersonNum=UNLIMITED 表示无人数限制；
+// 申请信息以 self_* 字段存在 RelStuInternshipPost，附件 tableName='RelStuInternshipPost'
+const SELF_INTERNSHIP = Object.freeze({
+  POST_CODE: 'SELF_INTERNSHIP',
+  POST_NAME: '自主实习',
+  UNLIMITED: -1,
+});
+
 // 用户身份类型
 const USER_JOB_CODE = Object.freeze({
   SUPER_ADMIN: 'SUPER_ADMIN',
@@ -120,4 +130,5 @@ export default Object.freeze({
   INFO_MAX_LENGTH,
   AUDIT_STATUS,
   USER_JOB_CODE,
+  SELF_INTERNSHIP,
 });

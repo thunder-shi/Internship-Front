@@ -29,12 +29,6 @@
           <el-radio-button value="available">可选</el-radio-button>
           <el-radio-button value="applied">已选（{{ selectedPosts.length }}）</el-radio-button>
         </el-radio-group>
-        <el-button
-          v-if="activeTab === 'available' && !hasApprovedPost"
-          type="warning"
-          :loading="submitAllLoading"
-          @click="handleSubmitAllClick"
-        >全部报名</el-button>
       </div>
     </el-card>
 
@@ -231,6 +225,8 @@ const selectedPostIds = computed(
 );
 
 // 是否已有审核通过的报名（通过后锁定，不允许再报其他岗位）
+// selectedPosts 来源 ViewVerifyProcessRelStuInternshipPost 未限制 internshipPostCode，
+// 因此自主实习 PASS 也会触发锁定，与企业岗位 PASS 一视同仁
 const hasApprovedPost = computed(() =>
   selectedPosts.value.some((p) => Number(p.isAudit) === CONSTANT.AUDIT_STATUS.PASS)
 );
@@ -238,7 +234,6 @@ const hasApprovedPost = computed(() =>
 // 审核进度对话框
 const showProgressDialog = ref(false);
 const currentRow = ref({});
-const submitAllLoading = ref(false);
 
 // 当前实习项目
 const currentInternship = computed(() => headerPageRef.value?.currentInternship?.value || null);
@@ -343,11 +338,12 @@ function buildSearchKey(baseSearchKey) {
   return { ...baseSearchKey, isAudit: CONSTANT.AUDIT_STATUS.PASS };
 }
 
-// "可选" tab：已有审核通过的报名则返回空（锁定）；否则排除满员 + 已报名岗位
+// "可选" tab：已有审核通过的报名则返回空（锁定）；否则排除满员 + 已报名岗位 + 自主实习虚拟岗位
 function filterAvailablePosts(dataList) {
   if (hasApprovedPost.value) return [];
   return dataList.filter(
     (row) =>
+      row.internshipPostCode !== CONSTANT.SELF_INTERNSHIP.POST_CODE &&
       (row.nowPersonNum || 0) < (row.allPersonNum || 0) &&
       !selectedPostIds.value.has(String(row.internshipPostId))
   );
@@ -450,93 +446,6 @@ async function handleApply(row) {
   }
 }
 
-/** 全部报名：对当前实习项目下所有可选岗位一键报名 */
-async function handleSubmitAllClick() {
-  const internshipId = currentInternship.value?.internshipId || currentInternship.value?.id;
-  if (!internshipId) {
-    ElMessage.warning('请先选择实习项目');
-    return;
-  }
-  if (hasApprovedPost.value) {
-    ElMessage.warning('您已有审核通过的报名，无法继续选择岗位');
-    return;
-  }
-  // 查询当前项目下所有已审核通过的岗位
-  let availablePosts;
-  try {
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewVerifyProcessInternshipPostMerge',
-      searchKey: { internshipId, isAudit: CONSTANT.AUDIT_STATUS.PASS },
-      reg: { internshipId: '=', isAudit: '=' },
-    });
-    const allPosts = res?.data?.content || res?.data || [];
-    availablePosts = allPosts.filter(
-      (row) =>
-        (row.nowPersonNum || 0) < (row.allPersonNum || 0) &&
-        !selectedPostIds.value.has(String(row.internshipPostId))
-    );
-  } catch (e) {
-    console.error('查询可选岗位失败:', e);
-    return;
-  }
-  if (!availablePosts.length) {
-    ElMessage.info('没有可报名的岗位');
-    return;
-  }
-  // 检查总报名数限制
-  const currentCount = await querySelectedPostCount(userInfo.value?.id);
-  const remaining = 3 - currentCount;
-  if (remaining <= 0) {
-    ElMessage.warning('您已报名3个岗位，无法继续报名');
-    return;
-  }
-  const toApply = availablePosts.slice(0, remaining);
-  if (toApply.length < availablePosts.length) {
-    try {
-      await ElMessageBox.confirm(
-        `共有 ${availablePosts.length} 个可选岗位，但您已报名 ${currentCount} 个，最多还能报名 ${remaining} 个。将为前 ${toApply.length} 个岗位报名，是否继续？`,
-        '全部报名',
-        { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-      );
-    } catch { return; }
-  } else {
-    try {
-      await ElMessageBox.confirm(
-        `确定为全部 ${toApply.length} 个可选岗位报名吗？`,
-        '全部报名',
-        { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-      );
-    } catch { return; }
-  }
-  submitAllLoading.value = true;
-  let successCount = 0;
-  for (const post of toApply) {
-    try {
-      const response = await otherAPI.stuSelPost(
-        userInfo.value?.id,
-        0,
-        Number(post.internshipPostId) || 0
-      );
-      if (response?.message === 'successful') {
-        successCount++;
-        const realIsAudit = response.data?.isAudit ?? CONSTANT.AUDIT_STATUS.SUBMIT;
-        selectedPosts.value = [
-          ...selectedPosts.value,
-          { internshipPostId: post.internshipPostId, isAudit: realIsAudit },
-        ];
-      }
-    } catch (e) {
-      console.error(`报名岗位 ${post.internshipPostName} 失败:`, e);
-    }
-  }
-  submitAllLoading.value = false;
-  if (successCount > 0) {
-    ElMessage.success(`全部报名完成，成功报名 ${successCount} 个岗位`);
-    headerPageRef.value?.updateSearchWordsAndRefresh?.();
-  } else {
-    ElMessage.warning('报名失败，请稍后重试');
-  }
-}
 
 // 自动通过的报名记录：在详情对话框中显示"退回报名"按钮
 const rollbackButton = {

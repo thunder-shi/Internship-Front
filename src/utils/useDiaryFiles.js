@@ -11,8 +11,9 @@ const KKFILEVIEW_PORT = 8012
 /**
  * 日志附件管理 composable
  * 供 DlgSubmitDiary（编辑）和 DlgReviewDiary（批阅）共用
+ * @param {string} [tableName] 关联业务表名（默认 'main_diary'；自主实习等其他场景传 'RelStuInternshipPost' 等）
  */
-export function useDiaryFiles() {
+export function useDiaryFiles(tableName = 'main_diary') {
   const files = ref([])
   const filesLoading = ref(false)
 
@@ -22,7 +23,7 @@ export function useDiaryFiles() {
       filesLoading.value = true
       const res = await listAPI.getSomeRecords({
         keyWords: 'SysOssFile',
-        searchKey: { relationIds: diaryId, tableName: 'main_diary' },
+        searchKey: { relationIds: diaryId, tableName },
         reg: { relationIds: '=', tableName: '=' },
       })
       files.value = (res?.data?.content || res?.data || []).map(f => ({

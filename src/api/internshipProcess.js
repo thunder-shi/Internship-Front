@@ -204,6 +204,38 @@ function confirmStudentTopicSelection(node) {
   });
 }
 
+/**
+ * 幂等创建自主实习虚拟岗位（通常不需要手动调用，后端在创建校外项目时自动创建）
+ * @param {Number} internshipId
+ * @returns {Promise<{data: { postId, created }}>}
+ */
+function createSelfInternshipPost(internshipId) {
+  return request({
+    url: '/internshipProcess/createSelfInternshipPost',
+    method: 'post',
+    data: {
+      node: JSON.stringify({ internshipId }),
+    },
+  });
+}
+
+/**
+ * 学生提交自主实习申请（首次或 NOTPASS 重投）
+ * - 同一项目同一学生已有 SAVE/SUBMIT/PASS/BACK → 后端返回 400，前端按 message 提示
+ * - NOTPASS → 后端自动原地覆盖，返回 created:false，旧附件已清空需重传
+ * @param {Object} node - { internshipId, selfCompanyName, selfPostName, selfAddress, selfRemarks }
+ * @returns {Promise<{data: { relStuInternshipPostId, isAudit, verifyTypeId, created }}>}
+ */
+function applySelfInternship(node) {
+  return request({
+    url: '/internshipProcess/applySelfInternship',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
 export default {
   auditProcess,
   activateProcess,
@@ -222,5 +254,7 @@ export default {
   getLatestRejectedTitleSelection,
   acknowledgeRejectedTitleSelection,
   confirmStudentTopicSelection,
+  createSelfInternshipPost,
+  applySelfInternship,
   // getNowInternship
 };
