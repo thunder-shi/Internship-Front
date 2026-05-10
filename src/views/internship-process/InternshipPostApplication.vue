@@ -6,6 +6,7 @@
     :button-props-fn="getButtonProps"
     :button-condition="buttonCondition"
     :build-search-key="buildSearchKey"
+    :client-filter-fn="clientFilterFn"
     :is-company-user="isCompanyUser"
     :list-some-flags="listSomeFlags"
     :get-verify-role-name="getVerifyRoleName"
@@ -97,6 +98,13 @@ const buttonCondition = {
 function buildSearchKey(baseSearchKey) {
   return baseSearchKey;
 }
+
+// 企业岗位申报页面不显示自主实习虚拟岗位（该岗位由系统自动创建，不属于企业可操作岗位）
+const clientFilterFn = (dataList) => {
+  return (dataList || []).filter(
+    (row) => row?.internshipPostCode !== CONSTANT.SELF_INTERNSHIP.POST_CODE
+  );
+};
 
 function refreshList() {
   const baseList = unref(internshipPostPageRef.value?.baseListRef);

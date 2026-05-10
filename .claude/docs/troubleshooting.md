@@ -40,3 +40,16 @@
 
 **Q: 对话框无法拖拽？**
 确保使用了 `v-dialogDrag` 指令（定义在 `utils/forDialog.js`）。
+
+**Q: 后端报 `syntax error, pos X, line 1, column Xand`（或类似）？**
+`initSearchWords.andor` 传成了字符串 `'and'`。`DataTableList` 里 `andor` 必须是对象 `{}`（即便单字段查询也不能传字符串），否则后端 SQL 解析把 `'and'` 误当字段名拼到表达式里。
+
+**Q: `DataTableList` 嵌在对话框里时左侧多出一列空表头？**
+默认会渲染一个 55px 宽的 selection/radio 列。`checkFlag: false` 只是把多选切换成单选，列仍在。需显式 `someFlags: { hideSelectColumn: true }` 完全隐藏。
+
+**Q: `DataTableList` 包在固定高度容器内，表格底部被裁 1~2px？**
+外层 `el-card` 有 1px 边框（上下共 2px），内部 `el-table` 设 `height: 100%` 后总高度 = 容器 + 边框，超出后被 `overflow: hidden` 截掉。对作用域样式加：
+```scss
+:deep(.el-card) { border: none; box-shadow: none; }
+:deep(.el-card__body) { padding: 0; }
+```

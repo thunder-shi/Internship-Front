@@ -42,7 +42,15 @@ defineOptions({
 const internshipPostPageRef = ref(null);
 const dlgVerifyRef = ref(null);
 
-const { clientFilterFn, getVerifyRoleName } = useVerifyFilter();
+const { clientFilterFn: verifyFilterFn, getVerifyRoleName } = useVerifyFilter();
+
+// 叠加过滤：先过审核角色，再剔除自主实习虚拟岗位（该岗位由自主实习审核页面负责）
+const clientFilterFn = (dataList) => {
+  const afterVerify = verifyFilterFn ? verifyFilterFn(dataList) : dataList;
+  return (afterVerify || []).filter(
+    (row) => row?.internshipPostCode !== CONSTANT.SELF_INTERNSHIP.POST_CODE
+  );
+};
 
 const keyWord = { edit: 'MainVerifyProcess', view: 'ViewVerifyProcessInternshipPostMerge' };
 const initSearchWords = buildVerifySearchWords();

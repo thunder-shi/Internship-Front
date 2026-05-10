@@ -54,7 +54,7 @@ import BaseList from '@/views/master-page/BaseList.vue'
 const baseList = ref(null)
 const defaultProps = computed(() => ({
   defaultDTLProps: {
-    initSearchWords: { searchKey: { status: 1 }, regKey: { status: '=' }, andor: 'and' },
+    initSearchWords: { searchKey: { status: 1 }, regKey: { status: '=' }, andor: {} },
     defaultDTHProps: {
       keyWord: { edit: 'TableName', view: 'ViewName' },
       buttonProps: { create: { show: true }, update: { show: true }, delete: { show: true } },
