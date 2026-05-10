@@ -115,6 +115,11 @@ const props = defineProps({
     type: Function,
     default: null,
   },
+  /** 自定义审核接口，默认复用实习流程审核接口 */
+  auditApi: {
+    type: Function,
+    default: internshipProcessAPI.auditProcess,
+  },
 });
 
 const emit = defineEmits(['success', 'close-dialog']);
@@ -456,7 +461,7 @@ async function confirm(_option, type) {
       verifyUserId: verifyUserIdInt,
     }));
     const payload = items.length === 1 ? items[0] : items;
-    const resInfo = await internshipProcessAPI.auditProcess(payload);
+    const resInfo = await props.auditApi(payload);
     if (!resInfo || resInfo.message !== 'successful') {
       ElMessage.warning(resInfo?.message || '审核保存失败');
       return;
