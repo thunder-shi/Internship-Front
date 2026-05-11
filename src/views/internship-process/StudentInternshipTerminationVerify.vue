@@ -36,6 +36,7 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue';
+import { InfoFilled } from '@element-plus/icons-vue';
 import DataTableList from '@/components/DataTableList.vue';
 import DlgVerify from '@/views/internship-process/components/DlgVerify.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
@@ -62,8 +63,14 @@ const detailInfo = ref({});
 
 const titleObj = reactive({ mainTitle: '终止学生实习审核' });
 
-const { clientFilterFn: verifyClientFilterFn, getVerifyRoleName } = useVerifyFilter();
+const { clientFilterFn: verifyClientFilterFn } = useVerifyFilter();
 const { handleBatchAuditCommand, handleAuditClick } = useBatchVerifyAuditDialog(dlgVerifyRef);
+
+function getTerminationVerifyRoleName(row) {
+  return normalizeAuditStatus(row?.isAudit ?? row?.is_audit ?? row?.auditStatus ?? row?.status) === CONSTANT.AUDIT_STATUS.SUBMIT
+    ? '终止'
+    : '';
+}
 
 const defaultDTLProps = computed(() => ({
   title: titleObj,
@@ -76,11 +83,11 @@ const defaultDTLProps = computed(() => ({
   sortStr: { properties: 'id', direction: 'DESC' },
   fetchRecords: fetchAuditRecords,
   enableAuditStatusCustom: true,
-  getVerifyRoleName,
+  getVerifyRoleName: getTerminationVerifyRoleName,
   defaultDTHProps: {
     buttonProps: {
       audit: { show: true, showPass: true, showNotPass: true, showBack: true },
-      update: { show: true, type: 'primary', name: '查看详情' },
+      update: { show: true, type: 'primary', name: '查看详情', icon: InfoFilled },
       visible: { show: true, type: 'primary', name: '查看审核进度' },
       buttonGroup: { show: true },
     },
@@ -181,7 +188,7 @@ function normalizeAuditRow(row) {
     applyReason: row.applyReason ?? row.apply_reason ?? row.terminationReason ?? row.termination_reason ?? row.reason,
     reason: row.auditReason ?? row.audit_reason ?? row.verifyReason ?? row.verify_reason ?? row.reason,
     applyUserId: row.applyUserId ?? row.apply_user_id ?? row.createUserId ?? row.create_user_id,
-    applyUserName: row.applyUserName ?? row.apply_user_name ?? row.createUserName ?? row.create_user_name,
+    applyUserName: row.applyUserName ?? row.apply_user_name ?? row.createUserName ?? row.create_user_name ?? row.studentName ?? row.student_name,
     createUserId: row.createUserId ?? row.create_user_id ?? row.applyUserId ?? row.apply_user_id,
     verifyUserId: row.verifyUserId ?? row.verify_user_id,
     verifyUserName: row.verifyUserName ?? row.verify_user_name,
@@ -277,7 +284,7 @@ async function openTerminationDetail(row) {
   if (!terminationId) return;
   detailDialogVisible.value = true;
   detailLoading.value = true;
-  detailInfo.value = { termination: row };
+  detailInfo.value = { termination: { ...row } };
   try {
     const res = await terminationAPI.detail({
       terminationId,
@@ -285,7 +292,19 @@ async function openTerminationDetail(row) {
       relationId: row.internshipRelationId,
     });
     const data = res?.data;
-    detailInfo.value = data && typeof data === 'object' ? data : { termination: row };
+    if (data && typeof data === 'object') {
+      const termination = data.termination || data.node || data;
+      detailInfo.value = {
+        ...data,
+        termination: {
+          ...row,
+          ...(termination || {}),
+          applyUserName: termination?.applyUserName ?? row.applyUserName ?? row.studentName,
+        },
+      };
+    } else {
+      detailInfo.value = { termination: { ...row } };
+    }
   } catch (error) {
     console.error('加载终止申请详情失败:', error);
   } finally {

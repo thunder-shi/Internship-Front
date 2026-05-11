@@ -18,6 +18,10 @@ function create(node) {
   return postNode('/internshipTermination/create', node);
 }
 
+function resubmit(node) {
+  return postNode('/internshipTermination/resubmit', node);
+}
+
 function audit(node) {
   return postNode('/internshipTermination/audit', node);
 }
@@ -33,6 +37,7 @@ function cancel(node) {
 export default {
   listCandidates,
   create,
+  resubmit,
   audit,
   detail,
   cancel,

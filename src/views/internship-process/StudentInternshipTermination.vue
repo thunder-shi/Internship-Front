@@ -36,6 +36,10 @@
       ref="dtlRef"
       :default-props="defaultDTLProps"
       :fetch-records="fetchCandidateRecords"
+      @view-click="openProgress"
+      @edit-click="openDetail"
+      @submit-click="openTerminationDialog"
+      @spec-remove="handleCancelTermination"
     >
       <template #mode="{ row }">
         <el-tag :type="row.internshipMode === 'EXTERNAL' ? 'primary' : 'success'" effect="light">
@@ -46,44 +50,15 @@
         {{ row.postName || row.internshipPostName || row.titleName || row.name || '--' }}
       </template>
       <template #internshipStatus="{ row }">
-        <el-tag :type="internshipStatusTag(row.internshipStatus)">
-          {{ internshipStatusText(row.internshipStatus) }}
+        <el-tag :type="candidateStatusTag(row)">
+          {{ candidateStatusText(row) }}
         </el-tag>
-      </template>
-      <template #rightOperate="{ row }">
-        <el-button
-          v-if="canCreateTermination(row)"
-          type="danger"
-          size="small"
-          title="发起终止"
-          @click.stop="openTerminationDialog(row)"
-        >
-          <el-icon><CircleClose /></el-icon>
-        </el-button>
-        <el-button
-          v-if="hasTerminationRecord(row)"
-          type="primary"
-          size="small"
-          title="查看终止记录"
-          @click.stop="openDetail(row)"
-        >
-          <el-icon><View /></el-icon>
-        </el-button>
-        <el-button
-          v-if="canCancelTermination(row)"
-          type="warning"
-          size="small"
-          title="取消终止申请"
-          @click.stop="handleCancelTermination(row)"
-        >
-          <el-icon><Close /></el-icon>
-        </el-button>
       </template>
     </DataTableList>
 
     <el-dialog
       v-model="terminationDialogVisible"
-      title="发起终止学生实习"
+      :title="isTerminationResubmitMode ? '重新提交终止学生实习' : '发起终止学生实习'"
       width="640px"
       destroy-on-close
       @closed="resetTerminationForm"
@@ -143,7 +118,9 @@
 
       <template #footer>
         <el-button @click="terminationDialogVisible = false">取消</el-button>
-        <el-button type="danger" :loading="submitting" @click="submitTermination">提交申请</el-button>
+        <el-button type="danger" :loading="submitting" @click="submitTermination">
+          {{ isTerminationResubmitMode ? '重新提交' : '提交申请' }}
+        </el-button>
       </template>
     </el-dialog>
 
@@ -152,6 +129,13 @@
       :loading="detailLoading"
       :detail="detailInfo"
     />
+
+    <DlgVerifyProgress
+      v-model="showProgressDialog"
+      :main-internship-id="progressRow.internshipId"
+      :process-info="progressRow"
+      key-words="MainVerifyProcess"
+    />
   </div>
 </template>
 
@@ -159,12 +143,14 @@
 import { computed, nextTick, reactive, ref } from 'vue';
 import { useStore } from 'vuex';
 import { ElLoading, ElMessage, ElMessageBox } from 'element-plus';
-import { CircleClose, Close, Refresh, Search, Upload, View } from '@element-plus/icons-vue';
+import { InfoFilled, Refresh, Search, Upload } from '@element-plus/icons-vue';
 import moment from 'moment';
 import DataTableList from '@/components/DataTableList.vue';
+import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import DlgInternshipTerminationDetail from '@/views/internship-process/components/DlgInternshipTerminationDetail.vue';
 import terminationAPI from '@/api/internshipTermination';
 import fileAPI from '@/api/file';
+import listAPI from '@/api/list';
 import CONSTANT from '@/utils/constant';
 
 defineOptions({ name: 'StudentInternshipTermination' });
@@ -210,14 +196,24 @@ const defaultDTLProps = computed(() => ({
     showTopButtons: false,
     keyWord: { edit: TERMINATION_TABLE_NAME, view: 'ViewStudentInternshipTerminationCandidate' },
     buttonProps: {
+      visible: { show: true, type: 'primary', name: '查看进度' },
+      update: { show: true, type: 'primary', name: '查看详情', icon: InfoFilled },
+      submit: { show: true, name: '提交申请', type: 'danger' },
+      delete: { show: true, name: '取消终止申请', type: 'warning' },
       buttonGroup: { show: false },
+    },
+    buttonCondition: {
+      visible: canViewProgress,
+      update: hasTerminationRecord,
+      submit: canSubmitTermination,
+      delete: canCancelTermination,
     },
     allTableColumns: [
       { id: 1, showName: '实习项目', tableColumnName: 'internshipName', sortable: true },
       { id: 2, showName: '实习类型', tableColumnName: 'customize-mode', width: 100 },
       { id: 3, showName: '岗位/题目', tableColumnName: 'customize-subject' },
       { id: 4, showName: '导师', tableColumnName: 'teacherName', sortable: true, width: 120 },
-      { id: 5, showName: '状态', tableColumnName: 'customize-internshipStatus', width: 120 },
+      { id: 5, showName: '状态', tableColumnName: 'customize-internshipStatus', width: 180 },
     ],
   },
 }));
@@ -243,12 +239,19 @@ const terminationRules = {
 const detailDialogVisible = ref(false);
 const detailLoading = ref(false);
 const detailInfo = ref({});
+const showProgressDialog = ref(false);
+const progressRow = ref({});
+const isTerminationResubmitMode = computed(() => isReturnedTermination(selectedCandidate.value));
 
 function cleanPayload(obj) {
   return Object.entries(obj).reduce((acc, [key, value]) => {
     if (value !== null && value !== undefined && value !== '') acc[key] = value;
     return acc;
   }, {});
+}
+
+function normalizeOperateRow(rowOrArray) {
+  return Array.isArray(rowOrArray) ? rowOrArray[0] : rowOrArray;
 }
 
 function normalizePageResponse(res, mapper) {
@@ -284,6 +287,96 @@ function normalizeInternshipStatus(value) {
   return Number.isFinite(n) ? n : value;
 }
 
+function normalizeTerminationAuditStatus(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function hasMeaningfulValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized !== '' && normalized !== 'null' && normalized !== 'undefined';
+  }
+  return true;
+}
+
+function getTerminationId(row) {
+  const terminationId = row?.terminationId ?? row?.termination_id ?? row?.terminationApplyId;
+  if (!hasMeaningfulValue(terminationId)) return null;
+  if (String(terminationId).trim() === '0') return null;
+  return terminationId;
+}
+
+function resolveCurrentRoleName(row) {
+  return (
+    row?.currentRoleName ??
+    row?.current_role_name ??
+    row?._currentRoleName ??
+    row?.currentRole ??
+    ''
+  );
+}
+
+function resolveTerminationAuditStatus(row) {
+  return normalizeTerminationAuditStatus(
+    row?.terminationAuditStatus ?? row?.terminationStatus ?? row?.termination_status ?? row?.status
+  );
+}
+
+function hasTerminationEvidence(row) {
+  const terminationAuditStatus = resolveTerminationAuditStatus(row);
+  if (terminationAuditStatus != null) return true;
+
+  const internshipStatus = normalizeInternshipStatus(row?.internshipStatus ?? row?.internship_status);
+  if (
+    internshipStatus === INTERNSHIP_STATUS.TERMINATING ||
+    internshipStatus === INTERNSHIP_STATUS.TERMINATED
+  ) {
+    return true;
+  }
+
+  return [
+    row?.terminateDate,
+    row?.terminate_date,
+    row?.reasonType,
+    row?.reason_type,
+    row?.reason,
+    row?.attachmentIds,
+    row?.attachment_ids,
+    row?.applyUserId,
+    row?.apply_user_id,
+    row?.currentVerifyTypeId,
+    row?.current_verify_type_id,
+    row?.verifyTypeId,
+    row?.verify_type_id,
+    row?.createTime,
+    row?.create_time,
+  ].some(hasMeaningfulValue);
+}
+
+function extractCurrentRoleNameFromDetail(data) {
+  if (!data || typeof data !== 'object') return '';
+  const termination = data.termination || data.node || data;
+  const directRoleName = resolveCurrentRoleName(termination) || resolveCurrentRoleName(data);
+  if (directRoleName) return directRoleName;
+
+  const records =
+    data.auditRecords ||
+    data.verifyRecords ||
+    data.flowRecords ||
+    data.records ||
+    termination?._allRecords ||
+    [];
+  if (!Array.isArray(records) || !records.length) return '';
+
+  const pendingRecord = records.find(
+    (record) => resolveTerminationAuditStatus(record) === CONSTANT.AUDIT_STATUS.SUBMIT
+  );
+  return resolveCurrentRoleName(pendingRecord) || resolveCurrentRoleName(records[records.length - 1]);
+}
+
 function normalizeCandidateRow(row) {
   const relationTable = row.relationTable || row.relation_table || inferRelationTable(row);
   const relationId =
@@ -293,7 +386,8 @@ function normalizeCandidateRow(row) {
     row.relTitleStudentId ??
     row.id;
   const internshipMode = normalizeMode(row.internshipMode || row.internship_mode, relationTable);
-  const terminationId = row.terminationId ?? row.termination_id;
+  const terminationId = getTerminationId(row);
+  const terminationAuditStatus = resolveTerminationAuditStatus(row);
   return {
     ...row,
     id: row.id ?? `${relationTable || internshipMode}_${relationId}`,
@@ -308,6 +402,9 @@ function normalizeCandidateRow(row) {
     relationTable,
     relationId,
     internshipMode,
+    currentRoleName: resolveCurrentRoleName(row),
+    _currentRoleName: resolveCurrentRoleName(row),
+    terminationAuditStatus,
     internshipStatus: resolveCandidateInternshipStatus(row),
     terminationId,
     tableName: TERMINATION_TABLE_NAME,
@@ -315,12 +412,76 @@ function normalizeCandidateRow(row) {
 }
 
 function resolveCandidateInternshipStatus(row) {
-  const terminationStatus = row.terminationStatus ?? row.termination_status ?? row.status;
-  const terminationId = row.terminationId ?? row.termination_id;
-  if (terminationId != null && Number(terminationStatus) === 1) {
+  const terminationAuditStatus = resolveTerminationAuditStatus(row);
+  const terminationId = getTerminationId(row);
+  if (terminationId == null) {
+    return normalizeInternshipStatus(row.internshipStatus ?? row.internship_status);
+  }
+  if (terminationAuditStatus === CONSTANT.AUDIT_STATUS.PASS) {
     return INTERNSHIP_STATUS.TERMINATED;
   }
+  if (
+    terminationAuditStatus === CONSTANT.AUDIT_STATUS.SUBMIT ||
+    terminationAuditStatus === CONSTANT.AUDIT_STATUS.BACK
+  ) {
+    return INTERNSHIP_STATUS.TERMINATING;
+  }
+  if (
+    terminationAuditStatus === CONSTANT.AUDIT_STATUS.NOTPASS ||
+    terminationAuditStatus === 4
+  ) {
+    return INTERNSHIP_STATUS.ACTIVE;
+  }
   return normalizeInternshipStatus(row.internshipStatus ?? row.internship_status);
+}
+
+function shouldReconcileTerminationStatus(row) {
+  return getTerminationId(row) != null && hasTerminationEvidence(row);
+}
+
+function extractTerminationStatusFromDetail(data) {
+  if (!data || typeof data !== 'object') return null;
+  const termination = data.termination || data.node || data;
+  return normalizeTerminationAuditStatus(
+    termination?.status ??
+      termination?.terminationStatus ??
+      termination?.termination_status ??
+      termination?.isAudit
+  );
+}
+
+async function reconcileCandidateStatuses(rows) {
+  const tasks = rows.map(async (row) => {
+    if (!shouldReconcileTerminationStatus(row)) return row;
+    try {
+      const terminationId = getTerminationId(row);
+      const res = await terminationAPI.detail({
+        terminationId,
+        relationTable: row.relationTable,
+        relationId: row.relationId,
+      });
+      const terminationAuditStatus = extractTerminationStatusFromDetail(res?.data);
+      const currentRoleName = extractCurrentRoleNameFromDetail(res?.data) || resolveCurrentRoleName(row);
+      if (terminationAuditStatus == null && !currentRoleName) return row;
+      return {
+        ...row,
+        terminationId,
+        currentRoleName,
+        _currentRoleName: currentRoleName,
+        terminationAuditStatus:
+          terminationAuditStatus == null ? row.terminationAuditStatus : terminationAuditStatus,
+        internshipStatus: resolveCandidateInternshipStatus({
+          ...row,
+          terminationAuditStatus:
+            terminationAuditStatus == null ? row.terminationAuditStatus : terminationAuditStatus,
+        }),
+      };
+    } catch (error) {
+      console.error('补充终止申请状态失败:', error);
+      return row;
+    }
+  });
+  return Promise.all(tasks);
 }
 
 function isCurrentStudentRow(row) {
@@ -392,12 +553,47 @@ function internshipStatusTag(value) {
   return map[status] || 'info';
 }
 
+function candidateStatusText(row) {
+  const terminationAuditStatus = resolveTerminationAuditStatus(row);
+  if (terminationAuditStatus === CONSTANT.AUDIT_STATUS.SUBMIT) {
+    const currentRoleName = resolveCurrentRoleName(row);
+    return currentRoleName
+      ? `${currentRoleName}审核中`
+      : '终止审核中';
+  }
+  if (terminationAuditStatus === CONSTANT.AUDIT_STATUS.NOTPASS) return '终止不通过';
+  if (terminationAuditStatus === CONSTANT.AUDIT_STATUS.BACK) return '终止已退回';
+  if (terminationAuditStatus === 4) return '终止已取消';
+  if (normalizeInternshipStatus(row?.internshipStatus) === INTERNSHIP_STATUS.TERMINATING) {
+    const currentRoleName = resolveCurrentRoleName(row);
+    return currentRoleName ? `${currentRoleName}审核中` : '终止审核中';
+  }
+  return internshipStatusText(row.internshipStatus);
+}
+
+function candidateStatusTag(row) {
+  const terminationAuditStatus = resolveTerminationAuditStatus(row);
+  if (terminationAuditStatus === CONSTANT.AUDIT_STATUS.SUBMIT) return 'warning';
+  if (terminationAuditStatus === CONSTANT.AUDIT_STATUS.NOTPASS) return 'danger';
+  if (terminationAuditStatus === CONSTANT.AUDIT_STATUS.BACK) return 'info';
+  if (terminationAuditStatus === 4) return 'info';
+  return internshipStatusTag(row.internshipStatus);
+}
+
 function hasTerminationRecord(row) {
-  return row?.terminationId != null && row.terminationId !== '';
+  return getTerminationId(row) != null && hasTerminationEvidence(row);
 }
 
 function canCreateTermination(row) {
   return normalizeInternshipStatus(row?.internshipStatus) === INTERNSHIP_STATUS.ACTIVE;
+}
+
+function isReturnedTermination(row) {
+  return resolveTerminationAuditStatus(row) === CONSTANT.AUDIT_STATUS.BACK;
+}
+
+function canSubmitTermination(row) {
+  return canCreateTermination(row) || isReturnedTermination(row);
 }
 
 function canCancelTermination(row) {
@@ -405,6 +601,10 @@ function canCancelTermination(row) {
     normalizeInternshipStatus(row?.internshipStatus) === INTERNSHIP_STATUS.TERMINATING &&
     hasTerminationRecord(row)
   );
+}
+
+function canViewProgress(row) {
+  return hasTerminationRecord(row) && resolveTerminationAuditStatus(row) !== 4;
 }
 
 function buildFilterNode(params = {}) {
@@ -437,7 +637,8 @@ function buildFilterNode(params = {}) {
 async function fetchCandidateRecords(params) {
   const res = await terminationAPI.listCandidates(buildFilterNode(params));
   const normalized = normalizePageResponse(res, normalizeCandidateRow);
-  const filtered = (normalized.data.content || []).filter(matchesCurrentFilters);
+  const reconciled = await reconcileCandidateStatuses(normalized.data.content || []);
+  const filtered = reconciled.filter(matchesCurrentFilters);
   const sorted = sortRows(filtered, params?.sort);
   const page = Number(params?.pageInfo?.page || 1);
   const size = Number(params?.pageInfo?.size || 20);
@@ -483,15 +684,51 @@ function resetFilters() {
   nextTick(searchCandidates);
 }
 
-function openTerminationDialog(row) {
+function formatFormDate(value) {
+  if (!value) return moment().format('YYYY-MM-DD');
+  const date = moment(value);
+  return date.isValid() ? date.format('YYYY-MM-DD') : value;
+}
+
+function fillTerminationForm(row) {
+  terminationForm.terminateDate = formatFormDate(row?.terminateDate ?? row?.terminate_date);
+  terminationForm.reasonType = row?.reasonType ?? row?.reason_type ?? '';
+  terminationForm.reason = row?.reason ?? row?.applyReason ?? row?.terminationReason ?? row?.termination_reason ?? '';
+}
+
+async function buildEditableTerminationRow(row) {
+  if (!isReturnedTermination(row) || !getTerminationId(row)) return row;
+  try {
+    const res = await terminationAPI.detail({
+      terminationId: getTerminationId(row),
+      relationTable: row.relationTable,
+      relationId: row.relationId,
+    });
+    const data = res?.data;
+    const termination = data?.termination || data?.node || data;
+    return termination && typeof termination === 'object' ? { ...row, ...termination } : row;
+  } catch (error) {
+    console.error('加载退回终止申请失败:', error);
+    return row;
+  }
+}
+
+async function openTerminationDialog(rowOrArray) {
+  const row = normalizeOperateRow(rowOrArray);
+  if (!row) return;
   if (!canCreateTermination(row)) {
-    ElMessage.warning('只能对正常实习状态的学生发起终止申请');
+    if (!isReturnedTermination(row)) {
+      ElMessage.warning('只能对正常实习状态或审核退回状态的学生提交终止申请');
+      return;
+    }
+  }
+  const editableRow = await buildEditableTerminationRow(row);
+  if (!canSubmitTermination(editableRow)) {
+    ElMessage.warning('当前状态不能提交终止申请');
     return;
   }
-  selectedCandidate.value = { ...row };
-  terminationForm.terminateDate = moment().format('YYYY-MM-DD');
-  terminationForm.reasonType = '';
-  terminationForm.reason = '';
+  selectedCandidate.value = { ...editableRow };
+  fillTerminationForm(editableRow);
   terminationFileList.value = [];
   terminationDialogVisible.value = true;
 }
@@ -500,6 +737,20 @@ function resetTerminationForm() {
   terminationFormRef.value?.clearValidate?.();
   selectedCandidate.value = {};
   terminationFileList.value = [];
+}
+
+function openProgress(rowOrArray) {
+  const row = normalizeOperateRow(rowOrArray);
+  if (!row) return;
+  if (!canViewProgress(row)) return;
+  progressRow.value = {
+    ...row,
+    relationId: getTerminationId(row),
+    tableName: TERMINATION_TABLE_NAME,
+    isAudit: resolveTerminationAuditStatus(row),
+    _currentRoleName: resolveCurrentRoleName(row),
+  };
+  showProgressDialog.value = true;
 }
 
 function handleUploadExceed() {
@@ -547,18 +798,93 @@ function validateUploadFiles() {
   return true;
 }
 
-async function uploadAttachments() {
+function splitAttachmentIds(value) {
+  if (value == null || value === '') return [];
+  if (Array.isArray(value)) {
+    return value.flatMap(splitAttachmentIds);
+  }
+  return String(value)
+    .split(/[,;]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function mergeAttachmentIds(...values) {
+  const ids = [];
+  const seen = new Set();
+  values.flatMap(splitAttachmentIds).forEach((id) => {
+    if (!seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
+  });
+  return ids.join(',');
+}
+
+function hasPendingUploadFiles() {
+  return terminationFileList.value.some((file) => file.raw);
+}
+
+async function uploadAttachments(terminationId) {
   const rawFiles = terminationFileList.value.map((file) => file.raw).filter(Boolean);
   if (!rawFiles.length) return '';
+  if (!hasMeaningfulValue(terminationId)) {
+    throw new Error('终止申请已提交，但缺少申请编号，无法上传附件');
+  }
   const res = await fileAPI.upload({
     files: rawFiles,
-    tableName: 'main_internship_termination',
+    relationIds: terminationId,
+    tableName: TERMINATION_TABLE_NAME,
   });
   return parseFileIdsFromUpload(res).join(',');
 }
 
-function buildCreatePayload(attachmentIds) {
+function extractSavedTerminationId(res, fallbackPayload = {}) {
+  const data = res?.data;
+  const candidates = [
+    data?.termination?.id,
+    data?.termination?.terminationId,
+    data?.termination?.termination_id,
+    data?.record?.id,
+    data?.record?.terminationId,
+    data?.nodeInfo?.id,
+    data?.terminationId,
+    data?.termination_id,
+    data?.node?.id,
+    data?.node?.terminationId,
+    data?.node?.termination_id,
+    data?.id,
+    fallbackPayload.terminationId,
+    fallbackPayload.id,
+    getTerminationId(selectedCandidate.value),
+  ];
+  return candidates.find(hasMeaningfulValue) ?? null;
+}
+
+async function saveAttachmentIds(terminationId, uploadedAttachmentIds) {
   const row = selectedCandidate.value || {};
+  const attachmentIds = mergeAttachmentIds(
+    row.attachmentIds ?? row.attachment_ids,
+    uploadedAttachmentIds
+  );
+  if (!attachmentIds) return;
+  const res = await listAPI.editOneNode(TERMINATION_TABLE_NAME, {
+    id: terminationId,
+    attachmentIds,
+  });
+  if (res?.message !== 'successful') {
+    throw new Error(res?.message || '附件信息保存失败');
+  }
+  selectedCandidate.value = {
+    ...row,
+    terminationId,
+    attachmentIds,
+  };
+}
+
+function buildCreatePayload() {
+  const row = selectedCandidate.value || {};
+  const terminationId = getTerminationId(row);
   const payload = {
     internshipId: row.internshipId,
     studentId: currentStudentId.value,
@@ -567,8 +893,12 @@ function buildCreatePayload(attachmentIds) {
     terminateDate: terminationForm.terminateDate,
     reasonType: terminationForm.reasonType,
     reason: terminationForm.reason,
-    attachmentIds,
   };
+
+  if (terminationId) {
+    payload.id = terminationId;
+    payload.terminationId = terminationId;
+  }
 
   if (!payload.internshipId || !payload.studentId || !payload.relationTable || !payload.relationId) {
     throw new Error('候选学生信息不完整，无法发起终止申请');
@@ -584,28 +914,53 @@ async function submitTermination() {
   }
   if (!validateUploadFiles()) return;
 
+  const isResubmit = isTerminationResubmitMode.value;
   try {
-    await ElMessageBox.confirm('发起后学生实习关系将进入“终止审核中”，确定提交吗？', '确认终止申请', {
-      confirmButtonText: '提交',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
+    await ElMessageBox.confirm(
+      isResubmit
+        ? '重新提交后终止申请将再次进入审核流程，确定提交吗？'
+        : '发起后学生实习关系将进入“终止审核中”，确定提交吗？',
+      isResubmit ? '确认重新提交' : '确认终止申请',
+      {
+        confirmButtonText: isResubmit ? '重新提交' : '提交',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
   } catch {
     return;
   }
 
   submitting.value = true;
-  const loading = ElLoading.service({ text: '提交终止申请中...', background: 'rgba(0, 0, 0, 0.35)' });
+  const loading = ElLoading.service({
+    text: isResubmit ? '重新提交终止申请中...' : '提交终止申请中...',
+    background: 'rgba(0, 0, 0, 0.35)',
+  });
   try {
-    const attachmentIds = await uploadAttachments();
-    const res = await terminationAPI.create(buildCreatePayload(attachmentIds));
+    const payload = buildCreatePayload();
+    const res = isResubmit
+      ? await terminationAPI.resubmit(payload)
+      : await terminationAPI.create(payload);
     if (res?.message === 'successful') {
-      ElMessage.success('终止申请已提交');
+      let attachmentFailed = false;
+      if (hasPendingUploadFiles()) {
+        try {
+          const terminationId = extractSavedTerminationId(res, payload);
+          const uploadedAttachmentIds = await uploadAttachments(terminationId);
+          await saveAttachmentIds(terminationId, uploadedAttachmentIds);
+        } catch (uploadError) {
+          attachmentFailed = true;
+          console.error('上传终止申请附件失败:', uploadError);
+          ElMessage.warning(uploadError?.message || '终止申请已提交，但附件上传失败，请进入详情核对附件');
+        }
+      }
+      if (!attachmentFailed) {
+        ElMessage.success(isResubmit ? '终止申请已重新提交' : '终止申请已提交');
+      }
       terminationDialogVisible.value = false;
-      filterForm.internshipStatus = INTERNSHIP_STATUS.TERMINATING;
       searchCandidates();
     } else {
-      ElMessage.warning(res?.message || '终止申请提交失败');
+      ElMessage.warning(res?.message || (isResubmit ? '终止申请重新提交失败' : '终止申请提交失败'));
     }
   } catch (error) {
     if (error?.message) ElMessage.warning(error.message);
@@ -615,7 +970,9 @@ async function submitTermination() {
   }
 }
 
-async function handleCancelTermination(row) {
+async function handleCancelTermination(rowOrArray) {
+  const row = normalizeOperateRow(rowOrArray);
+  if (!row) return;
   try {
     await ElMessageBox.confirm('取消后该学生实习关系将恢复为正常实习，确定取消该终止申请吗？', '取消终止申请', {
       confirmButtonText: '确定取消',
@@ -650,12 +1007,13 @@ async function openDetail(row) {
     ElMessage.warning('当前学生暂无终止记录');
     return;
   }
+  const terminationId = getTerminationId(row);
   detailDialogVisible.value = true;
   detailLoading.value = true;
-  detailInfo.value = { ...row, status: row.status ?? 0 };
+  detailInfo.value = { termination: { ...row } };
   try {
     const res = await terminationAPI.detail({
-      terminationId: row.terminationId,
+      terminationId,
       relationTable: row.relationTable,
       relationId: row.relationId,
     });
@@ -663,6 +1021,14 @@ async function openDetail(row) {
     detailInfo.value = buildDetailInfo(row, data);
   } catch (error) {
     console.error('加载终止详情失败:', error);
+    detailDialogVisible.value = false;
+    detailInfo.value = {};
+    const message = String(error?.message || error?.response?.data?.message || '');
+    ElMessage.warning(
+      message.includes('termination record does not exist')
+        ? '当前记录暂无终止申请'
+        : '加载终止详情失败'
+    );
   } finally {
     detailLoading.value = false;
   }
@@ -678,6 +1044,7 @@ function buildDetailInfo(row, data) {
       ...termination,
       studentName: termination.studentName ?? row.studentName,
       studentAccount: termination.studentAccount ?? row.studentAccount,
+      applyUserName: termination.applyUserName ?? row.applyUserName ?? row.studentName,
       internshipName: termination.internshipName ?? row.internshipName,
       internshipMode: termination.internshipMode ?? row.internshipMode,
       postName: termination.postName ?? row.postName,

@@ -16,7 +16,7 @@
           {{ display(info.postName || info.internshipPostName || info.titleName || info.name) }}
         </el-descriptions-item>
         <el-descriptions-item label="导师">{{ display(info.teacherName || info.tutorName) }}</el-descriptions-item>
-        <el-descriptions-item label="发起人">{{ display(info.applyUserName || info.createUserName) }}</el-descriptions-item>
+        <el-descriptions-item label="发起人">{{ applicantName }}</el-descriptions-item>
         <el-descriptions-item label="终止日期">{{ displayDate(info.terminateDate) }}</el-descriptions-item>
         <el-descriptions-item label="当前状态">
           <el-tag :type="terminationStatusTag(info.status ?? info.isAudit)">
@@ -104,6 +104,14 @@ const dialogVisible = computed({
 });
 
 const info = computed(() => props.detail?.termination || props.detail?.node || props.detail || {});
+
+const applicantName = computed(() => display(
+  info.value.applyUserName ||
+    info.value.createUserName ||
+    info.value.applyUserAccount ||
+    info.value.studentName ||
+    info.value.studentAccount
+));
 
 const auditRecords = computed(() => {
   const detail = props.detail || {};
