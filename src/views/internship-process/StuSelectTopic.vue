@@ -84,6 +84,7 @@ import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import listAPI from '@/api/list';
 import internshipProcessAPI from '@/api/internshipProcess';
+import { runSubmitAllByQuery } from '@/utils/submitAllByQuery';
 
 defineOptions({ name: 'StuSelectTopic' });
 
@@ -719,6 +720,12 @@ const defaultDTLProps = computed(() => {
             visible: { show: true, type: 'primary', name: '查看进度' },
             submit: { show: true, name: '提交', type: 'warning' },
             more3: { show: true, name: '批量提交', type: 'warning' },
+            more5: {
+              show: true,
+              name: '全部提交',
+              type: 'warning',
+              submitAll: { handler: handleSubmitAllSelections },
+            },
             buttonGroup: { show: true },
           }
         : {
@@ -1046,6 +1053,60 @@ async function handleBatchSubmitSelections(rowOrArray) {
   }
   console.warn('批量提交选题失败:', failures);
   ElMessage.error(failures[0] || '批量提交失败');
+}
+
+async function handleSubmitAllSelections({ initDataList } = {}) {
+  const internshipId = resolveInternshipId(getEffectiveInternship());
+  const stuId = Number(userInfo.value?.id || 0);
+
+  await runSubmitAllByQuery(
+    {
+      guard: () => {
+        if (activeTab.value !== 'selected') {
+          ElMessage.warning('请先切换到“已选题目”后再全部提交');
+          return false;
+        }
+        if (!internshipId) {
+          ElMessage.warning('请先选择实习项目');
+          return false;
+        }
+        if (!stuId) {
+          ElMessage.warning('未获取到登录学生信息，请重新登录后再试');
+          return false;
+        }
+        return true;
+      },
+      keyWords: 'ViewVerifyProcessRelTitleStudentMerge',
+      searchKey: {
+        internshipId,
+        stuId,
+        tableName: 'RelTitleStudent',
+        isAudit: `${CONSTANT.AUDIT_STATUS.SAVE},${CONSTANT.AUDIT_STATUS.BACK}`,
+      },
+      reg: {
+        internshipId: '=',
+        stuId: '=',
+        tableName: '=',
+        isAudit: CONSTANT.SEARCH_OPERATOR.IN,
+      },
+      filterRows: (row) => {
+        const normalized = normalizeSelectedTopic(row);
+        return canSubmitSelection(normalized) && resolveVerifyProcessId(normalized) > 0;
+      },
+      mapNode: (row) => ({
+        id: resolveVerifyProcessId(row),
+        isAudit: CONSTANT.AUDIT_STATUS.SUBMIT,
+      }),
+      buildConfirmText: (n) => `确定提交当前项目下全部 ${n} 个候选题目吗？`,
+    },
+    {
+      initDataList: async (force) => {
+        await refreshSelectedTopics(internshipId);
+        await refreshLatestRejectedSelection(stuId);
+        await (initDataList || headerPageRef.value?.baseListRef?.initDataList)?.(force ?? true);
+      },
+    }
+  );
 }
 
 async function handleCancelSelection(row) {

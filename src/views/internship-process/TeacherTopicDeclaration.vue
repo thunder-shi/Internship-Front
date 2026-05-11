@@ -27,7 +27,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue';
+import { reactive, ref, computed, unref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
@@ -38,6 +38,7 @@ import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { useProcessWindowProjectSelectKeys } from '@/utils/useProcessWindowProjectSelectKeys';
 import { useAssignmentActions } from '@/utils/useAssignmentActions';
 import listAPI from '@/api/list';
+import { runSubmitAllByQuery } from '@/utils/submitAllByQuery';
 
 defineOptions({
   name: 'TeacherTopicDeclaration',
@@ -64,9 +65,9 @@ const titleObj = reactive({
   mainTitle: '老师申报题目',
 });
 
-const currentInternship = computed(() => headerPageRef.value?.currentInternship?.value ?? null);
+const currentInternship = computed(() => unref(headerPageRef.value?.currentInternship) ?? null);
 
-const isMore1Disabled = computed(() => headerPageRef.value?.isMore1Disabled?.value ?? false);
+const isMore1Disabled = computed(() => Boolean(unref(headerPageRef.value?.isMore1Disabled)));
 
 function buildSearchKey(baseSearchKey) {
   return {
@@ -116,6 +117,68 @@ function clientFilterFn(list) {
   });
 }
 
+function resolveCurrentInternshipId() {
+  const cur = currentInternship.value || {};
+  const raw = cur.internshipId ?? cur.id ?? cur.mainInternshipId ?? cur.main_internship_id;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+async function handleSubmitAllTeacherTopics({ initDataList } = {}) {
+  const internshipId = resolveCurrentInternshipId();
+  const teacherId = Number(userInfo.value?.id || 0);
+
+  await runSubmitAllByQuery(
+    {
+      guard: () => {
+        if (!internshipId) {
+          ElMessage.warning('请先选择实习项目');
+          return false;
+        }
+        if (!teacherId) {
+          ElMessage.warning('未获取到登录教师信息，请重新登录后再试');
+          return false;
+        }
+        return true;
+      },
+      keyWords: 'ViewVerifyProcessRelTitleTeacherMerge',
+      searchKey: {
+        internshipId,
+        teacherId,
+        tableName: 'RelTitleTeacher',
+        isAudit: `${CONSTANT.AUDIT_STATUS.SAVE},${CONSTANT.AUDIT_STATUS.BACK}`,
+      },
+      reg: {
+        internshipId: '=',
+        teacherId: '=',
+        tableName: '=',
+        isAudit: CONSTANT.SEARCH_OPERATOR.IN,
+      },
+      filterRows: (row) => {
+        const isAudit = Number(row?.isAudit ?? row?.is_audit);
+        const verifyProcessId = Number(row?.id ?? row?.verifyProcessId ?? row?.verify_process_id);
+        return (
+          verifyProcessId > 0 &&
+          (isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK)
+        );
+      },
+      mapNode: (row) => ({
+        id: row.id ?? row?.verifyProcessId ?? row?.verify_process_id,
+        isAudit:
+          (row?.verifyTypeId ?? row?.verify_type_id) == CONSTANT.VERIFY_LEVEL.NO_VERIFY
+            ? CONSTANT.AUDIT_STATUS.PASS
+            : CONSTANT.AUDIT_STATUS.SUBMIT,
+      }),
+      buildConfirmText: (n) => `确定提交当前项目下全部 ${n} 条待提交题目吗？`,
+    },
+    {
+      initDataList: async (force) => {
+        await (initDataList || headerPageRef.value?.baseListRef?.initDataList)?.(force ?? true);
+      },
+    }
+  );
+}
+
 const defaultDTLProps = computed(() => ({
   title: titleObj,
   someFlags: {
@@ -132,6 +195,12 @@ const defaultDTLProps = computed(() => ({
       visible: { show: true, type: 'primary', name: '查看进度' },
       submit: { show: true, name: '提交', type: 'warning' },
       more2: { show: true, name: '批量提交', type: 'primary' },
+      more5: {
+        show: true,
+        name: '全部提交',
+        type: 'warning',
+        submitAll: { handler: handleSubmitAllTeacherTopics },
+      },
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
     },
     buttonCondition: {
