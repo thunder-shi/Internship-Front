@@ -187,6 +187,13 @@ function getEffectiveInternship() {
   return unref(headerPageRef.value?.currentInternship) ?? null;
 }
 
+function isCurrentProcessNoVerify() {
+  const internship = getEffectiveInternship();
+  const raw = internship?.verifyTypeId ?? internship?.verify_type_id;
+  const n = Number(raw);
+  return Number.isFinite(n) && n === CONSTANT.VERIFY_LEVEL.NO_VERIFY;
+}
+
 function rowAuditStatus(row) {
   const raw = row?.isAudit ?? row?.is_audit;
   if (raw === null || raw === undefined || raw === '') return null;
@@ -196,6 +203,7 @@ function rowAuditStatus(row) {
 
 function isFinalSelection(row) {
   const audit = rowAuditStatus(row);
+  if (audit === CONSTANT.AUDIT_STATUS.PASS) return true;
   if (
     audit === CONSTANT.AUDIT_STATUS.SAVE ||
     audit === CONSTANT.AUDIT_STATUS.SUBMIT ||
@@ -1004,9 +1012,21 @@ async function handleBatchSubmitSelections(rowOrArray) {
     ElMessage.warning('勾选的记录没有可提交项，请选择“待提交”或“审核退回”的候选题目');
     return;
   }
+  let noVerifySkippedCount = 0;
+  if (isCurrentProcessNoVerify() && submitRows.length > 1) {
+    noVerifySkippedCount = submitRows.length - 1;
+    submitRows.splice(1);
+  }
 
   try {
-    const skippedText = skippedCount > 0 ? `，将自动跳过 ${skippedCount} 条不可提交记录` : '';
+    const skippedMessages = [];
+    if (skippedCount > 0) {
+      skippedMessages.push(`将自动跳过 ${skippedCount} 条不可提交记录`);
+    }
+    if (noVerifySkippedCount > 0) {
+      skippedMessages.push(`当前流程无需审核，只会确认 1 个最终题目，并跳过 ${noVerifySkippedCount} 个候选题目`);
+    }
+    const skippedText = skippedMessages.length ? `，${skippedMessages.join('，')}` : '';
     await ElMessageBox.confirm(
       `确定批量提交 ${submitRows.length} 个候选题目吗？${skippedText}`,
       '确认批量提交',
@@ -1058,6 +1078,11 @@ async function handleBatchSubmitSelections(rowOrArray) {
 async function handleSubmitAllSelections({ initDataList } = {}) {
   const internshipId = resolveInternshipId(getEffectiveInternship());
   const stuId = Number(userInfo.value?.id || 0);
+  const localSubmitCount = selectedTopics.value
+    .map(normalizeSelectedTopic)
+    .filter((row) => canSubmitSelection(row) && resolveVerifyProcessId(row) > 0)
+    .length;
+  let noVerifySubmitAccepted = false;
 
   await runSubmitAllByQuery(
     {
@@ -1091,13 +1116,25 @@ async function handleSubmitAllSelections({ initDataList } = {}) {
       },
       filterRows: (row) => {
         const normalized = normalizeSelectedTopic(row);
-        return canSubmitSelection(normalized) && resolveVerifyProcessId(normalized) > 0;
+        if (!canSubmitSelection(normalized) || resolveVerifyProcessId(normalized) <= 0) {
+          return false;
+        }
+        if (isCurrentProcessNoVerify()) {
+          if (noVerifySubmitAccepted) {
+            return false;
+          }
+          noVerifySubmitAccepted = true;
+        }
+        return true;
       },
       mapNode: (row) => ({
         id: resolveVerifyProcessId(row),
         isAudit: CONSTANT.AUDIT_STATUS.SUBMIT,
       }),
-      buildConfirmText: (n) => `确定提交当前项目下全部 ${n} 个候选题目吗？`,
+      buildConfirmText: (n) =>
+        isCurrentProcessNoVerify() && localSubmitCount > 1
+          ? '当前流程无需审核，将只提交 1 个候选题目并自动确认最终题目，其余候选题目会被释放，确定继续吗？'
+          : `确定提交当前项目下全部 ${n} 个候选题目吗？`,
     },
     {
       initDataList: async (force) => {
