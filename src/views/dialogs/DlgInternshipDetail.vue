@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-confirm="confirm" :dlgbasic-spec-submit="handleSubmit" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="dlgBasicProps" :dlgbasic-confirm="confirm" :dlgbasic-spec-submit="handleSubmit" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #otherBtn>
       <el-button v-if="showRollbackBtn" type="warning" @click="handleRollback">回 退</el-button>
     </template>
@@ -153,7 +153,7 @@ const isInitializing = ref(false); // 标记是否正在初始化，避免触发
 const showRollbackBtn = ref(false); // 是否显示回退按钮（无需审核自动通过的记录）
 const activeTab = ref('basic');
 
-const defaultProps = reactive({
+let dlgBasicProps = reactive({
   form: {},
   width: '60%',
   dlgTitle: '编辑实习项目',
@@ -293,8 +293,8 @@ async function showDialog(val, formData = {}) {
   showRollbackBtn.value = isAutoApproved;
 
   // 根据审核状态控制按钮显示
-  defaultProps.footButtons.confirm.show = canEdit;
-  defaultProps.footButtons.submit.show = canEdit && !props.hideSubmit;
+  dlgBasicProps.footButtons.confirm.show = canEdit;
+  dlgBasicProps.footButtons.submit.show = canEdit && !props.hideSubmit;
   tableListProps.defaultDTHProps.showTopButtons = canEdit;
   tableListProps.someFlags.operateShow = canEdit;
 
@@ -578,8 +578,8 @@ async function handleRollback() {
     form.isAudit = CONSTANT.AUDIT_STATUS.SAVE;
     form.reason = null;
     showRollbackBtn.value = false;
-    defaultProps.footButtons.confirm.show = true;
-    defaultProps.footButtons.submit.show = !props.hideSubmit;
+    dlgBasicProps.footButtons.confirm.show = true;
+    dlgBasicProps.footButtons.submit.show = !props.hideSubmit;
     tableListProps.defaultDTHProps.showTopButtons = true;
     tableListProps.someFlags.operateShow = true;
   } catch (error) {

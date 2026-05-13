@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-confirm="confirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="dlgBasicProps" :dlgbasic-confirm="confirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #mainForm>
       <div class="dlg-main-body">
       <el-tabs v-model="activeTab" class="dlg-tabs" @tab-change="onTabChange">
@@ -164,7 +164,7 @@ const majorList = ref([]);
 const isInitializing = ref(false);
 const activeTab = ref('basic');
 
-const defaultProps = reactive({
+let dlgBasicProps = reactive({
   form: {},
   width: '60%',
   dlgTitle: '编辑实习项目',

@@ -9,7 +9,7 @@
             <span v-if="title.subTitle">&nbsp;|&nbsp;<strong>{{ title.subTitle || "全部" }}</strong></span>
           </template>
         </template>
-        <el-table ref="dataTreeRef" v-adaptive :lazy="lazy" :load="lazyLoad" height="100%" border :data="treeTableData" :tree-props="{children: 'children', hasChildren: 'hasChildren'}" row-key="id" highlight-current-row :default-expand-all="expandFlag" :expand-row-keys="['-1']" @current-change="handleNodeClick" @select="handleSelection" @selection-change="handleSelectionChange" @select-all="handleSelectionAll">
+        <el-table :key="tableRemountKey" ref="dataTreeRef" v-adaptive :lazy="lazy" :load="lazyLoad" height="100%" border :data="treeTableData" :tree-props="{children: 'children', hasChildren: 'hasChildren'}" row-key="id" highlight-current-row :default-expand-all="expandFlag" :expand-row-keys="['-1']" @current-change="handleNodeClick" @select="handleSelection" @selection-change="handleSelectionChange" @select-all="handleSelectionAll">
           <el-table-column v-if="checkFlag" type="selection" fixed width="55px" />
           <el-table-column v-for="(item, index) in tableColumnItem" :key="index" :show-overflow-tooltip="true" :label="item.showName" :width="item.width" align="left">
             <template #default="scope">
@@ -38,7 +38,7 @@
   </DataTableHeader>
 </template>
 <script setup>
-import { ref, reactive, computed, onMounted, useAttrs, getCurrentInstance, h, useSlots } from 'vue'
+import { ref, reactive, computed, onMounted, useAttrs, getCurrentInstance, h, useSlots, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Edit, Delete, Top, Bottom } from '@element-plus/icons-vue'
 import DataTableHeader from '@/components/DataTableHeader.vue'
@@ -97,6 +97,24 @@ const loading = ref(true)
 const isAllSelect = ref(false)
 
 const maps = ref(new Map())
+/** 懒加载表格在整表刷新后重挂载，避免 el-table 内部仍认为子节点已加载而不触发 load */
+const tableRemountKey = ref(0)
+
+/**
+ * 懒加载下 hasChildren 为 true 且 children 为 [] 时，Element Plus 会认为已加载完成，展开不再请求接口
+ */
+function normalizeLazyTreeNodes(nodes) {
+  if (!Array.isArray(nodes)) return
+  for (const node of nodes) {
+    if (!node) continue
+    if (node.hasChildren && Array.isArray(node.children) && node.children.length === 0) {
+      delete node.children
+    }
+    if (Array.isArray(node.children) && node.children.length > 0) {
+      normalizeLazyTreeNodes(node.children)
+    }
+  }
+}
 
 // 辅助方法:判断是否有指定事件的监听器
 const hasListener = (eventName) => {
@@ -225,54 +243,41 @@ onMounted(() => {
 // 懒加载
 async function lazyLoad(tree, treeNode, resolve) {
   if (tree.id === -1) {
-    initDataTree()
-  } else {
-    var view = keyWord.value.view
+    const view = keyWord.value.view
     const res = await treeAPI.getAllNodes({
       keyWords: view,
-      parentId: tree.id,
+      parentId: -1,
       virtualRootFlag: virtualRootFlag.value,
       searchKey: instance?.proxy?.searchKey,
       lazy: true,
-      preName: tree.allNodeNames,
+      preName: tree.allNodeNames || '',
       sort: sort.value
     })
+    const rows = res.data || []
+    normalizeLazyTreeNodes(rows)
     maps.value.set(tree.id, { tree, treeNode, resolve })
-    resolve(res.data)
+    resolve(rows)
+    return
   }
+  var view = keyWord.value.view
+  const res = await treeAPI.getAllNodes({
+    keyWords: view,
+    parentId: tree.id,
+    virtualRootFlag: virtualRootFlag.value,
+    searchKey: instance?.proxy?.searchKey,
+    lazy: true,
+    preName: tree.allNodeNames,
+    sort: sort.value
+  })
+  const rows = res.data || []
+  normalizeLazyTreeNodes(rows)
+  maps.value.set(tree.id, { tree, treeNode, resolve })
+  resolve(rows)
 }
 
-// 加载部分树
-async function updatePartTree(row) {
-  if (lazy.value) {
-    // 强制从后端重新加载数据，确保获取最新数据
-    var nowMaps
-    if (maps.value.size > 0) {
-      nowMaps = maps.value.get(row.parentId)
-    }
-
-    if (nowMaps === undefined) {
-      // 如果找不到父节点，重新加载整棵树
-      await initDataTree()
-    } else {
-      // 重新从后端获取该节点的子数据
-      const view = keyWord.value.view
-      const res = await treeAPI.getAllNodes({
-        keyWords: view,
-        parentId: nowMaps.tree.id,
-        virtualRootFlag: virtualRootFlag.value,
-        searchKey: instance?.proxy?.searchKey,
-        lazy: true,
-        preName: nowMaps.tree.allNodeNames,
-        sort: sort.value
-      })
-
-      // 使用 resolve 更新数据，这会强制刷新该节点
-      nowMaps.resolve(res.data)
-    }
-  } else {
-    await initDataTree()
-  }
+// 保存/删除/排序等变更后刷新树（懒加载下仅用 resolve 更新会与 el-table 懒加载缓存不一致，导致展开不再请求接口）
+async function updatePartTree(_row) {
+  await initDataTree()
 
   // 更新完成后自动取消所有选择
   if (dataTreeRef.value) {
@@ -283,6 +288,8 @@ async function updatePartTree(row) {
 // 初始化/刷新树（无论懒加载与否，初始时都会调用）
 async function initDataTree(parentId = -1) {
   loading.value = true
+  const shouldRemountLazy = lazy.value && (maps.value.size > 0 || treeTableData.value.length > 0)
+  let loadOk = false
   try {
     var view = keyWord.value.view
     var parentNode = { id: parentId, allNodeNames: '' }
@@ -296,11 +303,20 @@ async function initDataTree(parentId = -1) {
       sort: sort.value
     })
     treeTableData.value = res.data
+    if (lazy.value) {
+      normalizeLazyTreeNodes(treeTableData.value)
+    }
+    loadOk = true
   } catch (error) {
-    loading.value = false
     console.log(error)
+  } finally {
+    loading.value = false
   }
-  loading.value = false
+  maps.value.clear()
+  if (loadOk && shouldRemountLazy) {
+    await nextTick()
+    tableRemountKey.value++
+  }
 }
 // #endregion
 

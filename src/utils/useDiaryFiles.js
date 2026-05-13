@@ -3,9 +3,18 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import fileAPI from '@/api/file'
 import listAPI from '@/api/list'
 
-// kkFileView 与 MinIO 部署在同一台服务器，端口固定 8012
-// 运行时从 presigned URL 里提取 hostname，无需手动配置 IP
-const KKFILEVIEW_PORT = 8012
+// Docker / 网关：默认与入口 Nginx 的 /kkfileview 前缀一致（见工作区 server_directory/docker-compose 与 gateway.conf）
+// 构建时可设 VITE_KKFILEVIEW_BASE（如 https://preview.example.com/kkfileview）；留空则用当前站点同源路径
+function getKkFileViewBase() {
+  const fromEnv = import.meta.env.VITE_KKFILEVIEW_BASE
+  if (fromEnv && String(fromEnv).trim()) {
+    return String(fromEnv).replace(/\/$/, '')
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/kkfileview`.replace(/\/$/, '')
+  }
+  return ''
+}
 
 
 /**
@@ -48,13 +57,16 @@ export function useDiaryFiles(tableName = 'main_diary') {
 
   /**
    * 通过 kkFileView 在线预览文件
-   * 从 MinIO presigned URL 中提取 hostname，kkFileView 与 MinIO 在同一台服务器
+   * presigned URL 需能被 kkFileView 容器访问（Docker 内一般为 http://minio:9000/...）
    */
   async function triggerPreview(file) {
     try {
       const minioUrl = await fileAPI.getPreviewUrl(file.id)
-      const { hostname } = new URL(minioUrl)
-      const kkFileViewBase = `http://${hostname}:${KKFILEVIEW_PORT}`
+      const kkFileViewBase = getKkFileViewBase()
+      if (!kkFileViewBase) {
+        ElMessage.error('未配置预览服务地址')
+        return
+      }
       // base64 结果必须再做一次 encodeURIComponent，否则其中的 + / = 会被 URL 解析破坏
       const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(minioUrl))))
       window.open(`${kkFileViewBase}/onlinePreview?url=${encoded}`, '_blank')

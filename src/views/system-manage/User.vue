@@ -10,6 +10,7 @@ import { reactive, ref, onMounted } from 'vue';
 import BaseTreeList from '@/views/master-page/BaseTreeList.vue';
 import DlgUserInfo from '@/views/dialogs/DlgUserInfo.vue';
 import treeAPI from '@/api/tree';
+import listAPI from '@/api/list.js';
 
 defineOptions({
   name: 'User',
@@ -60,6 +61,15 @@ const schoolLengthSearchItem = reactive({
   ],
 });
 
+/** 与 DlgUserInfo 职务字段一致：jobId + BaseJobPosition */
+const jobPositionSearchItem = reactive({
+  name: '职务',
+  field: 'jobId',
+  type: 'select',
+  placeholder: '请选择职务',
+  options: [],
+});
+
 const defaultProps = reactive({
   treeRelColName: 'departmentId',
   defaultDTLProps: {
@@ -70,6 +80,7 @@ const defaultProps = reactive({
     searchItems: [
       { name: '姓名', field: 'name', type: 'input' },
       { name: '手机号', field: 'phone', type: 'input' },
+      jobPositionSearchItem,
       majorSearchItem,
       enrollmentYearSearchItem,
       schoolLengthSearchItem,
@@ -132,16 +143,24 @@ const handleSetType = async (val) => {
 
 onMounted(async () => {
   try {
-    const res = await treeAPI.getAllNodes({
-      keyWords: 'BaseMajor',
-      virtualRootFlag: false,
-      searchKey: {},
-      regKey: {},
-      lazy: false,
-    });
-    majorSearchItem.options = res?.data || [];
+    const [majorRes, jobRes] = await Promise.all([
+      treeAPI.getAllNodes({
+        keyWords: 'BaseMajor',
+        virtualRootFlag: false,
+        searchKey: {},
+        regKey: {},
+        lazy: false,
+      }),
+      listAPI.getSomeRecords({
+        keyWords: 'BaseJobPosition',
+        pageInfo: { page: 1, size: 5000 },
+        sort: { properties: 'id', direction: 'ASC' },
+      }),
+    ]);
+    majorSearchItem.options = majorRes?.data || [];
+    jobPositionSearchItem.options = jobRes?.data?.content || [];
   } catch (e) {
-    console.error('加载专业树失败', e);
+    console.error('加载查询条件下拉数据失败', e);
   }
 });
 </script>

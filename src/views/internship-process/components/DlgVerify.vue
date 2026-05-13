@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-confirm="confirm"
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="dlgBasicProps" :dlgbasic-confirm="confirm"
     @close-dialog="onCloseDialog">
     <template #mainForm>
       <el-form ref="formPanelRef" :rules="formRules" :model="form" label-suffix=":" label-width="120px">
@@ -138,7 +138,7 @@ const hasTabs = !!(props.showProjectInfo || props.processViewName || props.audit
 
 const isRecallMode = ref(false);
 
-const defaultProps = reactive({
+let dlgBasicProps = reactive({
   form: {},
   width: hasTabs ? '60%' : '40%',
   dlgTitle: props.dlgTitle,
@@ -362,13 +362,13 @@ async function showDialog(val, formData = {}, batchRowsParam = [], initialAuditR
   // 已通过的记录进入退回模式
   isRecallMode.value = formData?.isAudit === CONSTANT.AUDIT_STATUS.PASS;
   if (isRecallMode.value) {
-    defaultProps.dlgTitle = batchRows.value.length > 0
+    dlgBasicProps.dlgTitle = batchRows.value.length > 0
       ? `${props.recallTitle}（已选 ${batchRows.value.length} 条）`
       : props.recallTitle;
     form.auditResult = CONSTANT.AUDIT_STATUS.BACK;
     form.auditReason = CONSTANT.AUDIT_STATUS.BACKNAME;
   } else {
-    defaultProps.dlgTitle = batchRows.value.length > 0
+    dlgBasicProps.dlgTitle = batchRows.value.length > 0
       ? `${props.dlgTitle}（已选 ${batchRows.value.length} 条）`
       : props.dlgTitle;
     if (initialAuditResult != null) {
