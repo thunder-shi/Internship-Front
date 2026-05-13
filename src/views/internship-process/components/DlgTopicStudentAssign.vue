@@ -1,7 +1,7 @@
 <template>
   <DlgBasic
     ref="dlgBasicRef"
-    v-model:default-props="defaultProps"
+    :default-props="defaultProps"
     :dlgbasic-confirm="handleConfirm"
     @close-dialog="onClose"
     @open-dialog="onOpenDialog"

@@ -1,5 +1,5 @@
 <template>
-  <div class="build-internship-container">
+  <div v-if="enterpriseAccessReady && !enterpriseBlocked" class="build-internship-container">
     <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @append-click="appendClick"
       @edit-click="editClick" @delete-click="handleDeleteClick">
     </BaseList>
@@ -7,6 +7,9 @@
     <DlgMainInternship ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin"
       @update-record="handleUpdateRecord" />
   </div>
+  <el-card v-else-if="enterpriseAccessReady" shadow="never">
+    <el-empty description="企业信息未审核通过，暂无校外实习申报资格" />
+  </el-card>
 </template>
 <script setup>
 /**
@@ -21,12 +24,13 @@
  * 审核发生在后续的具体流程中（如"实习计划制定"），
  * 提交计划后，按照流程配置的审核要求进行审核。
  */
-import { ref, computed, onBeforeUnmount } from 'vue';
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import BaseList from '@/views/master-page/BaseList.vue';
 import DlgMainInternship from '@/views/dialogs/DlgMainInternship.vue';
 import otherAPI from '@/api/other';
+import { ensureEnterpriseAccess } from '@/utils/enterpriseAccess';
 
 defineOptions({
   name: 'BuildInternship',
@@ -35,6 +39,8 @@ defineOptions({
 const store = useStore();
 const baseList = ref(null);
 const dlgMainInternship = ref(null);
+const enterpriseBlocked = ref(false);
+const enterpriseAccessReady = ref(false);
 
 // 获取用户信息和角色
 const userInfo = computed(() => store.getters.userInfo || {});
@@ -139,6 +145,12 @@ const handleUpdateRecord = () => {
 };
 
 // 组件销毁前关闭所有对话框，防止遮罩层残留
+onMounted(async () => {
+  const access = await ensureEnterpriseAccess(store);
+  enterpriseBlocked.value = !access.passed;
+  enterpriseAccessReady.value = true;
+});
+
 onBeforeUnmount(() => {
   dlgMainInternship.value?.closeAllDialogs?.();
 });

@@ -1,5 +1,6 @@
 <template>
   <InternshipPostPage
+    v-if="enterpriseAccessReady && !enterpriseBlocked"
     ref="internshipPostPageRef"
     :page-title="'企业岗位申报'"
     :no-project-message="'当前没有可申报岗位的实习项目'"
@@ -18,16 +19,20 @@
     @post-detail-close="handlePostDetailClose"
     @post-detail-success="handlePostDetailSuccess"
   />
+  <el-card v-else-if="enterpriseAccessReady" shadow="never">
+    <el-empty description="企业信息未审核通过，暂无校外实习申报资格" />
+  </el-card>
 </template>
 
 <script setup>
-import { ref, computed, unref } from 'vue';
+import { ref, computed, unref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostPage from '@/views/master-page/InternshipPostPage.vue';
 import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import listAPI from '@/api/list';
+import { ensureEnterpriseAccess } from '@/utils/enterpriseAccess';
 
 defineOptions({
   name: 'InternshipPostApplication',
@@ -41,6 +46,8 @@ const listSomeFlags = { checkFlag: true };
 
 const store = useStore();
 const userInfo = computed(() => store.getters.userInfo || {});
+const enterpriseBlocked = ref(false);
+const enterpriseAccessReady = ref(false);
 
 // 通过部门类型判断是否为企业用户（typeId=1 表示企业）
 const isCompanyUser = computed(() => userInfo.value.departmentTypeId === 1);
@@ -288,4 +295,10 @@ function handlePostDetailClose() {}
 function handlePostDetailSuccess() {
   refreshList();
 }
+
+onMounted(async () => {
+  const access = await ensureEnterpriseAccess(store);
+  enterpriseBlocked.value = !access.passed;
+  enterpriseAccessReady.value = true;
+});
 </script>

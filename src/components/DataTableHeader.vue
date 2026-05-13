@@ -384,6 +384,7 @@ const auditButtonName = computed(() => {
 
 // 初始化
 async function init() {
+  showSearchPanel.value = Boolean(searchPanel.value);
   await createDynamicTableColumns();
 }
 
@@ -394,6 +395,14 @@ init();
 watch(allTableColumns, () => {
   createDynamicTableColumns();
 });
+
+watch(
+  searchPanel,
+  (val) => {
+    showSearchPanel.value = Boolean(val);
+  },
+  { immediate: true }
+);
 // #region 动态生成头部列
 async function createDynamicTableColumns() {
   allTableColumns.value.forEach((e) => {

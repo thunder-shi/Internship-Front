@@ -4,7 +4,7 @@
       <!-- 当前状态概览 -->
       <div class="status-overview">
         <div class="status-info">
-          <span class="creator-label">创建者: {{ internshipCreatorName }}</span>
+          <span class="creator-label">{{ creatorLabel }}: {{ internshipCreatorName }}</span>
         </div>
         <el-tag :type="currentStatusType" size="large">
           {{ currentStatusText }}
@@ -101,7 +101,12 @@ const props = defineProps({
   keyWords: {
     type: String,
     default: 'ViewVerifyProcessInternship' // 默认值，保持向后兼容
-  }
+  },
+  /** 概览区「创建者/提交者」等文案，默认创建者（实习流程）；企业申报等可传「提交者」 */
+  creatorLabel: {
+    type: String,
+    default: '创建者',
+  },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -152,12 +157,38 @@ function getCurrentRoleName() {
   return name;
 }
 
-// 实习项目创建者名称（从第一条记录获取）
-const internshipCreatorName = computed(() => {
-  if (verifyRecords.value.length > 0) {
-    return verifyRecords.value[0].createUserName;
+function resolveSubmitterDisplayName(processInfo, firstRecord) {
+  const p = processInfo && typeof processInfo === 'object' ? processInfo : {};
+  const candidates = [
+    firstRecord?.createUserName,
+    firstRecord?.create_user_name,
+    p.createUserName,
+    p.create_user_name,
+    p.submitUserName,
+    p.submit_user_name,
+    p.applyUserName,
+    p.apply_user_name,
+    p.userName,
+    p.user_name,
+    p.creatorName,
+    p.creator_name,
+    p.applicantName,
+    p.applicant_name,
+    p.operatorName,
+    p.operator_name,
+  ];
+  for (const c of candidates) {
+    if (c != null && String(c).trim() !== '' && String(c).trim() !== '-') {
+      return String(c).trim();
+    }
   }
   return '-';
+}
+
+// 创建者/提交者：有待审记录时优先用首条；否则用列表行传入的 processInfo（解决待提交时无审核记录导致为「-」）
+const internshipCreatorName = computed(() => {
+  const first = verifyRecords.value.length > 0 ? verifyRecords.value[0] : null;
+  return resolveSubmitterDisplayName(props.processInfo, first);
 });
 
 // 统计已通过的审核数（全局累计，因为退回后重新提交是回到退回级别，低级别审核仍有效）
@@ -427,6 +458,24 @@ function filterAutoPassWhenNotSubmitted(records) {
   });
 }
 
+// 审核人展示：仅「系统自动通过」显示为系统；真人审核若姓名为空则不误标为系统
+function formatVerifierNameForDisplay(rawRecord, normalized) {
+  const reasonText = normalized.reason != null ? String(normalized.reason) : '';
+  if (reasonText.includes('系统自动通过')) {
+    return '系统';
+  }
+  const name =
+    (normalized.verifyUserName && normalized.verifyUserName !== '-'
+      ? normalized.verifyUserName
+      : null) ||
+    rawRecord.verifyUserName ||
+    rawRecord.verify_user_name;
+  if (name && String(name).trim() !== '' && name !== '-') {
+    return String(name).trim();
+  }
+  return '—';
+}
+
 // 加载审核进度数据
 async function loadVerifyProgress() {
   // 预加载角色名称和流程配置（用于将角色 ID 解析为名称）
@@ -450,18 +499,11 @@ async function loadVerifyProgress() {
     // 主记录为待提交时，不展示「系统自动通过」的审核记录，避免与状态矛盾
     records = filterAutoPassWhenNotSubmitted(records);
     await fillVerifyUserNames(records);
-    // 规范化显示字段：将字符串类型的空值替换为 '-'
-    // verifyUserName 如果为空或系统自动通过，替换为 '系统'
-    verifyRecords.value = records.map(record => {
+    verifyRecords.value = records.map((record) => {
       const normalized = normalizeFormForDisplay(record, {
         excludeFields: ['id', 'relationId', 'isAudit', 'verifyUserId', 'updateTime', 'createTime']
       });
-      // 特殊处理：系统自动通过的记录，审核人显示 '系统'
-      if (normalized.reason && normalized.reason.includes('系统自动通过')) {
-        normalized.verifyUserName = '系统';
-      } else if (!normalized.verifyUserName || normalized.verifyUserName === '-') {
-        normalized.verifyUserName = '系统';
-      }
+      normalized.verifyUserName = formatVerifierNameForDisplay(record, normalized);
       return normalized;
     });
     return;
@@ -520,18 +562,11 @@ async function loadVerifyProgress() {
       // 为每条记录补充审核人姓名（verifyUserId 是 string，BaseUser.id 是 int）
       await fillVerifyUserNames(records);
 
-      // 规范化显示字段：将字符串类型的空值替换为 '-'
-      // verifyUserName 如果为空或系统自动通过，替换为 '系统'
-      verifyRecords.value = records.map(record => {
+      verifyRecords.value = records.map((record) => {
         const normalized = normalizeFormForDisplay(record, {
           excludeFields: ['id', 'relationId', 'isAudit', 'verifyUserId', 'updateTime', 'createTime']
         });
-        // 特殊处理：系统自动通过的记录，审核人显示 '系统'
-        if (normalized.reason && normalized.reason.includes('系统自动通过')) {
-          normalized.verifyUserName = '系统';
-        } else if (!normalized.verifyUserName || normalized.verifyUserName === '-') {
-          normalized.verifyUserName = '系统';
-        }
+        normalized.verifyUserName = formatVerifierNameForDisplay(record, normalized);
         return normalized;
       });
     } else {
@@ -548,18 +583,21 @@ async function loadVerifyProgress() {
 
 // 根据 verifyUserId 查询 BaseUser 获取审核人姓名
 async function fillVerifyUserNames(records) {
-  // 收集所有需要查询的 userId（去重），跳过已有姓名的记录
   const userIdSet = new Set();
-  records.forEach(r => {
-    if (r.verifyUserId && !r.verifyUserName) {
-      userIdSet.add(String(r.verifyUserId));
-    }
+  records.forEach((r) => {
+    const existingName = (r.verifyUserName || r.verify_user_name || '').trim();
+    const rawId = r.verifyUserId ?? r.verify_user_id;
+    if (!rawId || existingName) return;
+    String(rawId)
+      .split('|')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .forEach((id) => userIdSet.add(id));
   });
 
   if (userIdSet.size === 0) return;
 
-  // 将 string 类型的 userId 转为 int 进行查询
-  const userIds = Array.from(userIdSet).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+  const userIds = Array.from(userIdSet).map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
   if (userIds.length === 0) return;
 
   try {
@@ -572,16 +610,25 @@ async function fillVerifyUserNames(records) {
     });
 
     if (res && res.data && res.data.content) {
-      // 构建 id -> name 映射
       const userMap = {};
-      res.data.content.forEach(user => {
+      res.data.content.forEach((user) => {
         userMap[String(user.id)] = user.name;
       });
 
-      // 回填到记录中
-      records.forEach(r => {
-        if (r.verifyUserId && !r.verifyUserName) {
-          r.verifyUserName = userMap[String(r.verifyUserId)] || null;
+      records.forEach((r) => {
+        const existingName = (r.verifyUserName || r.verify_user_name || '').trim();
+        const rawId = r.verifyUserId ?? r.verify_user_id;
+        if (!rawId || existingName) return;
+        const parts = String(rawId)
+          .split('|')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const p of parts) {
+          const nm = userMap[p];
+          if (nm) {
+            r.verifyUserName = nm;
+            break;
+          }
         }
       });
     }

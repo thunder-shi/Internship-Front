@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm"
+  <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-confirm="confirm"
     @close-dialog="onCloseDialog">
     <template #mainForm>
       <el-form ref="formPanelRef" :rules="formRules" :model="form" label-suffix=":" label-width="120px">

@@ -1,5 +1,5 @@
 <template>
-  <div class="build-internship-plan-container">
+  <div v-if="enterpriseAccessReady && !enterpriseBlocked" class="build-internship-plan-container">
     <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" ref="baseList" @append-click="appendClick"
       @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick" @submit-click="handleSubmitClick"
       @more2-click="handleBatchSubmitClick">
@@ -38,6 +38,9 @@
     <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
       :process-info="currentRow" key-words="ViewVerifyProcessInternship" />
   </div>
+  <el-card v-else-if="enterpriseAccessReady" shadow="never">
+    <el-empty description="企业信息未审核通过，暂无校外实习申报资格" />
+  </el-card>
 </template>
 
 <script setup>
@@ -64,6 +67,7 @@ import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import listAPI from '@/api/list';
 import otherAPI from '@/api/other';
+import { ensureEnterpriseAccess } from '@/utils/enterpriseAccess';
 
 defineOptions({
   name: 'BuildInternshipPlan',
@@ -72,6 +76,8 @@ defineOptions({
 const store = useStore();
 const baseList = ref(null);
 const dlgMainInternship = ref(null);
+const enterpriseBlocked = ref(false);
+const enterpriseAccessReady = ref(false);
 
 // 获取用户信息和角色
 const userInfo = computed(() => store.getters.userInfo || {});
@@ -419,8 +425,10 @@ const handleUpdateRecord = () => {
   baseList.value?.initDataList();
 };
 
-onMounted(() => {
-  baseList.value?.initDataList();
+onMounted(async () => {
+  const access = await ensureEnterpriseAccess(store);
+  enterpriseBlocked.value = !access.passed;
+  enterpriseAccessReady.value = true;
 });
 
 // 组件销毁前关闭所有对话框，防止遮罩层残留

@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" @close-dialog="onCloseDialog">
+  <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" @close-dialog="onCloseDialog">
     <template #mainForm>
       <div class="dlg-detail-body">
         <IntInternshipProjectDetailPanel

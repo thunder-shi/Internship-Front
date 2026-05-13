@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" :dlgbasic-spec-submit="handleSubmit" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+  <DlgBasic ref="dlgBasicRef" :default-props="defaultProps" :dlgbasic-confirm="confirm" :dlgbasic-spec-submit="handleSubmit" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #otherBtn>
       <el-button v-if="showRollbackBtn" type="warning" @click="handleRollback">回 退</el-button>
     </template>
