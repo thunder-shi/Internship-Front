@@ -1,7 +1,7 @@
 <template>
   <DlgBasic
     ref="dlgBasicRef"
-    v-model:default-props="defaultProps"
+    v-model:default-props="dlgBasicProps"
     :dlgbasic-confirm="handleConfirm"
     @close-dialog="onClose"
     @open-dialog="onOpenDialog"
@@ -74,7 +74,7 @@ const approvedSelectionStudentIds = ref(new Set());
 const arrangedStudentIds = ref(new Set());
 const topicRowLocal = ref(null);
 
-const defaultProps = reactive({
+const dlgBasicProps = reactive({
   form: {},
   width: '60%',
   dlgTitle: '指定学生',

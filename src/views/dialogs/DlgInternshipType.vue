@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" :dlgbasic-confirm="confirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="dlgBasicProps" :dlgbasic-confirm="confirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
     <template #mainForm>
       <div class="dlg-content-wrapper">
         <!-- 上半部分：基本信息表单 -->
@@ -44,7 +44,7 @@ const processList = ref([]);
 const majorList = ref([]); // 存储已选择的专业列表
 const isInitializing = ref(false); // 标记是否正在初始化，避免触发"已修改"状态
 
-const defaultProps = reactive({
+const dlgBasicProps = reactive({
   form: {},
   width: '50%',
   dlgTitle: '编辑/查看',

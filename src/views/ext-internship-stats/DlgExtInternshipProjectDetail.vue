@@ -1,5 +1,5 @@
 <template>
-  <DlgBasic ref="dlgBasicRef" v-model:default-props="defaultProps" @close-dialog="onCloseDialog">
+  <DlgBasic ref="dlgBasicRef" v-model:default-props="dlgBasicProps" @close-dialog="onCloseDialog">
     <template #mainForm>
       <div class="dlg-detail-body">
         <ExtInternshipProjectDetailPanel
@@ -25,7 +25,7 @@ defineOptions({
 
 const dlgBasicRef = ref(null);
 
-const defaultProps = reactive({
+const dlgBasicProps = reactive({
   form: {},
   width: '96%',
   dlgTitle: '校外实习项目详情',
@@ -71,7 +71,7 @@ function show(row, options = {}) {
   const title = openedName.value
     ? `校外实习项目详情 — ${openedName.value}`
     : '校外实习项目详情';
-  defaultProps.dlgTitle = title;
+  dlgBasicProps.dlgTitle = title;
   nextTick(() => {
     dlgBasicRef.value?.showDialog(true, {});
   });
