@@ -53,7 +53,7 @@ const suppressUrls = ['/sign/logout', '/importAndExport/importInfo', '/importAnd
 
 const backendMessageMap = {
   'enterprise verify user is not configured':
-    '企业审核流程已配置，但当前审核角色下未找到可用审核人，请先为对应角色分配审核账号。',
+    '企业审核流程已配置，但在合作高校范围内未找到当前审核角色下的可用审核人。请检查：①「企业信息审核配置」是否已选择正确的合作高校（高校根部门）；② 该校下是否已为对应审核角色绑定账号。',
   'at least one attachment is required before submit':
     '提交审核前请至少上传 1 个附件。请点击「编辑/查看」，在「附件材料」中上传后再提交。',
 }

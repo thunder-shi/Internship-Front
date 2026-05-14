@@ -23,6 +23,13 @@
       />
 
       <el-alert
+        title="合作高校（必选）：须选择高校根部门（部门类型为「学校」），用于在高校范围内匹配审核人账号；勿选企业集群根，否则会出现「已配置但匹配不到审核人」。"
+        type="warning"
+        :closable="false"
+        class="mb-16"
+      />
+
+      <el-alert
         title="已提交记录沿用提交时的审核快照；后续修改配置不会追溯影响历史单据。"
         type="info"
         :closable="false"
@@ -54,6 +61,17 @@
               :value="item.id"
             />
           </el-select>
+        </el-form-item>
+
+        <el-form-item label="合作高校" prop="schoolId">
+          <SimpleTreeSelect
+            v-model="form.schoolId"
+            key-words="BaseDepartment"
+            :search-keys="schoolDepartmentSearchKeys"
+            :disabled="!canManageVerifyConfig"
+            placeholder="请选择合作高校（高校根部门）"
+            :check-strictly="true"
+          />
         </el-form-item>
 
         <el-form-item
@@ -102,6 +120,7 @@ import { useStore } from 'vuex';
 import enterpriseInfoAPI from '@/api/enterpriseInfo';
 import listAPI from '@/api/list';
 import CONSTANT from '@/utils/constant';
+import SimpleTreeSelect from '@/components/SimpleTreeSelect.vue';
 
 defineOptions({
   name: 'EnterpriseInfoVerifyConfig',
@@ -126,6 +145,9 @@ const canManageVerifyConfig = computed(() =>
   )
 );
 
+/** 部门类型：2 = 学校（与 Department 维护一致），用于树只展示高校侧部门 */
+const schoolDepartmentSearchKeys = { typeId: 2 };
+
 const roleFields = [
   { field: 'verifyFirstRoleId', label: '一审角色', level: CONSTANT.VERIFY_LEVEL.ONE_VERIFY },
   { field: 'verifySecondRoleId', label: '二审角色', level: CONSTANT.VERIFY_LEVEL.TWO_VERIFYS },
@@ -136,6 +158,7 @@ const roleFields = [
 
 const form = reactive({
   verifyTypeId: null,
+  schoolId: null,
   verifyFirstRoleId: null,
   verifySecondRoleId: null,
   verifyThirdRoleId: null,
@@ -146,6 +169,22 @@ const form = reactive({
 
 const formRules = reactive({
   verifyTypeId: [{ required: true, message: '请选择审核级数', trigger: 'change' }],
+  schoolId: [
+    {
+      validator: (_rule, value, callback) => {
+        if (Number(form.verifyTypeId) === CONSTANT.VERIFY_LEVEL.NO_VERIFY) {
+          callback();
+          return;
+        }
+        if (normalizeId(value)) {
+          callback();
+          return;
+        }
+        callback(new Error('请选择合作高校（高校根部门）'));
+      },
+      trigger: 'change',
+    },
+  ],
 });
 
 function shouldShowRoleField(level) {
@@ -159,6 +198,7 @@ function normalizeId(value) {
 
 function normalizeForm(data = {}) {
   form.verifyTypeId = normalizeId(data.verifyTypeId);
+  form.schoolId = normalizeId(data.schoolId);
   form.verifyFirstRoleId = normalizeId(data.verifyFirstRoleId);
   form.verifySecondRoleId = normalizeId(data.verifySecondRoleId);
   form.verifyThirdRoleId = normalizeId(data.verifyThirdRoleId);
@@ -181,6 +221,7 @@ function updateRoleRules() {
 
 function handleVerifyTypeChange() {
   updateRoleRules();
+  formRef.value?.validateField?.('schoolId');
 }
 
 async function loadVerifyTypeOptions() {
@@ -232,6 +273,7 @@ async function handleSave() {
   try {
     const node = {
       verifyTypeId: form.verifyTypeId,
+      schoolId: normalizeId(form.schoolId) || 0,
       verifyFirstRoleId: form.verifyFirstRoleId || 0,
       verifySecondRoleId: form.verifySecondRoleId || 0,
       verifyThirdRoleId: form.verifyThirdRoleId || 0,

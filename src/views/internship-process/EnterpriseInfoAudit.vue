@@ -67,7 +67,6 @@ const auditStatusOptions = [
   { id: CONSTANT.AUDIT_STATUS.SUBMIT, name: CONSTANT.AUDIT_STATUS.SUBMITNAME },
   { id: CONSTANT.AUDIT_STATUS.PASS, name: CONSTANT.AUDIT_STATUS.PASSNAME },
   { id: CONSTANT.AUDIT_STATUS.NOTPASS, name: CONSTANT.AUDIT_STATUS.NOTPASSNAME },
-  { id: CONSTANT.AUDIT_STATUS.BACK, name: CONSTANT.AUDIT_STATUS.BACKNAME },
 ];
 
 const mineScopeOptions = [
@@ -165,7 +164,17 @@ async function fetchAuditRecords(params = {}) {
     pageInfo: params?.pageInfo || { page: 1, size: 20 },
     sort: params?.sort || { properties: 'id', direction: 'DESC' },
   });
-  return normalizePageResponse(res, normalizeAuditRow);
+  const normalized = normalizePageResponse(res, normalizeAuditRow);
+  const rawList = normalized?.data?.content || [];
+  /** 审核退回记录不在本列表展示（企业端待修改态，不走本页审核流） */
+  const content = rawList.filter((row) => resolveAuditStatus(row) !== CONSTANT.AUDIT_STATUS.BACK);
+  return {
+    ...normalized,
+    data: {
+      ...(normalized.data || {}),
+      content,
+    },
+  };
 }
 
 async function auditEnterpriseInfo(payload) {

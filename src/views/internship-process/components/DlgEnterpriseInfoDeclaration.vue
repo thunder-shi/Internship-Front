@@ -17,7 +17,7 @@
 
         <el-alert
           v-if="verifyConfigReady"
-          title="说明：已配置仅表示审核级数和审核角色已设置完成；若对应角色下没有可用审核人，提交时后端仍会拦截。"
+          title="说明：已配置表示审核级数、合作高校与审核角色已齐全；审核人须在合作高校（配置中的学校）下、且具备对应角色。若该校下无可用账号，提交时仍会拦截。"
           type="info"
           :closable="false"
           class="mb-16"
@@ -417,9 +417,9 @@ const verifyConfigReady = computed(() => isEnterpriseVerifyConfigReady(props.ver
 const verifyConfigAlertType = computed(() => (verifyConfigReady.value ? 'info' : 'warning'));
 const verifyConfigAlertTitle = computed(() => {
   if (verifyConfigReady.value) {
-    return `当前审核级数：${props.verifyConfig?.verifyTypeName || '已配置'}。提交后按审核链路流转。`;
+    return `当前审核级数：${props.verifyConfig?.verifyTypeName || '已配置'}；合作高校已维护。提交后按审核链路在高校范围内匹配审核人。`;
   }
-  return '企业信息审核流程未配置，请联系学校管理员先在“企业维护流程配置”中完成配置后再提交申请。';
+  return '企业信息审核流程未配置或不完整（含合作高校），请联系学校管理员在「企业信息审核配置」中完成审核级数、合作高校与审核角色后再提交申请。';
 });
 const readonlyHint = computed(() => {
   if (isEditable.value) return '';

@@ -33,14 +33,14 @@ export function resolveAuditStatus(record) {
 }
 
 /**
- * 列表/详情展示「审核意见」。
- * 与后端 EnterpriseInfoServiceImpl.auditReasonFromNode 的字段族一致（reason、remarks、auditRemark、auditReason、auditOpinion）；
- * 列表行由 putEnterpriseVerifyListTrail 聚合后应已带好 reason。remarks 仅在「不通过 / 退回」时兜底，避免已通过仍被历史业务备注盖住。
+ * 列表/详情展示「审核意见」（与主档 remarks 分离，互不兜底）。
+ * 与后端 putEnterpriseVerifyListTrail / auditReasonFromNode 一致：优先 reason，并兼容 latestVerifyReason 及 audit*、verify* 等别名。
  */
 export function resolveDisplayReason(record = {}) {
-  const status = resolveAuditStatus(record);
   const candidates = [
     record.reason,
+    record.latestVerifyReason,
+    record.latest_verify_reason,
     record.auditRemark,
     record.auditReason,
     record.auditOpinion,
@@ -64,15 +64,6 @@ export function resolveDisplayReason(record = {}) {
   for (const c of candidates) {
     if (c != null && String(c).trim() !== '') return String(c).trim();
   }
-  if (
-    status === CONSTANT.AUDIT_STATUS.NOTPASS ||
-    status === CONSTANT.AUDIT_STATUS.BACK
-  ) {
-    const remarksFallback = record.remarks ?? record.remark;
-    if (remarksFallback != null && String(remarksFallback).trim() !== '') {
-      return String(remarksFallback).trim();
-    }
-  }
   return '';
 }
 
@@ -92,6 +83,46 @@ export function resolveVerifyProcessId(record) {
     record?.process_record_id ??
     null
   );
+}
+
+/** 提交人用户 id。企业审核列表 `enterpriseInfo/audit/list` 经 `buildRecordSummary.enrichEnterpriseSubmitter` 写入 `createUserId`（与 MainEnterpriseInfo.adminUserId 一致）；旧数据可仅有 adminUserId。 */
+export function resolveSubmitterUserId(record = {}) {
+  const r = record && typeof record === 'object' ? record : {};
+  const candidates = [r.createUserId, r.create_user_id, r.adminUserId, r.admin_user_id];
+  for (const c of candidates) {
+    const n = Number(c);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
+/**
+ * 申报/流程列表「提交人」展示名。
+ * 与 ViewVerify* 一致优先使用 `createUserName`；企业审核列表在后端 `enrichEnterpriseSubmitter` 部署后会由接口直接带上。
+ * 其余字段名为历史/多视图兼容。
+ */
+export function resolveCreateUserDisplayName(record = {}) {
+  const r = record && typeof record === 'object' ? record : {};
+  const candidates = [
+    r.createUserName,
+    r.create_user_name,
+    r.submitUserName,
+    r.submit_user_name,
+    r.applyUserName,
+    r.apply_user_name,
+    r.creatorName,
+    r.creator_name,
+    r.declarantName,
+    r.declarant_name,
+    r.userName,
+    r.user_name,
+    r.createByName,
+    r.create_by_name,
+  ];
+  for (const c of candidates) {
+    if (c != null && String(c).trim() !== '') return String(c).trim();
+  }
+  return '';
 }
 
 /**
@@ -140,6 +171,8 @@ export function normalizeRecord(record = {}) {
     introduction: safeRecord.introduction ?? '',
     remarks: safeRecord.remarks ?? '',
     reason: resolveDisplayReason(safeRecord),
+    createUserId: resolveSubmitterUserId(safeRecord),
+    createUserName: resolveCreateUserDisplayName(safeRecord),
   };
 }
 
@@ -245,7 +278,10 @@ export function isEnterpriseVerifyConfigReady(config = {}) {
     'verifyFifthRoleId',
   ];
   const requiredRoleCount = Math.max(0, verifyTypeId - CONSTANT.VERIFY_LEVEL.NO_VERIFY);
-  return roleFields
+  const rolesOk = roleFields
     .slice(0, requiredRoleCount)
     .every((field) => Number(config?.[field]) > 0);
+  if (!rolesOk) return false;
+  /** 合作高校根部门 id（与 BaseEnterpriseVerifyConfig.schoolId 一致），用于在高校范围内解析审核人，勿用企业树根 */
+  return Number(config?.schoolId) > 0;
 }

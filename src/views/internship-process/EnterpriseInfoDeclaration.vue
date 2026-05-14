@@ -12,17 +12,6 @@
       <template #left>
         <el-button type="primary" :icon="Plus" @click="handleAppendClick">新增</el-button>
       </template>
-      <template #rightOperate="{ row }">
-        <el-button
-          v-if="showRecallToDraft(row)"
-          type="warning"
-          size="small"
-          title="退回修改"
-          @click="handleRecallToDraft(row)"
-        >
-          <el-icon><RefreshLeft /></el-icon>
-        </el-button>
-      </template>
       <template #current="{ row }">
         <el-tag :type="isRowDisplayEffectiveCurrent(row) ? 'success' : 'info'">
           {{ isRowDisplayEffectiveCurrent(row) ? '当前有效' : '历史版本' }}
@@ -50,8 +39,8 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, RefreshLeft } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import { Plus } from '@element-plus/icons-vue';
 import { useStore } from 'vuex';
 import BaseList from '@/views/master-page/BaseList.vue';
 import DlgEnterpriseInfoDeclaration from '@/views/internship-process/components/DlgEnterpriseInfoDeclaration.vue';
@@ -72,7 +61,6 @@ import {
   normalizePageResponse,
   normalizeRecord,
   resolveAuditStatus,
-  resolveVerifyProcessId,
 } from '@/utils/enterpriseInfoView';
 
 defineOptions({
@@ -286,63 +274,6 @@ function isCurrentUserRecord(row = {}) {
     return true;
   }
   return creatorId === currentUserId;
-}
-
-function showRecallToDraft(row = {}) {
-  if (!isCompanyUser(store)) return false;
-  if (!isCurrentUserRecord(row)) return false;
-  return resolveAuditStatus(row) === CONSTANT.AUDIT_STATUS.PASS;
-}
-
-async function resolveVerifyProcessIdForRecall(row = {}) {
-  let vp = resolveVerifyProcessId(row);
-  if (vp != null && String(vp).trim() !== '' && Number(vp) > 0) {
-    return Number(vp);
-  }
-  const enterpriseInfoId = row?.enterpriseInfoId ?? row?.id;
-  if (!enterpriseInfoId) return null;
-  try {
-    const res = await enterpriseInfoAPI.detail({ enterpriseInfoId });
-    return resolveVerifyProcessId(normalizeDetailPayload(res?.data || {}, row));
-  } catch {
-    return null;
-  }
-}
-
-async function handleRecallToDraft(row) {
-  if (!row) return;
-  try {
-    await ElMessageBox.confirm(
-      '确定退回为「待提交」？退回后可修改企业信息并重新提交审核。',
-      '退回修改',
-      { confirmButtonText: '确定退回', cancelButtonText: '取消', type: 'warning' }
-    );
-  } catch {
-    return;
-  }
-  const vpId = await resolveVerifyProcessIdForRecall(row);
-  if (!vpId) {
-    ElMessage.warning('未找到审核流程记录，无法退回。若刚审核通过，请刷新列表后再试。');
-    return;
-  }
-  try {
-    const res = await listAPI.editOneNode('MainVerifyProcess', {
-      id: vpId,
-      isAudit: CONSTANT.AUDIT_STATUS.SAVE,
-      reason: null,
-      verifyUserName: null,
-      verifyUserId: null,
-    });
-    if (res?.message === 'successful') {
-      ElMessage.success('已退回为待提交，请修改后重新提交');
-      await handleDialogSuccess();
-    } else {
-      ElMessage.error(res?.message || '退回失败');
-    }
-  } catch (e) {
-    console.error(e);
-    ElMessage.error('退回失败');
-  }
 }
 
 function handleViewClick(rowOrArray) {
