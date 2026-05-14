@@ -39,5 +39,10 @@ const baseRef = ref(null);
 
 const processTypeCode = CONSTANT.PROCESS_TYPE.EXTERNAL_ASSIGN_INTERNAL_TUTOR;
 
-const submitRowCondition = (row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE;
+/** 未分配校内导师（无 teacherId）时不允许点操作栏「提交」 */
+const submitRowCondition = (row) => {
+  if (row?.isAudit !== CONSTANT.AUDIT_STATUS.SAVE) return false;
+  const tid = row?.teacherId ?? row?.teacher_id;
+  return tid !== undefined && tid !== null && tid !== '';
+};
 </script>
