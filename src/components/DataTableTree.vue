@@ -266,7 +266,7 @@ async function lazyLoad(tree, treeNode, resolve) {
     virtualRootFlag: virtualRootFlag.value,
     searchKey: instance?.proxy?.searchKey,
     lazy: true,
-    preName: tree.allNodeNames,
+    preName: tree.allNodeNames || '',
     sort: sort.value
   })
   const rows = res.data || []

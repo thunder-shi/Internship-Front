@@ -51,6 +51,16 @@ export async function getEnterpriseMine(options = {}) {
     return minePromise;
   }
 
+  // refresh:true 时若有在飞请求，等其结束后再发起新请求，
+  // 避免两个并发请求竞争 mineCache 的写入顺序（后到的旧响应可能覆盖新数据）。
+  if (refresh && minePromise) {
+    try {
+      await minePromise;
+    } catch {
+      // 上一次请求失败时忽略错误，本次重新发起
+    }
+  }
+
   minePromise = enterpriseInfoAPI
     .mine()
     .then((res) => {

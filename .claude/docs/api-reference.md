@@ -1,5 +1,28 @@
 # API 模块参考
 
+## api/list.js - 通用列表 CRUD（核心）
+
+默认导出 `listAPI` 对象，所有 CRUD 页面（含 BaseList）都使用这个模块。
+
+```javascript
+import listAPI from '@/api/list'
+
+listAPI.getSomeRecords({
+  keyWords,      // 表/视图名（自动 RSA 加密）
+  pageInfo: { page: 1, size: 10 },
+  treeInfo,      // 树形可选
+  searchKey,     // { field: value } —— 自动 safeStringify+RSA 加密
+  reg,           // { field: SEARCH_OPERATOR.* } —— 同上
+  sort,          // { properties: 'id', direction: 'DESC' }（默认）
+  andor,         // 必须传对象 {}（不要传字符串 'and'）
+})
+
+listAPI.editOneNode(keyWords, node)          // id=null 新增；有 id 编辑
+listAPI.editManyNodes(keyWords, nodes)       // 批量
+listAPI.delOneOrManyNodes(keyWords, [1,2,3]) // 批量删除（ids 自动加密）
+listAPI.changeNodeOrder(keyWords, nodeId, up, moveSearchKeys, moveRegKeys) // 上下移
+```
+
 ## api/file.js - 文件操作（Minio）
 
 前端不直接访问 Minio，全部通过后端代理：
@@ -22,9 +45,14 @@ fileAPI.upload({
 })
 
 fileAPI.downloadFile(id)          // → presigned URL → window.open
+fileAPI.getPreviewUrl(id)         // 返回干净 presigned URL（用于 kkFileView 在线预览）
 fileAPI.deleteFile(fileIds)       // 支持单个 id 或数组
 fileAPI.getProgressPercent()      // 当前上传进度
 ```
+
+> `getPreviewUrl` 与 `downloadFile` 走不同后端端点（`/preview/{id}` vs `/download/{id}`）：
+> preview URL 不携带 `response-content-disposition` / `response-content-type` 覆写参数，
+> 否则 MinIO 返回 400，kkFileView 拉不到文件内容。
 
 **SimpleUpload 组件**:
 ```vue
@@ -83,6 +111,14 @@ internshipProcessAPI.getExternalInternshipStudentPostBreakdown(node)   // 校外
 // 选题相关
 internshipProcessAPI.getLatestRejectedTitleSelection(node)       // 学生最近一条不通过选题
 internshipProcessAPI.acknowledgeRejectedTitleSelection(node)     // 确认后清理选题记录
+internshipProcessAPI.confirmStudentTopicSelection(node)          // 老师最终确认（auditProcess 通过时也会触发）
+
+// 自主实习（校外）
+internshipProcessAPI.createSelfInternshipPost(internshipId)      // 幂等创建自主实习虚拟岗位（后端建项目时已自动调用）
+internshipProcessAPI.applySelfInternship(node)
+// node: { internshipId, selfCompanyName, selfPostName, selfAddress, selfRemarks }
+// 返回: { relStuInternshipPostId, isAudit, verifyTypeId, created }
+// 注：同项目同学生已有 SAVE/SUBMIT/PASS/BACK → 后端返回 400；NOTPASS → 原地覆盖（created:false，附件已清空需重传）
 
 // 统计（见 docs/stats-module 部分）
 internshipProcessAPI.listExternalInternshipCollegeStats(node)
@@ -110,8 +146,68 @@ import {
 
 ```javascript
 import { submitSignAudit } from '@/api/mainSign'
-// submitSignAudit(signId) — 学生打卡提交后生成审核记录（POST /main-sign/submit-audit）
+// submitSignAudit(signId, internshipId?)
+//   学生打卡提交后生成审核记录（POST /main-sign/submit-audit）
+//   internshipId 可选，传入时后端按项目维度落审核流
 ```
+
+## api/mainLeave.js - 请假单
+
+```javascript
+import mainLeaveAPI, {
+  saveLeave,                    // PUT /common/saveOneRecord?tblName=MainLeave  保存草稿
+  submitLeaveAudit,             // POST /main-leave/submit-audit                提交审核
+  getMainLeavePage,             // POST /common/getSomeRecords/MainLeave        主档分页
+  getLeaveUniversalDetailsPage, // POST /common/getSomeRecords/ViewLeaveUniversalDetails
+  getLeaveAuditFlowPage,        // POST /common/getSomeRecords/ViewLeaveAuditFlow
+  getAuditorTodoPage,           // POST /common/getSomeRecords/ViewAuditorTodoList
+  deleteLeave,                  // DELETE /common/deleteRecordByDelflag?tblName=MainLeave&id=
+} from '@/api/mainLeave'
+```
+
+> `DlgVerifyProgress` 在请假场景下用 `key-words="ViewLeaveAuditFlow"`，与流程审核默认的 `MainVerifyProcess` 不同。
+
+## api/internshipTermination.js - 终止学生实习
+
+```javascript
+import terminationAPI from '@/api/internshipTermination'
+
+terminationAPI.listCandidates(node)  // 可被终止的实习候选列表（按学生/类型/状态筛选）
+terminationAPI.create(node)          // 提交终止申请（首次）
+terminationAPI.resubmit(node)        // 退回后重新提交
+terminationAPI.audit(node)           // 推进终止审核流程
+terminationAPI.detail(node)          // 终止单详情
+terminationAPI.cancel(node)          // 撤销/取消（待审核或退回时）
+```
+
+对应 `PROCESS_TYPE.STUDENT_INTERNSHIP_TERMINATION`，页面 `StudentInternshipTermination.vue` / `StudentInternshipTerminationVerify.vue`，详情对话框 `components/DlgInternshipTerminationDetail.vue`。
+
+## api/enterpriseInfo.js - 企业信息申报与审核
+
+```javascript
+import enterpriseInfoAPI from '@/api/enterpriseInfo'
+
+// 企业自查 / 历史
+enterpriseInfoAPI.mine()              // 含 currentApproved（resolveEffectiveApprovedRecord 解析的「当前有效通过版」）
+enterpriseInfoAPI.history(node)       // searchKey 可叠加 onlyEffectiveCurrent:true
+enterpriseInfoAPI.detail(node)
+
+// 申报
+enterpriseInfoAPI.saveDraft(node)
+enterpriseInfoAPI.submit(node)
+enterpriseInfoAPI.resubmit(node)
+
+// 审核
+enterpriseInfoAPI.auditList(node)     // searchKey: keyword / auditStatus / onlyMine / onlyEffectiveCurrent
+enterpriseInfoAPI.auditDetail(node)
+enterpriseInfoAPI.auditProcess(node)
+
+// 审核流配置
+enterpriseInfoAPI.getVerifyConfig()
+enterpriseInfoAPI.saveVerifyConfig(node)
+```
+
+视图工具见 `utils/enterpriseInfoView.js`（详见 composables.md）；访问校外实习入口前的资格检查走 `utils/enterpriseAccess.js`。
 
 ## 实习统计相关
 

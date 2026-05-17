@@ -21,7 +21,8 @@ const DEFAULT_AUTO_PASS_EXTRA = {
  * @param {object} [submitAll.sort]
  * @param {object} [submitAll.treeInfo]
  * @param {object} [submitAll.andor]
- * @param {(row: object) => boolean} [submitAll.filterRows] 查询结果二次过滤
+ * @param {(row: object) => boolean} [submitAll.filterRows] 查询结果二次过滤（保持纯函数；行级别取舍用此，整体上限用 maxRows）
+ * @param {number} [submitAll.maxRows] 过滤后最多保留的行数（如无审核流程只允许提交 1 条时使用）；confirm 计数与最终提交数都按该上限。
  * @param {string} [submitAll.editKeyWords='MainVerifyProcess'] editManyNodes 的 keyWords
  * @param {string} [submitAll.sendKey='id'] 节点 id 取自行的字段名
  * @param {number} [submitAll.sendAudit=AUDIT_STATUS.SUBMIT] 需审核时的 isAudit（默认 SUBMIT；与 sendAuditField、自动分支互斥）
@@ -50,6 +51,7 @@ export async function runSubmitAllByQuery(submitAll, options = {}) {
     treeInfo,
     andor,
     filterRows,
+    maxRows,
     editKeyWords = 'MainVerifyProcess',
     sendKey = 'id',
     sendAudit = CONSTANT.AUDIT_STATUS.SUBMIT,
@@ -80,6 +82,9 @@ export async function runSubmitAllByQuery(submitAll, options = {}) {
   if (!Array.isArray(rows)) rows = [];
   if (typeof filterRows === 'function') {
     rows = rows.filter(filterRows);
+  }
+  if (Number.isInteger(maxRows) && maxRows >= 0 && rows.length > maxRows) {
+    rows = rows.slice(0, maxRows);
   }
   if (!rows.length) {
     ElMessage.info('没有待提交的记录');

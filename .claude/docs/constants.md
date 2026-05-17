@@ -73,6 +73,7 @@ PROCESS_TYPE: {
   EXTERNAL_STUDENT_ASSIGN_POST: 'EXTERNAL_STUDENT_ASSIGN_POST',
   EXTERNAL_ASSIGN_INTERNAL_TUTOR: 'EXTERNAL_ASSIGN_INTERNAL_TUTOR',
   EXTERNAL_ENTERPRISE_ASSIGN_TUTOR: 'EXTERNAL_ENTERPRISE_ASSIGN_TUTOR',
+  STUDENT_INTERNSHIP_TERMINATION: 'STUDENT_INTERNSHIP_TERMINATION', // 终止学生实习
 }
 ```
 
@@ -110,3 +111,15 @@ FILE_TYPE: {
   IMG: ['png', 'jpg', 'jpeg', 'gif'],
 }
 ```
+
+## 自主实习虚拟岗位 SELF_INTERNSHIP
+
+```javascript
+SELF_INTERNSHIP: {
+  POST_CODE: 'SELF_INTERNSHIP',  // MainInternshipPost 中识别虚拟岗位的 code
+  POST_NAME: '自主实习',
+  UNLIMITED: -1,                  // allPersonNum=-1 表示无人数限制
+}
+```
+
+> 用法：校外项目创建时后端自动建一条 code=`SELF_INTERNSHIP` 的虚拟岗位；学生申报数据以 `self_*` 字段写入 `RelStuInternshipPost`，附件 `tableName='RelStuInternshipPost'`。详见 `internship-process.md`。

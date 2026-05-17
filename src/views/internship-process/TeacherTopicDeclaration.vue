@@ -162,13 +162,22 @@ async function handleSubmitAllTeacherTopics({ initDataList } = {}) {
           (isAudit === CONSTANT.AUDIT_STATUS.SAVE || isAudit === CONSTANT.AUDIT_STATUS.BACK)
         );
       },
-      mapNode: (row) => ({
-        id: row.id ?? row?.verifyProcessId ?? row?.verify_process_id,
-        isAudit:
-          (row?.verifyTypeId ?? row?.verify_type_id) == CONSTANT.VERIFY_LEVEL.NO_VERIFY
-            ? CONSTANT.AUDIT_STATUS.PASS
-            : CONSTANT.AUDIT_STATUS.SUBMIT,
-      }),
+      mapNode: (row) => {
+        const id = row.id ?? row?.verifyProcessId ?? row?.verify_process_id;
+        // 与 handleSubmitClick / submitAllByQuery 默认分支一致：
+        // NO_VERIFY 流程直接落 PASS（依赖后端按 verifyTypeId enforce），并写入自动通过审计字段，便于审计回放
+        const isNoVerify =
+          (row?.verifyTypeId ?? row?.verify_type_id) == CONSTANT.VERIFY_LEVEL.NO_VERIFY;
+        if (isNoVerify) {
+          return {
+            id,
+            isAudit: CONSTANT.AUDIT_STATUS.PASS,
+            verifyUserName: '系统',
+            reason: '无需审核，系统自动通过',
+          };
+        }
+        return { id, isAudit: CONSTANT.AUDIT_STATUS.SUBMIT };
+      },
       buildConfirmText: (n) => `确定提交当前项目下全部 ${n} 条待提交题目吗？`,
     },
     {

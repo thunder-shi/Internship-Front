@@ -14,6 +14,15 @@ StuInternshipSign.vue       (学生打卡)
 
 StuSignAudit.vue            (打卡审核)
   └── 选择岗位 → 今日打卡 / 按学生查询 → 审核（支持批量）
+
+MainLeave.vue               (学生请假申请)
+  └── 选择关联实习 → 填请假时段/原因 → 保存 / 保存并提交
+      (提交后调 mainLeaveAPI.submitLeaveAudit(leaveId))
+
+MainLeaveAudit.vue          (请假审核)
+  └── useVerifyFilter + useBatchVerifyAuditDialog 套审核框架；
+      DlgVerifyProgress 的 key-words 必须传 "ViewLeaveAuditFlow"，
+      与默认 MainVerifyProcess 不同
 ```
 
 ## _approved 判断（关键陷阱）

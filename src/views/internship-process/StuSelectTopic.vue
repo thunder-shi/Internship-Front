@@ -1078,11 +1078,11 @@ async function handleBatchSubmitSelections(rowOrArray) {
 async function handleSubmitAllSelections({ initDataList } = {}) {
   const internshipId = resolveInternshipId(getEffectiveInternship());
   const stuId = Number(userInfo.value?.id || 0);
+  const noVerify = isCurrentProcessNoVerify();
   const localSubmitCount = selectedTopics.value
     .map(normalizeSelectedTopic)
     .filter((row) => canSubmitSelection(row) && resolveVerifyProcessId(row) > 0)
     .length;
-  let noVerifySubmitAccepted = false;
 
   await runSubmitAllByQuery(
     {
@@ -1116,23 +1116,16 @@ async function handleSubmitAllSelections({ initDataList } = {}) {
       },
       filterRows: (row) => {
         const normalized = normalizeSelectedTopic(row);
-        if (!canSubmitSelection(normalized) || resolveVerifyProcessId(normalized) <= 0) {
-          return false;
-        }
-        if (isCurrentProcessNoVerify()) {
-          if (noVerifySubmitAccepted) {
-            return false;
-          }
-          noVerifySubmitAccepted = true;
-        }
-        return true;
+        return canSubmitSelection(normalized) && resolveVerifyProcessId(normalized) > 0;
       },
+      // 无审核流程只允许最终确认 1 个题目，其余候选会被后端释放
+      maxRows: noVerify ? 1 : undefined,
       mapNode: (row) => ({
         id: resolveVerifyProcessId(row),
         isAudit: CONSTANT.AUDIT_STATUS.SUBMIT,
       }),
       buildConfirmText: (n) =>
-        isCurrentProcessNoVerify() && localSubmitCount > 1
+        noVerify && localSubmitCount > 1
           ? '当前流程无需审核，将只提交 1 个候选题目并自动确认最终题目，其余候选题目会被释放，确定继续吗？'
           : `确定提交当前项目下全部 ${n} 个候选题目吗？`,
     },

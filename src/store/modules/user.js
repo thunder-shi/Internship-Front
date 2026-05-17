@@ -2,6 +2,7 @@ import userAPI from '@/api/user'
 import listAPI from '@/api/list'
 import { setToken, removeToken } from '@/utils/auth'
 import router, { resetRouter } from '@/router'
+import { clearEnterpriseMineCache } from '@/utils/enterpriseAccess'
 
 const state = {
   token: '',
@@ -104,6 +105,8 @@ const actions = {
     commit('SET_STUDENT_INTERNSHIP_TYPE', null)
     removeToken()
     resetRouter()
+    // 清空模块级用户态缓存，避免下一个登录用户读到上一个用户的 currentApproved
+    clearEnterpriseMineCache()
     await dispatch('tagsView/delAllViews', null, { root: true })
     return true
   },
@@ -113,6 +116,7 @@ const actions = {
     return new Promise(resolve => {
       commit('SET_ROLES', [])
       removeToken()
+      clearEnterpriseMineCache()
       resolve()
     })
   },

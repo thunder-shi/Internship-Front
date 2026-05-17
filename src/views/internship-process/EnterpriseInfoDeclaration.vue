@@ -355,15 +355,30 @@ async function handleBatchSubmitClick(rows) {
   }
 
   let successCount = 0;
+  const failures = [];
   for (const row of pendingRows) {
-    if (await submitEnterpriseRecord(row)) {
-      successCount += 1;
+    try {
+      if (await submitEnterpriseRecord(row)) {
+        successCount += 1;
+      } else {
+        // submitEnterpriseRecord 已弹具体校验提示
+        failures.push(row);
+      }
+    } catch (e) {
+      console.error('企业信息提交失败:', e);
+      failures.push(row);
     }
   }
 
   if (successCount > 0) {
-    ElMessage.success(`批量提交完成，共成功提交 ${successCount} 条记录`);
+    if (failures.length) {
+      ElMessage.warning(`批量提交完成：成功 ${successCount} 条，失败 ${failures.length} 条`);
+    } else {
+      ElMessage.success(`批量提交完成，共成功提交 ${successCount} 条记录`);
+    }
     await handleDialogSuccess();
+  } else if (failures.length) {
+    ElMessage.error(`批量提交失败，共 ${failures.length} 条未提交`);
   }
 }
 
