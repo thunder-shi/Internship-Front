@@ -20,6 +20,19 @@
             <el-empty v-else description="请先在「基础信息」页保存项目信息后，再配置流程安排" :image-size="80" />
           </el-tab-pane>
 
+          <!-- Tab 4: 评分配置 -->
+          <el-tab-pane label="评分配置" name="grade">
+            <div v-if="form.internshipId" class="tab-pane-content">
+              <GradeConfigPanel
+                ref="gradeConfigPanelRef"
+                :internship-id="form.internshipId"
+                source-table="MainDiary"
+                source-label="实习日志"
+              />
+            </div>
+            <el-empty v-else description="请先在「基础信息」页保存项目信息后，再配置评分" :image-size="80" />
+          </el-tab-pane>
+
           <!-- Tab 3: 报告周期 -->
           <el-tab-pane label="报告周期" name="period">
             <div v-if="form.internshipId" class="period-config-section">
@@ -126,6 +139,7 @@ import DlgBasic from '@/components/DlgBasic.vue';
 import FormItemsforDialog from '@/components/FormItemsforDialog.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import DlgProcessSelect from '@/views/dialogs/DlgProcessSelect.vue';
+import GradeConfigPanel from '@/views/internship-process/components/GradeConfigPanel.vue';
 import listAPI from '@/api/list';
 import CONSTANT from '@/utils/constant';
 import { generatePeriods, getInternshipPeriods, savePeriod, deletePeriods } from '@/api/diary';
@@ -143,6 +157,7 @@ const dlgBasicRef = ref(null);
 const formItemsRef = ref(null);
 const dataTableList = ref(null);
 const dlgProcessSelect = ref(null);
+const gradeConfigPanelRef = ref(null);
 const formPanelRef = computed(() => formItemsRef.value?.formPanelRef);
 
 const form = reactive({});
@@ -239,6 +254,8 @@ function onTabChange(tabName) {
     nextTick(() => dataTableList.value?.initDataList(true));
   } else if (tabName === 'period') {
     nextTick(() => periodTableList.value?.initDataList(true));
+  } else if (tabName === 'grade') {
+    nextTick(() => gradeConfigPanelRef.value?.initLoad(true));
   }
 }
 

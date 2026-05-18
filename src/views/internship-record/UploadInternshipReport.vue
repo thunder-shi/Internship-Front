@@ -72,7 +72,7 @@
           <template #content>
             <div class="score-detail-tooltip">
               <div v-for="(d, idx) in row._scoreDetail" :key="idx" class="score-detail-row">
-                第{{ d.levelOrder }}级 · {{ d.itemName }}：
+                第{{ d.levelOrder }}级：
                 <b>{{ d.score }}</b> / {{ d.maxScore }}（{{ d.weight }}%）
                 <span v-if="d.verifyUserName" class="score-verifier">— {{ d.verifyUserName }}</span>
               </div>

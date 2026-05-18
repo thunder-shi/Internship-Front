@@ -3,11 +3,6 @@
     <BaseList :default-props="defaultProps" :baselist-confirm="handleConfirm" ref="baseList" @append-click="appendClick"
       @edit-click="editClick" @view-click="viewClick" @delete-click="handleDeleteClick" @submit-click="handleSubmitClick"
       @more2-click="handleBatchSubmitClick">
-      <template #rightOperate="{ row }">
-        <el-button type="success" size="small" title="评分配置" @click.stop="openGradeConfig(row)">
-          <el-icon><Tickets /></el-icon>
-        </el-button>
-      </template>
       <template #dlg>
         <!-- 自定义新增对话框：基本信息 + 模板流程预览 -->
         <DlgBasic ref="createDlgRef" :default-props="createDlgProps" :dlgbasic-confirm="onCreateDlgConfirm" @close-dialog="onCreateDlgClose">
@@ -42,8 +37,6 @@
     <!-- 审核进度查看对话框 -->
     <DlgVerifyProgress v-model="showProgressDialog" :main-internship-id="currentRow.internshipId"
       :process-info="currentRow" key-words="ViewVerifyProcessInternship" />
-    <!-- 评分配置对话框 -->
-    <DlgGradeConfig ref="gradeConfigDlgRef" />
   </div>
   <el-card v-else-if="enterpriseAccessReady" shadow="never">
     <el-empty description="企业信息未审核通过，暂无校外实习申报资格" />
@@ -64,14 +57,12 @@
 import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Tickets } from '@element-plus/icons-vue';
 import BaseList from '@/views/master-page/BaseList.vue';
 import DlgBasic from '@/components/DlgBasic.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import FormItemsforDialog from '@/components/FormItemsforDialog.vue';
 import DlgInternshipDetail from '@/views/dialogs/DlgInternshipDetail.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
-import DlgGradeConfig from './components/DlgGradeConfig.vue';
 import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import listAPI from '@/api/list';
@@ -432,21 +423,6 @@ async function handleBatchSubmitClick(rows) {
 
 const handleUpdateRecord = () => {
   baseList.value?.initDataList();
-};
-
-// 评分配置：打开对话框（按 internshipId + MainDiary 维度配置）
-const gradeConfigDlgRef = ref(null);
-const openGradeConfig = (row) => {
-  if (!row?.internshipId) {
-    ElMessage.warning('缺少实习项目 ID，无法打开评分配置');
-    return;
-  }
-  gradeConfigDlgRef.value?.open({
-    internshipId: row.internshipId,
-    internshipName: row.internshipName || row.name || '',
-    sourceTable: 'MainDiary',
-    sourceLabel: '实习日志',
-  });
 };
 
 onMounted(async () => {

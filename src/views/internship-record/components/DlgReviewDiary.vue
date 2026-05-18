@@ -143,7 +143,7 @@ const formRules = {
   ],
 }
 
-const scoreLabel = computed(() => gradeItem.value?.itemName || '评分')
+const scoreLabel = computed(() => gradeItem.value ? `第 ${gradeItem.value.levelOrder} 级评分` : '评分')
 
 const reasonLabel = computed(() => {
   if (form.isAudit === AUDIT_STATUS.PASS) return '批阅意见'

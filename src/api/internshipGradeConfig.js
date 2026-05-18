@@ -12,7 +12,7 @@ import request from '@/utils/request';
  * 响应（破坏性变更）：
  *   data: {
  *     internshipId, sourceTable,
- *     items: [{ id, levelOrder, itemName, weight, maxScore, orderNum, ... }],
+ *     items: [{ id, levelOrder, weight, maxScore, ... }],  // 一级一项，无 itemName/orderNum
  *     maxLevelOrder, // 日志.verifyTypeId - 1；无日志/NO_VERIFY 时为 null
  *     locked,        // true = 已有 SUBMIT/PASS 日志，配置只读
  *     totalWeight, expected, valid,
