@@ -23,6 +23,27 @@
         <el-tag :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
       </template>
 
+      <template #totalScore="{ row }">
+        <el-tooltip
+          v-if="row._totalScore != null && row._scoreDetail?.length"
+          placement="top"
+          effect="light"
+        >
+          <template #content>
+            <div class="score-detail-tooltip">
+              <div v-for="(d, idx) in row._scoreDetail" :key="idx" class="score-detail-row">
+                第{{ d.levelOrder }}级 · {{ d.itemName }}：
+                <b>{{ d.score }}</b> / {{ d.maxScore }}（{{ d.weight }}%）
+                <span v-if="d.verifyUserName" class="score-verifier">— {{ d.verifyUserName }}</span>
+              </div>
+            </div>
+          </template>
+          <el-tag type="success">{{ row._totalScore }}</el-tag>
+        </el-tooltip>
+        <span v-else-if="row._totalScore != null">{{ row._totalScore }}</span>
+        <span v-else>—</span>
+      </template>
+
       <template #rightOperate="{ row }">
         <el-button type="warning" size="small" title="学生详情" @click.stop="openStudentDetail(row)">
           <el-icon>
@@ -57,6 +78,17 @@ import DiaryStatsCard from './components/DiaryStatsCard.vue'
 import listAPI from '@/api/list'
 import { getPeriodStudents } from '@/api/diary'
 import { getDiaryStatusText, getDiaryTagType, canReviewDiary } from '@/utils/verify'
+
+function parseScoreDetail(raw) {
+  if (!raw) return null
+  if (Array.isArray(raw)) return raw
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
 
 defineOptions({ name: 'ReviewInternshipReport' })
 
@@ -113,6 +145,8 @@ async function fetchRecordsFunc() {
     _postOrTitle: row.internshipPostName || row.titleName || null,
     _submitTime: row.diary?.createTime ?? null,
     _diaryTitle: row.diary?.title ?? null,
+    _totalScore: row.diary?.totalScore ?? null,
+    _scoreDetail: parseScoreDetail(row.diary?.scoreDetail),
   }))
 
   allStudents.value = flat
@@ -172,6 +206,7 @@ const dtlProps = computed(() => ({
       { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: '_submitTime' },
       { id: 5, showName: '日志标题', theOrder: 5, tableColumnName: '_diaryTitle' },
       { id: 7, showName: '审核状态', theOrder: 7, tableColumnName: 'customize-status' },
+      { id: 8, showName: '总成绩', theOrder: 8, tableColumnName: 'customize-totalScore' },
     ],
   },
 }))
@@ -191,7 +226,7 @@ const dlgBatchReviewRef = ref(null)
 const dlgDetailRef = ref(null)
 
 function onAuditClick(row) {
-  dlgReviewRef.value?.open(row)
+  dlgReviewRef.value?.open(row, { internshipId: selectedInternshipId.value })
 }
 
 function onBatchAuditClick() {
@@ -200,7 +235,7 @@ function onBatchAuditClick() {
     ElMessage.warning('当前列表中没有待审核的日志')
     return
   }
-  dlgBatchReviewRef.value?.open(pending)
+  dlgBatchReviewRef.value?.open(pending, { internshipId: selectedInternshipId.value })
 }
 
 function onViewClick(rowOrArray) {
@@ -223,5 +258,20 @@ function onReviewSuccess() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.score-detail-tooltip {
+  max-width: 320px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.score-detail-row {
+  white-space: nowrap;
+}
+
+.score-verifier {
+  color: #909399;
+  margin-left: 4px;
 }
 </style>
