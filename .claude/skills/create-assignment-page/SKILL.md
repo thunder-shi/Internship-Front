@@ -113,7 +113,8 @@ const verifyPageRef = ref(null);
 | 组件 | 用途 |
 |------|------|
 | `DlgStudentSelect.vue` | 学生选择（左侧部门树 + 右侧学生列表） |
-| `DlgTeacherSelect.vue` | 教师选择（左侧部门树 + 右侧教师列表） |
+| `DlgTeacherSelect.vue` | 校内教师选择（jobCode: SCHOOL_TEACHER） |
+| `DlgCompanyTeacherSelect.vue` | 企业教师选择（jobCode: COMPANY_TUTOR） |
 
 ## 关键 Composables
 

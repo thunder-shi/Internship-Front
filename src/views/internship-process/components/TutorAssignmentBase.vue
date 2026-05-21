@@ -151,6 +151,12 @@ const props = defineProps({
 
   /** 选择项目后、刷新表格前的初始化逻辑（可选） */
   beforeRefreshOnProjectSelected: { type: Function, default: null },
+
+  /** listAssignableTeachers 的岗位筛选：校内 SCHOOL_TEACHER / 企业 COMPANY_TUTOR */
+  assignableTeacherJobCode: {
+    type: String,
+    default: () => CONSTANT.USER_JOB_CODE.SCHOOL_TEACHER,
+  },
 });
 
 defineOptions({
@@ -420,6 +426,9 @@ async function loadRoleOptionsByDepartment(role, departmentId) {
   }
   if (!departmentId) return [];
   const payload = { internshipId, departmentId };
+  if (role === 'teacher' && props.assignableTeacherJobCode) {
+    payload.jobCode = props.assignableTeacherJobCode;
+  }
   const res =
     role === 'teacher'
       ? await internshipProcessAPI.listAssignableTeachers(payload)
@@ -551,7 +560,11 @@ async function confirmManualAssign() {
     return;
   }
   if (manualAssignTeacherOnly.value) {
-    const relId = manualAssignTargetRow.value?.relTeaStuId;
+    const relId = pickFirstNonEmpty(manualAssignTargetRow.value, [
+      'relTeaStuId',
+      'relationId',
+      'relTeacherStudentId',
+    ]);
     const mainRowId = manualAssignTargetRow.value?.id;
     if (!relId) {
       ElMessage.warning('当前记录缺少关系ID');

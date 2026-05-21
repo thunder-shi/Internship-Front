@@ -6,6 +6,7 @@
     no-project-message="当前没有可分配校内导师的实习项目"
     main-title="分配校内导师"
     :list-key-word="TUTOR_ASSIGNMENT_INTERNAL_LIST_KEY_WORD"
+    :assignable-teacher-job-code="CONSTANT.USER_JOB_CODE.SCHOOL_TEACHER"
     system-assign-mode="manual"
     :submit-row-condition="submitRowCondition"
   >

@@ -4,12 +4,14 @@
 
 ```
 AssignmentPage.vue (通用安排组件)
-    ├── StudentAssignment.vue     - 学生实习项目安排
-    └── TeacherAssignment.vue     - 指导老师安排
+    ├── StudentAssignment.vue          - 学生实习项目安排
+    ├── TeacherAssignment.vue          - 校内指导老师安排（TEACHER_SELECT_INTERNALSHIP / SCHOOL_TEACHER）
+    └── CompanyTeacherAssignment.vue   - 企业老师实习项目安排（TUTOR_SELECT_INTERNALSHIP / COMPANY_TUTOR）
 
 AssignmentVerifyPage.vue (通用审核组件)
     ├── StudentAssignmentVerify.vue
-    └── TeacherAssignmentVerify.vue
+    ├── TeacherAssignmentVerify.vue
+    └── CompanyTeacherAssignmentVerify.vue
 
 TutorAssignmentBase.vue → TutorAssignmentVerifyPage.vue
     ├── EnterpriseTutorAssignment/Verify.vue   (校外企业导师)
@@ -37,10 +39,10 @@ InternshipPostHeaderPage.vue (master-page/)  ← 项目选择 + BaseList
 ## 关键 Composables
 
 ```javascript
-import { useAssignmentPageConfig } from '@/utils/useAssignmentPageConfig'
-import { useAssignmentActions } from '@/utils/useAssignmentActions'
-import { useBatchVerifyAuditDialog } from '@/utils/useBatchVerifyAuditDialog'
-import { useProcessWindowProjectSelectKeys } from '@/utils/useProcessWindowProjectSelectKeys'
+import { useAssignmentPageConfig } from '@/utils/useAssignmentPageConfig';
+import { useAssignmentActions } from '@/utils/useAssignmentActions';
+import { useBatchVerifyAuditDialog } from '@/utils/useBatchVerifyAuditDialog';
+import { useProcessWindowProjectSelectKeys } from '@/utils/useProcessWindowProjectSelectKeys';
 ```
 
 ## 选题模块
@@ -54,6 +56,7 @@ StuSelectTopic.vue                - 学生选题
 ```
 
 学生选题状态流: 提交 → 老师审核 → 通过/不通过
+
 - 不通过后 `acknowledgeRejectedTitleSelection` 清理记录，学生可重新选
 - 老师可显式调 `confirmStudentTopicSelection`（`auditProcess` 通过时后端也会自动触发）
 

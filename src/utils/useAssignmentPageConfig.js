@@ -1,6 +1,6 @@
 /**
  * 实习安排/审核页面公共配置 composable
- * 供 StudentAssignment、TeacherAssignment、StudentAssignmentVerify、TeacherAssignmentVerify 使用
+ * 供 StudentAssignment、TeacherAssignment、CompanyTeacherAssignment 及对应审核页使用
  */
 import { reactive, ref, computed } from 'vue';
 import { useStore } from 'vuex';
@@ -9,7 +9,7 @@ import CONSTANT from '@/utils/constant';
 
 /**
  * @param {Object} options
- * @param {string} options.processTypeCode - CONSTANT.PROCESS_TYPE.STUDENT_SELECT_INTERNSHIP | TEACHER_SELECT_INTERNALSHIP
+ * @param {string} options.processTypeCode - STUDENT_SELECT_INTERNSHIP | TEACHER_SELECT_INTERNALSHIP | TUTOR_SELECT_INTERNALSHIP
  * @param {string} options.mainTitle - 页面主标题，如 '学生实习项目安排'
  * @param {boolean} [options.withMajorFilter=true] - 是否按专业过滤项目（安排页 true，审核页 false）
  */
