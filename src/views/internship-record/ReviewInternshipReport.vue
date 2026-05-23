@@ -79,17 +79,6 @@ import listAPI from '@/api/list'
 import { getPeriodStudents } from '@/api/diary'
 import { getDiaryStatusText, getDiaryTagType, canReviewDiary } from '@/utils/verify'
 
-function parseScoreDetail(raw) {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : null
-  } catch {
-    return null
-  }
-}
-
 defineOptions({ name: 'ReviewInternshipReport' })
 
 const store = useStore()
@@ -146,8 +135,36 @@ async function fetchRecordsFunc() {
     _submitTime: row.diary?.createTime ?? null,
     _diaryTitle: row.diary?.title ?? null,
     _totalScore: row.diary?.totalScore ?? null,
-    _scoreDetail: parseScoreDetail(row.diary?.scoreDetail),
+    _scoreDetail: null,
   }))
+
+  // 批量查询评分明细（ViewMainDiaryScoreDetail 独立表）
+  const diaryIds = [...new Set(flat.map(r => r.diary?.id).filter(Boolean))]
+  if (diaryIds.length) {
+    try {
+      const sdRes = await listAPI.getSomeRecords({
+        keyWords: 'ViewMainDiaryScoreDetail',
+        searchKey: { diaryId: diaryIds.join(',') },
+        reg: { diaryId: '()' },
+        sort: { properties: 'diaryId', direction: 'ASC' },
+        pageInfo: { page: 1, size: 10000 },
+      })
+      const sdList = sdRes?.data?.content || sdRes?.data || []
+      const sdMap = {}
+      for (const d of sdList) {
+        const key = d.diaryId
+        if (!sdMap[key]) sdMap[key] = []
+        sdMap[key].push(d)
+      }
+      for (const row of flat) {
+        if (row.diary?.id && sdMap[row.diary.id]) {
+          row._scoreDetail = sdMap[row.diary.id]
+        }
+      }
+    } catch (e) {
+      console.error('加载评分明细失败:', e)
+    }
+  }
 
   allStudents.value = flat
   return { data: { content: flat, totalElements: flat.length }, message: 'successful' }

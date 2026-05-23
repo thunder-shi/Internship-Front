@@ -7,8 +7,8 @@
         <!-- 自定义新增对话框：基本信息 + 模板流程预览 -->
         <DlgBasic ref="createDlgRef" :default-props="createDlgProps" :dlgbasic-confirm="onCreateDlgConfirm" @close-dialog="onCreateDlgClose">
           <template #mainForm>
-            <el-tabs v-model="createDlgTab" class="create-dlg-tabs">
-              <el-tab-pane label="基本信息" name="basic">
+            <div class="create-dlg-body">
+              <div class="create-dlg-form">
                 <FormItemsforDialog
                   ref="createFormItemsRef"
                   :form="createForm"
@@ -17,16 +17,14 @@
                   label-width="100px"
                   @simple-select-change="onCreateSelectChange"
                 />
-              </el-tab-pane>
-              <el-tab-pane label="模板流程" name="process">
-                <div v-if="!processTableInternshipTypeId" class="process-empty-hint">
-                  请先在「基本信息」页选择实习模板
-                </div>
-                <div v-show="processTableInternshipTypeId" class="process-dtl-wrapper">
+              </div>
+              <div class="process-inline-section">
+                <div class="process-inline-title">模板流程预览</div>
+                <div class="process-dtl-wrapper">
                   <DataTableList ref="processTableRef" :default-props="processTableProps" />
                 </div>
-              </el-tab-pane>
-            </el-tabs>
+              </div>
+            </div>
           </template>
         </DlgBasic>
       </template>
@@ -115,7 +113,6 @@ const { getVerifyRoleName } = useVerifyFilter();
 const createDlgRef = ref(null);
 const createFormItemsRef = ref(null);
 const createForm = reactive({});
-const createDlgTab = ref('basic');
 
 // 模板流程预览表格
 const processTableRef = ref(null);
@@ -134,12 +131,14 @@ const createDlgFormRules = {
 };
 
 const processTableProps = computed(() => ({
+  bottomOffset: 53,
   sortStr: { properties: 'theOrder', direction: 'ASC' },
+  pageInfo: { page: 1, size: 25 },
   someFlags: {
     operateShow: false,
     checkFlag: false,
     hideSelectColumn: true,
-    showPage: false,
+    showPage: true,
     autoInit: false,
     noAdvancedSearch: true,
   },
@@ -166,8 +165,8 @@ const createDlgProps = reactive({
     repeatAdd: { show: false },
   },
   someFlags: {
-    autoMax: false,
-    needMaxBtn: false,
+    autoMax: true,
+    needMaxBtn: true,
     needValidate: false,
   },
 });
@@ -194,7 +193,6 @@ async function onCreateDlgConfirm(option, type) {
 
 function onCreateDlgClose() {
   processTableInternshipTypeId.value = null;
-  createDlgTab.value = 'basic';
 }
 
 // 处理编辑按钮点击事件
@@ -292,7 +290,6 @@ const appendClick = () => {
   // 重置表单
   Object.keys(createForm).forEach(k => delete createForm[k]);
   processTableInternshipTypeId.value = null;
-  createDlgTab.value = 'basic';
   createDlgRef.value?.showDialog(true, {}, 'append');
   nextTick(() => {
     createFormItemsRef.value?.formPanelRef?.clearValidate();
@@ -507,43 +504,62 @@ const defaultProps = computed(() => ({
 </script>
 
 <style scoped>
-.create-dlg-tabs {
-  width: 100%;
-}
-
-.create-dlg-tabs :deep(.el-tabs__content) {
-  padding-top: 16px;
-}
-
-.process-empty-hint {
-  color: #909399;
-  text-align: center;
-  padding: 40px 0;
-  font-size: 14px;
-}
-
-.process-dtl-wrapper {
-  height: 260px;
+/* body 已由全局 CSS 设为 flex:1 + flex-direction:column，
+   .create-dlg-body 作为直接子元素继承 flex 布局即可 */
+.create-dlg-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
   overflow: hidden;
 }
 
-/* 去掉 el-card 边框和 padding，使内部 el-table 高度精确匹配容器，避免底部被裁 */
+.create-dlg-form {
+  flex-shrink: 0;
+}
+
+.process-inline-section {
+  flex: 1;
+  min-height: 200px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.process-inline-title {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 12px;
+}
+
+.process-dtl-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 去掉 el-card 边框和 padding */
 .process-dtl-wrapper :deep(.el-card) {
   border: none;
   box-shadow: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .process-dtl-wrapper :deep(.el-card__body) {
   padding: 0;
-}
-
-/* 覆盖 v-adaptive 基于视口计算的高度，固定在对话框内 */
-.process-dtl-wrapper :deep(.el-table) {
-  height: 260px !important;
-}
-
-.process-dtl-wrapper :deep(.el-table__body-wrapper) {
-  height: 220px !important;
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 </style>

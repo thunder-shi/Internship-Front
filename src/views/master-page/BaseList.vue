@@ -21,7 +21,11 @@
       <SimpleDialog ref="simpleDialog" :default-props="defaultProps.defaultSDProps" :simpledialog-confirm="confirm"
         :simpledialog-submit="submit" @update-record="handleUpdateRecord" @submit-more="submitMore"
         @simple-select-change="SimpleSelectChange" @tree-select-change="treeSelectChange"
-        @confirm-click="confirmClick" />
+        @confirm-click="confirmClick">
+        <template v-if="$slots.dlgBottom" #bottomItems="slotProps">
+          <slot name="dlgBottom" v-bind="slotProps" />
+        </template>
+      </SimpleDialog>
     </slot>
   </div>
 </template>
