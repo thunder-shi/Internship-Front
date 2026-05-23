@@ -20,8 +20,8 @@
             <el-empty v-else description="请先在「基础信息」页保存项目信息后，再配置流程安排" :image-size="80" />
           </el-tab-pane>
 
-          <!-- Tab 4: 评分配置 -->
-          <el-tab-pane label="评分配置" name="grade">
+          <!-- 评分配置 tab（多级打分功能暂缓，暂时隐藏） -->
+          <!-- <el-tab-pane label="评分配置" name="grade">
             <div v-if="form.internshipId" class="tab-pane-content">
               <GradeConfigPanel
                 ref="gradeConfigPanelRef"
@@ -31,7 +31,7 @@
               />
             </div>
             <el-empty v-else description="请先在「基础信息」页保存项目信息后，再配置评分" :image-size="80" />
-          </el-tab-pane>
+          </el-tab-pane> -->
 
           <!-- Tab 3: 报告周期 -->
           <el-tab-pane label="报告周期" name="period">

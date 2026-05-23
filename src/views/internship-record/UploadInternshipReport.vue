@@ -64,23 +64,7 @@
         <el-tag v-else :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
       </template>
       <template #totalScore="{ row }">
-        <el-tooltip
-          v-if="row._totalScore != null && row._scoreDetail?.length"
-          placement="top"
-          effect="light"
-        >
-          <template #content>
-            <div class="score-detail-tooltip">
-              <div v-for="(d, idx) in row._scoreDetail" :key="idx" class="score-detail-row">
-                第{{ d.levelOrder }}级：
-                <b>{{ d.score }}</b> / {{ d.maxScore }}（{{ d.weight }}%）
-                <span v-if="d.verifyUserName" class="score-verifier">— {{ d.verifyUserName }}</span>
-              </div>
-            </div>
-          </template>
-          <el-tag type="success">{{ row._totalScore }}</el-tag>
-        </el-tooltip>
-        <span v-else-if="row._totalScore != null">{{ row._totalScore }}</span>
+        <span v-if="row._totalScore != null">{{ row._totalScore }}</span>
         <span v-else>—</span>
       </template>
       <template #rightOperate="{ row }">
@@ -165,36 +149,7 @@ async function fetchRecordsFunc() {
   const list = (res?.data || []).map(row => ({
     ...row,
     _totalScore: row.diary?.totalScore ?? null,
-    _scoreDetail: null,
   }))
-
-  // 批量查询评分明细（ViewMainDiaryScoreDetail 独立表）
-  const diaryIds = [...new Set(list.map(r => r.diary?.id).filter(Boolean))]
-  if (diaryIds.length) {
-    try {
-      const sdRes = await listAPI.getSomeRecords({
-        keyWords: 'ViewMainDiaryScoreDetail',
-        searchKey: { diaryId: diaryIds.join(',') },
-        reg: { diaryId: '()' },
-        sort: { properties: 'diaryId', direction: 'ASC' },
-        pageInfo: { page: 1, size: 10000 },
-      })
-      const sdList = sdRes?.data?.content || sdRes?.data || []
-      const sdMap = {}
-      for (const d of sdList) {
-        const key = d.diaryId
-        if (!sdMap[key]) sdMap[key] = []
-        sdMap[key].push(d)
-      }
-      for (const row of list) {
-        if (row.diary?.id && sdMap[row.diary.id]) {
-          row._scoreDetail = sdMap[row.diary.id]
-        }
-      }
-    } catch (e) {
-      console.error('加载评分明细失败:', e)
-    }
-  }
 
   return { data: { content: list, totalElements: list.length }, message: 'successful' }
 }
@@ -562,20 +517,5 @@ onActivated(async () => {
 
 :deep(.current-period-row:hover td) {
   background-color: #d9ecff !important;
-}
-
-.score-detail-tooltip {
-  max-width: 320px;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.score-detail-row {
-  white-space: nowrap;
-}
-
-.score-verifier {
-  color: #909399;
-  margin-left: 4px;
 }
 </style>
