@@ -1,5 +1,6 @@
 import router, { constantRoutes } from '@/router/index'
 import Layout from '@/layout/Index.vue'
+import ParentView from '@/layout/ParentView.vue'
 
 /**
  * 递归权限过滤和数据转换
@@ -20,7 +21,7 @@ export const filterAsyncRoutes = (routes, parentPath = '') => {
     const temp = generateRoute(route, parentPath)
     // 如果父级路由包含子路由，递归调用 filterAsyncRoutes
     if (route.children && route.children.length) {
-      const children = filterAsyncRoutes(route.children, route.path)
+      const children = filterAsyncRoutes(route.children, temp.path)
       temp.children = children
     }
     result.push(temp)
@@ -57,7 +58,16 @@ export const generateRoute = (route, parentPath) => {
     },
     hidden: route.hidden
   }
-  tempRoute.component = route.component === 'Layout' ? Layout : loadView(route.component)  
+  // ParentView 作为目录层时，即使只有一个子菜单也保留本级展示（避免侧边栏被拍平成两层）
+  if (route.component === 'ParentView') {
+    tempRoute.alwaysShow = true
+  }
+  tempRoute.component =
+    route.component === 'Layout'
+      ? Layout
+      : route.component === 'ParentView'
+        ? ParentView
+        : loadView(route.component)
   return tempRoute
 }
 
