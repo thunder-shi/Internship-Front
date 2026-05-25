@@ -42,7 +42,39 @@
               title="该岗位流程尚未全部通过审核，打卡可能受限；如有疑问请联系管理员。"
             />
             <el-alert
-              v-if="hasCheckedInToday"
+              v-if="signNotRequired"
+              type="info"
+              :closable="false"
+              show-icon
+              class="mb-16"
+              title="当前实习项目未在流程安排中配置学生打卡，无需打卡。"
+            />
+            <el-alert
+              v-else-if="signWindowStatus === 'missingTime'"
+              type="warning"
+              :closable="false"
+              show-icon
+              class="mb-16"
+              title="已配置学生打卡流程，但未设置流程开始/结束时间，请联系管理员。"
+            />
+            <el-alert
+              v-else-if="signWindowStatus === 'before'"
+              type="warning"
+              :closable="false"
+              show-icon
+              class="mb-16"
+              :title="`打卡尚未开放，请在流程时间内打卡（${signProcessTimeText}）`"
+            />
+            <el-alert
+              v-else-if="signWindowStatus === 'after'"
+              type="warning"
+              :closable="false"
+              show-icon
+              class="mb-16"
+              :title="`打卡已结束，流程时间为 ${signProcessTimeText}`"
+            />
+            <el-alert
+              v-if="isSignProcessEnabled && hasCheckedInToday"
               type="info"
               :closable="false"
               show-icon
@@ -50,7 +82,7 @@
               title="今日已在该岗位完成签到，无需重复签到；如需离开可提交签退。"
             />
             <el-alert
-              v-if="hasCheckedOutToday"
+              v-if="isSignProcessEnabled && hasCheckedOutToday"
               type="info"
               :closable="false"
               show-icon
@@ -58,7 +90,7 @@
               title="今日已在该岗位完成签退，无需重复签退。"
             />
             <el-alert
-              v-if="hasRejectedSignToday"
+              v-if="isSignProcessEnabled && hasRejectedSignToday"
               type="warning"
               :closable="false"
               show-icon
@@ -66,6 +98,7 @@
               title="检测到你今天有审核退回的打卡记录，请重新提交一次打卡。"
             />
             <el-form
+              v-if="isSignProcessEnabled"
               ref="formRef"
               :model="form"
               :rules="formRules"
@@ -77,6 +110,9 @@
               </el-form-item>
               <el-form-item label="岗位">
                 <span>{{ displayPostName }}</span>
+              </el-form-item>
+              <el-form-item label="打卡时段">
+                <span>{{ signProcessTimeText || '—' }}</span>
               </el-form-item>
               <el-form-item label="打卡类型" prop="signType">
                 <el-radio-group v-model="form.signType">
@@ -280,6 +316,8 @@ const formRules = {
 
 const locLoading = ref(false);
 const submitting = ref(false);
+/** 当前岗位所属实习项目的打卡流程安排（ViewRelProcessInternship：流程开始/结束时间） */
+const signProcessConfig = ref(null);
 
 const historyRows = ref([]);
 const historyListRef = ref(null);
@@ -518,8 +556,29 @@ function resolveMainVerifyProcessIdFromSignHistoryRow(row) {
   return Number.isFinite(n) ? n : null;
 }
 
+const signWindowStatus = computed(() => getSignWindowStatus(signProcessConfig.value));
+
+/** 实习项目流程安排中未配置学生打卡（STUDENT_SIGN） */
+const signNotRequired = computed(() => signWindowStatus.value === 'none');
+
+const isSignProcessEnabled = computed(() => !signNotRequired.value);
+
+const isWithinSignProcessWindow = computed(() => signWindowStatus.value === 'within');
+
+const signProcessTimeText = computed(() => {
+  if (signNotRequired.value) return '未配置学生打卡';
+  const c = signProcessConfig.value;
+  const start = formatProcessTimeDisplay(c?.startTime ?? c?.start_time);
+  const end = formatProcessTimeDisplay(c?.endTime ?? c?.end_time);
+  if (!start && !end) return '—';
+  if (start && end) return `${start} 至 ${end}`;
+  return start || end;
+});
+
 const canSubmit = computed(() => {
   if (!currentPost.value) return false;
+  if (!isSignProcessEnabled.value) return false;
+  if (!isWithinSignProcessWindow.value) return false;
   if (form.signType === SIGN_IN && hasCheckedInToday.value) return false;
   if (form.signType === SIGN_OUT && hasCheckedOutToday.value) return false;
   if (!form.address?.trim()) return false;
@@ -538,6 +597,58 @@ function signTypeLabel(v) {
   const n = v != null ? Number(v) : null;
   const hit = signTypeOptions.find((o) => o.value === n);
   return hit ? hit.label : v != null ? String(v) : '—';
+}
+
+function formatProcessTimeDisplay(value) {
+  if (value == null || value === '') return '';
+  const s = String(value);
+  return s.length >= 16 ? s.substring(0, 16) : s.substring(0, 10);
+}
+
+function parseProcessDateTime(value) {
+  if (value == null || value === '') return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** 相对流程安排：none 未配置打卡 | missingTime 无时段 | before | within | after */
+function getSignWindowStatus(config) {
+  if (!config) return 'none';
+  const start = parseProcessDateTime(config.startTime ?? config.start_time);
+  const end = parseProcessDateTime(config.endTime ?? config.end_time);
+  if (!start || !end) return 'missingTime';
+  const now = new Date();
+  if (now < start) return 'before';
+  if (now > end) return 'after';
+  return 'within';
+}
+
+function warnSignWindowBlocked() {
+  if (signNotRequired.value) return;
+  const status = signWindowStatus.value;
+  const range = signProcessTimeText.value;
+  if (status === 'before') {
+    ElMessage.warning(range ? `打卡尚未开放，流程时间为 ${range}` : '打卡尚未开放');
+    return;
+  }
+  if (status === 'after') {
+    ElMessage.warning(range ? `打卡已结束，流程时间为 ${range}` : '打卡已结束');
+    return;
+  }
+  if (status === 'missingTime') {
+    ElMessage.warning('打卡流程未设置开始/结束时间，请联系管理员');
+    return;
+  }
+}
+
+async function refreshSignProcessConfig() {
+  const post = currentPost.value;
+  const internshipId = post?.internshipId ?? post?.mainInternshipId ?? post?.internship_id;
+  if (!internshipId) {
+    signProcessConfig.value = null;
+    return;
+  }
+  signProcessConfig.value = await querySignProcessConfig(internshipId);
 }
 
 async function loadExternalPosts() {
@@ -569,6 +680,7 @@ async function loadExternalPosts() {
 
 function onPostChange() {
   refreshHistoryList();
+  refreshSignProcessConfig();
 }
 
 function onPhotoChange(e) {
@@ -645,21 +757,25 @@ function parseImgIdFromUpload(res) {
   return null;
 }
 
-async function querySignProcessVerifyRoles(internshipId) {
+const SIGN_PROCESS_TYPE_CODE =
+  CONSTANT?.PROCESS_TYPE?.STUDENT_SIGN ?? CONSTANT?.PROCESS_TYPE?.STU_SIGN ?? 'STUDENT_SIGN';
+
+/** 实习项目流程安排：打卡流程的开始/结束时间及审核角色（ViewRelProcessInternship） */
+async function querySignProcessConfig(internshipId) {
   if (!internshipId) return null;
   try {
-    const processTypeCode =
-      CONSTANT?.PROCESS_TYPE?.STUDENT_SIGN ?? CONSTANT?.PROCESS_TYPE?.STU_SIGN ?? 'STUDENT_SIGN';
     const res = await listAPI.getSomeRecords({
       keyWords: 'ViewRelProcessInternship',
       pageInfo: { page: 1, size: 1 },
-      searchKey: { internshipId, processTypeCode },
+      searchKey: { internshipId, processTypeCode: SIGN_PROCESS_TYPE_CODE },
       reg: { internshipId: '=', processTypeCode: '=' },
       sort: { properties: 'id', direction: 'DESC' },
     });
     const first = res?.data?.content?.[0] ?? res?.data?.[0];
     if (!first) return null;
     return {
+      startTime: first.startTime ?? first.start_time ?? null,
+      endTime: first.endTime ?? first.end_time ?? null,
       verifyFirstRoleId: first.verifyFirstRoleId ?? null,
       verifyFirstRoleName: first.verifyFirstRoleName ?? null,
       verifySecondRoleId: first.verifySecondRoleId ?? null,
@@ -672,7 +788,7 @@ async function querySignProcessVerifyRoles(internshipId) {
       verifyFifthRoleName: first.verifyFifthRoleName ?? null,
     };
   } catch (error) {
-    console.error('查询打卡流程角色失败:', error);
+    console.error('查询打卡流程安排失败:', error);
     return null;
   }
 }
@@ -685,6 +801,13 @@ async function handleSubmit() {
   }
   if (!currentPost.value) {
     ElMessage.warning('请选择实习岗位');
+    return;
+  }
+  if (signNotRequired.value) {
+    return;
+  }
+  if (!isWithinSignProcessWindow.value) {
+    warnSignWindowBlocked();
     return;
   }
   if (!photoRaw.value) {
@@ -724,9 +847,19 @@ async function handleSubmit() {
       node.id = Number(pendingMainSignId);
     }
     const internshipId = post?.internshipId ?? post?.mainInternshipId ?? post?.internship_id;
-    const verifyRoleInfo = await querySignProcessVerifyRoles(internshipId);
+    if (!signProcessConfig.value && internshipId) {
+      signProcessConfig.value = await querySignProcessConfig(internshipId);
+    }
+    if (!isWithinSignProcessWindow.value) {
+      warnSignWindowBlocked();
+      return;
+    }
+    const verifyRoleInfo = signProcessConfig.value;
     if (verifyRoleInfo) {
       Object.keys(verifyRoleInfo).forEach((k) => {
+        if (k === 'startTime' || k === 'endTime' || k === 'start_time' || k === 'end_time') {
+          return;
+        }
         if (verifyRoleInfo[k] != null && verifyRoleInfo[k] !== '') {
           node[k] = verifyRoleInfo[k];
         }
@@ -815,6 +948,7 @@ function openSignVerifyProgress(row) {
 
 watch(currentPost, () => {
   refreshHistoryList();
+  refreshSignProcessConfig();
 });
 
 watch(hasCheckedInToday, (checked) => {
@@ -832,7 +966,7 @@ watch(hasCheckedOutToday, (checked) => {
 onMounted(async () => {
   await loadExternalPosts();
   if (currentPost.value?.relationId) {
-    await refreshHistoryList();
+    await Promise.all([refreshHistoryList(), refreshSignProcessConfig()]);
   }
 });
 
