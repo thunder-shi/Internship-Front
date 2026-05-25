@@ -1,7 +1,19 @@
 <template>
   <div v-if="enterpriseAccessReady && !enterpriseBlocked" class="build-internship-container">
     <BaseList :default-props="defaultProps" ref="baseList" :baselist-confirm="handleConfirm" @append-click="appendClick"
-      @edit-click="editClick" @delete-click="handleDeleteClick">
+      @edit-click="editClick" @delete-click="handleDeleteClick" @simple-select-change="onSimpleSelectChange">
+      <!-- 新增弹窗内：模板下方实时显示该模板的流程列表（只读预览） -->
+      <template #dlgBottom>
+        <div class="template-process-preview">
+          <div class="template-process-title">该模板包含的流程</div>
+          <DataTableList
+            v-if="selectedTypeId"
+            ref="templateProcessTableRef"
+            :default-props="templateProcessTableProps"
+          />
+          <el-empty v-else description="请先选择实习模板" :image-size="60" />
+        </div>
+      </template>
     </BaseList>
     <!-- 自定义编辑窗口（独立于 BaseList，只用于编辑） -->
     <DlgMainInternship ref="dlgMainInternship" :user-department-id="userDepartmentId" :is-super-admin="isSuperAdmin"
@@ -24,10 +36,11 @@
  * 审核发生在后续的具体流程中（如"实习计划制定"），
  * 提交计划后，按照流程配置的审核要求进行审核。
  */
-import { ref, computed, onBeforeUnmount, onMounted } from 'vue';
+import { ref, computed, onBeforeUnmount, onMounted, nextTick } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import BaseList from '@/views/master-page/BaseList.vue';
+import DataTableList from '@/components/DataTableList.vue';
 import DlgMainInternship from '@/views/dialogs/DlgMainInternship.vue';
 import otherAPI from '@/api/other';
 import { ensureEnterpriseAccess } from '@/utils/enterpriseAccess';
@@ -110,8 +123,50 @@ const handleConfirm = async (_option, _type, form) => {
 
 // 处理新增按钮点击事件
 const appendClick = () => {
+  selectedTypeId.value = null;
   baseList.value?.openDlg('append', {});
 };
+
+// 新增弹窗：选择实习模板后实时刷新下方模板流程预览表
+const selectedTypeId = ref(null);
+const templateProcessTableRef = ref(null);
+
+const templateProcessTableProps = computed(() => ({
+  bottomOffset: 0,
+  sortStr: { properties: 'theOrder', direction: 'ASC' },
+  pageInfo: { page: 1, size: 100 },
+  initSearchWords: {
+    searchKey: { internshipTypeId: selectedTypeId.value },
+    regKey: { internshipTypeId: '=' },
+    andor: {},
+  },
+  someFlags: {
+    operateShow: false,
+    checkFlag: false,
+    showPage: false,
+    autoInit: true,
+    noAdvancedSearch: true,
+  },
+  defaultDTHProps: {
+    showTopButtons: false,
+    keyWord: { view: 'ViewRelProcessInternshipType', edit: 'RelProcessInternshipType' },
+    buttonProps: {
+      create: { show: false }, update: { show: false }, delete: { show: false },
+      up: { show: false }, down: { show: false },
+    },
+    allTableColumns: [
+      { id: 1, showName: '流程名称', theOrder: 1, tableColumnName: 'processTypeName', sortable: false },
+      { id: 2, showName: '审核要求', theOrder: 2, tableColumnName: 'verifyTypeName', sortable: false },
+    ],
+  },
+}));
+
+function onSimpleSelectChange(val, field) {
+  if (field === 'internshipTypeId') {
+    selectedTypeId.value = val ?? null;
+    nextTick(() => templateProcessTableRef.value?.initDataList(true));
+  }
+}
 
 // 处理编辑按钮点击事件，使用自定义的编辑窗口
 const editClick = (row) => {
@@ -194,3 +249,26 @@ const defaultProps = computed(() => ({
   },
 }));
 </script>
+
+<style scoped>
+.template-process-preview {
+  margin-top: 12px;
+  padding: 8px 0 0;
+  border-top: 1px dashed var(--el-border-color-lighter);
+}
+.template-process-title {
+  font-size: 13px;
+  color: #606266;
+  margin: 0 0 8px 8px;
+}
+.template-process-preview :deep(.el-card) {
+  border: none;
+  box-shadow: none;
+}
+.template-process-preview :deep(.el-card__body) {
+  padding: 0;
+}
+.template-process-preview :deep(.el-table) {
+  max-height: 280px;
+}
+</style>

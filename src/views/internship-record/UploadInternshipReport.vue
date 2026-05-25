@@ -64,23 +64,7 @@
         <el-tag v-else :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
       </template>
       <template #totalScore="{ row }">
-        <el-tooltip
-          v-if="row._totalScore != null && row._scoreDetail?.length"
-          placement="top"
-          effect="light"
-        >
-          <template #content>
-            <div class="score-detail-tooltip">
-              <div v-for="(d, idx) in row._scoreDetail" :key="idx" class="score-detail-row">
-                第{{ d.levelOrder }}级：
-                <b>{{ d.score }}</b> / {{ d.maxScore }}（{{ d.weight }}%）
-                <span v-if="d.verifyUserName" class="score-verifier">— {{ d.verifyUserName }}</span>
-              </div>
-            </div>
-          </template>
-          <el-tag type="success">{{ row._totalScore }}</el-tag>
-        </el-tooltip>
-        <span v-else-if="row._totalScore != null">{{ row._totalScore }}</span>
+        <span v-if="row._totalScore != null">{{ row._totalScore }}</span>
         <span v-else>—</span>
       </template>
       <template #rightOperate="{ row }">
@@ -165,20 +149,9 @@ async function fetchRecordsFunc() {
   const list = (res?.data || []).map(row => ({
     ...row,
     _totalScore: row.diary?.totalScore ?? null,
-    _scoreDetail: parseScoreDetail(row.diary?.scoreDetail),
   }))
-  return { data: { content: list, totalElements: list.length }, message: 'successful' }
-}
 
-function parseScoreDetail(raw) {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : null
-  } catch {
-    return null
-  }
+  return { data: { content: list, totalElements: list.length }, message: 'successful' }
 }
 
 const dtlProps = computed(() => ({
@@ -544,20 +517,5 @@ onActivated(async () => {
 
 :deep(.current-period-row:hover td) {
   background-color: #d9ecff !important;
-}
-
-.score-detail-tooltip {
-  max-width: 320px;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.score-detail-row {
-  white-space: nowrap;
-}
-
-.score-verifier {
-  color: #909399;
-  margin-left: 4px;
 }
 </style>

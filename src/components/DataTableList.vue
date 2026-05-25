@@ -764,9 +764,9 @@ const calculateOperateWidth = () => {
   else if (totalButtons === 5) { width = 160; }
   else if (totalButtons === 4) { width = 130; }
   else if (totalButtons === 3) { width = 105; }
-  else if (totalButtons === 2) { width = 78; }
-  else if (totalButtons === 1) { width = 55; }
-  else { width = 50; } // 没有按钮时，只显示列标题
+  else if (totalButtons === 2) { width = 100; }
+  else if (totalButtons === 1) { width = 75; }
+  else { width = 70; } // 没有按钮时，只显示列标题"操作"
   operateWidth.value = width;
 };
 

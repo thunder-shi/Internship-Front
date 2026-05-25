@@ -61,18 +61,17 @@
         </el-form-item>
 
         <el-form-item
-          v-if="needScore && form.isAudit === AUDIT_STATUS.PASS"
-          :label="scoreLabel"
+          v-if="form.isAudit === AUDIT_STATUS.PASS"
+          label="评分"
           prop="score"
         >
           <el-input-number
             v-model="form.score"
             :min="0"
-            :max="Number(gradeItem?.maxScore) || 100"
+            :max="100"
             :precision="2"
             controls-position="right"
           />
-          <span class="score-hint">（满分 {{ gradeItem?.maxScore }}，占比 {{ gradeItem?.weight }}%）</span>
         </el-form-item>
 
         <el-form-item :label="reasonLabel" prop="reason">
@@ -100,7 +99,6 @@ import { ref, computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
 import internshipProcessAPI from '@/api/internshipProcess'
-import gradeConfigAPI from '@/api/internshipGradeConfig'
 import CONSTANT from '@/utils/constant'
 import { getAuditStatusText, getAuditTagType } from '@/utils/verify'
 import { useDiaryFiles } from '@/utils/useDiaryFiles'
@@ -115,12 +113,10 @@ const visible = ref(false)
 const submitting = ref(false)
 const student = ref(null)
 const contextInternshipId = ref(null)
-const gradeItem = ref(null) // 当前级别匹配的成绩项配置（无则为 null）
 
 const { files, filesLoading: loading, loadFiles, triggerDownload, triggerPreview, reset: resetFiles } = useDiaryFiles()
 
 const isAlreadyPassed = computed(() => student.value?.diary?.isAllVerified === true)
-const needScore = computed(() => !!gradeItem.value)
 
 const formRef = ref(null)
 const form = reactive({ isAudit: null, reason: '', score: null })
@@ -129,21 +125,18 @@ const formRules = {
   score: [
     {
       validator: (_rule, val, cb) => {
-        if (!needScore.value || form.isAudit !== AUDIT_STATUS.PASS) return cb()
+        if (form.isAudit !== AUDIT_STATUS.PASS) return cb()
         const n = Number(val)
-        const max = Number(gradeItem.value?.maxScore) || 100
         if (val === null || val === '' || !Number.isFinite(n)) {
           cb(new Error('请填写评分'))
-        } else if (n < 0 || n > max) {
-          cb(new Error(`评分应在 0-${max} 之间`))
+        } else if (n < 0 || n > 100) {
+          cb(new Error('评分应在 0-100 之间'))
         } else cb()
       },
       trigger: 'blur',
     },
   ],
 }
-
-const scoreLabel = computed(() => gradeItem.value ? `第 ${gradeItem.value.levelOrder} 级评分` : '评分')
 
 const reasonLabel = computed(() => {
   if (form.isAudit === AUDIT_STATUS.PASS) return '批阅意见'
@@ -160,7 +153,6 @@ const reasonPlaceholder = computed(() => {
 function open(row, options = {}) {
   student.value = row
   contextInternshipId.value = options.internshipId ?? row?.internshipId ?? row?.diary?.internshipId ?? null
-  gradeItem.value = null
   form.isAudit = null
   form.reason = ''
   form.score = null
@@ -170,31 +162,12 @@ function open(row, options = {}) {
   if (row?.diary?.relationId) {
     loadFiles(row.diary.relationId)
   }
-  loadGradeConfigForCurrentLevel(row)
-}
-
-async function loadGradeConfigForCurrentLevel(row) {
-  const iid = contextInternshipId.value
-  const currentLevel = Number(row?.diary?.currentVerifyTypeId)
-  if (!iid || !Number.isFinite(currentLevel) || currentLevel <= 0) return
-  try {
-    const res = await gradeConfigAPI.listGradeConfig({
-      internshipId: iid,
-      sourceTable: 'MainDiary',
-    })
-    const list = Array.isArray(res?.data?.items) ? res.data.items : []
-    gradeItem.value = list.find(it => Number(it.levelOrder) === currentLevel) || null
-  } catch (e) {
-    console.warn('加载评分配置失败:', e)
-    gradeItem.value = null
-  }
 }
 
 function onClosed() {
   formRef.value?.clearValidate()
   student.value = null
   contextInternshipId.value = null
-  gradeItem.value = null
   resetFiles()
 }
 
@@ -229,7 +202,7 @@ async function handleSubmit() {
       isAudit: form.isAudit,
       reason: form.reason,
     }
-    if (needScore.value && form.isAudit === AUDIT_STATUS.PASS) {
+    if (form.isAudit === AUDIT_STATUS.PASS) {
       payload.score = Number(form.score)
     }
     const res = await internshipProcessAPI.auditProcess(payload)
@@ -290,11 +263,5 @@ defineExpose({ open })
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
-}
-
-.score-hint {
-  margin-left: 12px;
-  color: #909399;
-  font-size: 12px;
 }
 </style>

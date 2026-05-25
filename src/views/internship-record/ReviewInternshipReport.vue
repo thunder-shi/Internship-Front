@@ -24,23 +24,7 @@
       </template>
 
       <template #totalScore="{ row }">
-        <el-tooltip
-          v-if="row._totalScore != null && row._scoreDetail?.length"
-          placement="top"
-          effect="light"
-        >
-          <template #content>
-            <div class="score-detail-tooltip">
-              <div v-for="(d, idx) in row._scoreDetail" :key="idx" class="score-detail-row">
-                第{{ d.levelOrder }}级：
-                <b>{{ d.score }}</b> / {{ d.maxScore }}（{{ d.weight }}%）
-                <span v-if="d.verifyUserName" class="score-verifier">— {{ d.verifyUserName }}</span>
-              </div>
-            </div>
-          </template>
-          <el-tag type="success">{{ row._totalScore }}</el-tag>
-        </el-tooltip>
-        <span v-else-if="row._totalScore != null">{{ row._totalScore }}</span>
+        <span v-if="row._totalScore != null">{{ row._totalScore }}</span>
         <span v-else>—</span>
       </template>
 
@@ -78,17 +62,6 @@ import DiaryStatsCard from './components/DiaryStatsCard.vue'
 import listAPI from '@/api/list'
 import { getPeriodStudents } from '@/api/diary'
 import { getDiaryStatusText, getDiaryTagType, canReviewDiary } from '@/utils/verify'
-
-function parseScoreDetail(raw) {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : null
-  } catch {
-    return null
-  }
-}
 
 defineOptions({ name: 'ReviewInternshipReport' })
 
@@ -146,7 +119,6 @@ async function fetchRecordsFunc() {
     _submitTime: row.diary?.createTime ?? null,
     _diaryTitle: row.diary?.title ?? null,
     _totalScore: row.diary?.totalScore ?? null,
-    _scoreDetail: parseScoreDetail(row.diary?.scoreDetail),
   }))
 
   allStudents.value = flat
@@ -258,20 +230,5 @@ function onReviewSuccess() {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.score-detail-tooltip {
-  max-width: 320px;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.score-detail-row {
-  white-space: nowrap;
-}
-
-.score-verifier {
-  color: #909399;
-  margin-left: 4px;
 }
 </style>

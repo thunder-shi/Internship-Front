@@ -1,88 +1,41 @@
 <template>
   <div v-loading="loading" class="grade-config-panel">
-    <el-alert
-      v-if="locked"
-      type="warning"
-      title="审核已开始，配置已锁定，不可修改"
-      :closable="false"
-      class="mb-12"
-    />
-    <el-alert
-      v-else-if="!canConfigure"
-      type="info"
-      :title="cannotConfigureMessage"
-      :closable="false"
-      class="mb-12"
-    />
-    <el-alert
-      v-else
-      :title="weightHint"
-      :type="localValid ? 'success' : 'warning'"
-      :closable="false"
-      class="mb-12"
-    />
+    <el-alert v-if="locked" type="warning" title="审核已开始，配置已锁定，不可修改" :closable="false" class="mb-12" />
+    <el-alert v-else-if="!canConfigure" type="info" :title="cannotConfigureMessage" :closable="false" class="mb-12" />
+    <el-alert v-else :title="weightHint" :type="totalValid ? 'success' : 'warning'" :closable="false" class="mb-12" />
 
     <div class="grade-table-wrapper">
-      <DataTableList
-        ref="dataTableListRef"
-        :default-props="tableProps"
-        :fetch-records="fetchDraft"
-        @append-click="openAdd"
-        @edit-click="openEdit"
-        @spec-remove="handleDelete"
-      >
+      <DataTableList :key="tableKey" ref="dataTableListRef" :default-props="tableProps" :fetch-records="fetchItems"
+        @append-click="openAdd" @edit-click="openEdit" @delete-click="handleDelete" @spec-remove="handleDelete">
         <template #levelOrder="{ row }">第 {{ row.levelOrder }} 级</template>
       </DataTableList>
     </div>
 
     <div class="footer-actions">
       <span class="weight-summary">
-        权重总和：<b :class="localValid ? 'sum-ok' : 'sum-bad'">{{ localTotalWeight }}</b> / 100
-        <span v-if="dirty" class="dirty-tag">未保存</span>
+        权重总和：<b :class="totalValid ? 'sum-ok' : 'sum-bad'">{{ totalWeight }}</b> / 100
       </span>
-      <el-button
-        v-if="!locked && canConfigure"
-        type="primary"
-        :loading="saving"
-        :disabled="!localValid || !dirty"
-        @click="handleSaveBatch"
-      >
-        保存配置
-      </el-button>
     </div>
 
     <!-- 成绩项编辑弹窗（DlgBasic 模板外壳） -->
-    <DlgBasic
-      ref="itemDlgRef"
-      :default-props="itemDlgProps"
-      :dlgbasic-confirm="onItemConfirm"
-      @close-dialog="onItemDlgClosed"
-    >
+    <DlgBasic ref="itemDlgRef" :default-props="itemDlgProps" :dlgbasic-confirm="onItemConfirm"
+      @close-dialog="onItemDlgClosed">
       <template #mainForm>
-        <el-form
-          ref="itemFormRef"
-          :model="itemForm"
-          :rules="itemFormRules"
-          label-width="100px"
-          class="grade-item-form"
-        >
+        <el-form ref="itemFormRef" :model="itemForm" :rules="itemFormRules" label-width="100px" class="grade-item-form">
           <el-form-item label="审核级别" prop="levelOrder">
             <el-select v-model="itemForm.levelOrder" placeholder="选择第几级审核人打分" style="width: 100%">
-              <el-option
-                v-for="lv in levelOptions"
-                :key="lv"
-                :label="`第 ${lv} 级`"
-                :value="lv"
-                :disabled="isLevelOccupied(lv)"
-              />
+              <el-option v-for="lv in levelOptions" :key="lv" :label="`第 ${lv} 级`" :value="lv"
+                :disabled="isLevelOccupied(lv)" />
             </el-select>
           </el-form-item>
           <el-form-item label="占比 (%)" prop="weight">
-            <el-input-number v-model="itemForm.weight" :min="0" :max="100" :precision="2" controls-position="right" />
-            <span class="weight-hint">已用 {{ otherWeights }}%，剩余 {{ remainingWeight }}%</span>
+            <el-slider v-model="itemForm.weight" :min="0" :max="remainingWeight" :step="1" show-input
+              :show-input-controls="false" class="weight-slider" />
+            <div class="weight-hint">已用 {{ otherWeights }}%，剩余 {{ remainingWeight }}%</div>
           </el-form-item>
           <el-form-item label="满分" prop="maxScore">
-            <el-input-number v-model="itemForm.maxScore" :min="0.01" :max="1000" :precision="2" controls-position="right" />
+            <el-input-number v-model="itemForm.maxScore" :min="0.01" :max="1000" :precision="2"
+              controls-position="right" />
           </el-form-item>
         </el-form>
       </template>
@@ -106,14 +59,12 @@ const props = defineProps({
 })
 
 const loading = ref(false)
-const saving = ref(false)
 
 const maxLevelOrder = ref(null)
 const locked = ref(false)
 const items = ref([])
-const draftItems = ref([])
 const loadedKey = ref(null)
-let tmpIdSeq = 0
+const valid = ref(true)
 
 const dataTableListRef = ref(null)
 const itemDlgRef = ref(null)
@@ -122,30 +73,20 @@ const canConfigure = computed(() => maxLevelOrder.value != null && Number(maxLev
 const cannotConfigureMessage = computed(() => '请先在「流程安排」tab 为该实习添加「实习项目进行」流程，且审核要求不能选「无需审核」，保存后再回到本页配置评分')
 const canEditUI = computed(() => !locked.value && canConfigure.value)
 
-const localTotalWeight = computed(() => {
-  const sum = draftItems.value.reduce((s, it) => s + Number(it.weight || 0), 0)
+// canEditUI 变化时强制重建 DataTableList，使其重新计算 operateWidth
+const tableKey = computed(() => canEditUI.value ? 'editable' : 'readonly')
+
+const totalWeight = computed(() => {
+  const sum = items.value.reduce((s, it) => s + Number(it.weight || 0), 0)
   return Math.round(sum * 100) / 100
 })
-const localValid = computed(() => localTotalWeight.value === 100)
+const totalValid = computed(() => valid.value)
 
 const weightHint = computed(() => {
-  if (draftItems.value.length === 0) return '尚未配置任何成绩项，总占比需精确等于 100%'
-  if (localValid.value) return '权重总和已满 100%，配置完成'
-  if (localTotalWeight.value < 100) return `权重总和不足 100%，还需追加 ${100 - localTotalWeight.value}%`
-  return `权重总和超出 100%，需调整 ${localTotalWeight.value - 100}%`
-})
-
-const dirty = computed(() => {
-  if (draftItems.value.length !== items.value.length) return true
-  return draftItems.value.some((d, i) => {
-    const s = items.value[i]
-    if (!s) return true
-    return (
-      Number(d.levelOrder) !== Number(s.levelOrder) ||
-      Number(d.weight) !== Number(s.weight) ||
-      Number(d.maxScore) !== Number(s.maxScore)
-    )
-  })
+  if (items.value.length === 0) return '尚未配置任何成绩项，总占比需精确等于 100%'
+  if (totalValid.value) return '权重总和已满 100%，配置完成'
+  if (totalWeight.value < 100) return `权重总和不足 100%，还需追加 ${100 - totalWeight.value}%`
+  return `权重总和超出 100%，需调整 ${totalWeight.value - 100}%`
 })
 
 const levelOptions = computed(() => {
@@ -157,7 +98,7 @@ const levelOptions = computed(() => {
 
 const occupiedLevels = computed(() => {
   const set = new Set()
-  draftItems.value.forEach((it) => {
+  items.value.forEach((it) => {
     if (it.id === editingId.value) return
     set.add(Number(it.levelOrder))
   })
@@ -169,7 +110,7 @@ function isLevelOccupied(lv) {
 }
 
 const otherWeights = computed(() => {
-  const sum = draftItems.value
+  const sum = items.value
     .filter((it) => it.id !== editingId.value)
     .reduce((s, it) => s + Number(it.weight || 0), 0)
   return Math.round(sum * 100) / 100
@@ -180,22 +121,23 @@ const remainingWeight = computed(() => {
 })
 
 const tableProps = computed(() => ({
-  bottomOffset: 0,
+  bottomOffset: 70,
   sortStr: { properties: 'levelOrder', direction: 'ASC' },
+  pageInfo: { page: 1, size: 25 },
   someFlags: {
     operateShow: true,
-    checkFlag: false,         // 单选 radio 列；勾选后启用顶部编辑/删除
-    showPage: false,
+    checkFlag: true,          // 多选复选框列，支持顶部批量删除
+    showPage: true,           // 显示分页栏
     autoInit: false,
     noAdvancedSearch: true,
   },
   defaultDTHProps: {
     showTopButtons: true,
-    keyWord: { view: 'GradeConfigDraft', edit: 'GradeConfigDraft' },
+    keyWord: { view: 'InternshipGradeConfigItem', edit: 'InternshipGradeConfigItem' },
     buttonProps: {
-      create: { show: canEditUI.value, name: '新增成绩项', type: 'primary' },
-      update: { show: canEditUI.value, name: '编辑', type: 'primary' },
-      delete: { show: canEditUI.value, name: '删除', type: 'danger' },
+      create: { show: true, type: 'primary' },
+      update: { show: true, type: 'primary' },
+      delete: { show: true, type: 'danger' },
     },
     allTableColumns: [
       { id: 1, showName: '审核级别', theOrder: 1, tableColumnName: 'customize-levelOrder', width: 140 },
@@ -235,14 +177,14 @@ const itemForm = reactive({
 const itemFormRules = {
   levelOrder: [{ required: true, message: '请选择审核级别', trigger: 'change' }],
   weight: [
-    { required: true, message: '请填写占比', trigger: 'blur' },
+    { required: true, message: '请填写占比', trigger: 'change' },
     {
       validator: (_rule, val, cb) => {
         const n = Number(val)
         if (!Number.isFinite(n) || n < 0 || n > 100) cb(new Error('占比应在 0-100 之间'))
         else cb()
       },
-      trigger: 'blur',
+      trigger: 'change',
     },
   ],
   maxScore: [
@@ -262,9 +204,9 @@ function currentKey() {
   return `${props.internshipId ?? ''}|${props.sourceTable ?? ''}`
 }
 
-function cloneItems(arr) {
+function normalizeItems(arr) {
   return arr.map(it => ({
-    id: ++tmpIdSeq,
+    id: it.id,
     levelOrder: Number(it.levelOrder),
     weight: Number(it.weight),
     maxScore: Number(it.maxScore),
@@ -273,10 +215,10 @@ function cloneItems(arr) {
 
 function resetState() {
   items.value = []
-  draftItems.value = []
   maxLevelOrder.value = null
   locked.value = false
   loadedKey.value = null
+  valid.value = true
 }
 
 function refreshTable() {
@@ -288,9 +230,14 @@ watch(
   () => { resetState(); refreshTable() },
 )
 
-function fetchDraft() {
+function fetchItems(params) {
+  const all = items.value.slice()
+  const page = Number(params?.pageInfo?.page) || 1
+  const size = Number(params?.pageInfo?.size) || all.length || 1
+  const start = (page - 1) * size
+  const content = all.slice(start, start + size)
   return Promise.resolve({
-    data: { content: draftItems.value.slice(), totalElements: draftItems.value.length },
+    data: { content, totalElements: all.length },
     message: 'successful',
   })
 }
@@ -306,10 +253,10 @@ async function initLoad(force = false) {
       sourceTable: props.sourceTable,
     })
     const data = res?.data || {}
-    items.value = Array.isArray(data.items) ? cloneItems(data.items) : []
-    draftItems.value = cloneItems(items.value)
+    items.value = Array.isArray(data.items) ? normalizeItems(data.items) : []
     maxLevelOrder.value = data.maxLevelOrder ?? null
     locked.value = !!data.locked
+    valid.value = data.valid !== false
     loadedKey.value = key
   } catch (e) {
     console.error('加载评分配置失败:', e)
@@ -357,21 +304,26 @@ async function onItemConfirm() {
     return false
   }
   const payload = {
+    id: editingId.value,
+    internshipId: props.internshipId,
+    sourceTable: props.sourceTable,
     levelOrder: Number(itemForm.levelOrder),
     weight: Number(itemForm.weight),
     maxScore: Number(itemForm.maxScore),
   }
-  if (editingId.value == null) {
-    draftItems.value.push({ id: ++tmpIdSeq, ...payload })
-  } else {
-    const idx = draftItems.value.findIndex(it => it.id === editingId.value)
-    if (idx >= 0) {
-      draftItems.value.splice(idx, 1, { id: editingId.value, ...payload })
+  try {
+    const res = await gradeConfigAPI.saveGradeConfig(payload)
+    if (res?.message !== 'successful') {
+      ElMessage.error(res?.message || '保存失败')
+      return false
     }
+    ElMessage.success(editingId.value == null ? '新增成功' : '编辑成功')
+    await initLoad(true)
+    return true
+  } catch (e) {
+    console.error('保存评分项失败:', e)
+    return false
   }
-  draftItems.value.sort((a, b) => a.levelOrder - b.levelOrder)
-  refreshTable()
-  return true
 }
 
 async function handleDelete(rows) {
@@ -381,52 +333,29 @@ async function handleDelete(rows) {
   const desc = list.map(r => `第 ${r.levelOrder} 级`).join('、')
   try {
     await ElMessageBox.confirm(
-      `确定移除${desc}评分项？该操作仅暂存在前端，点「保存配置」后才生效。`,
+      `确定删除${desc}评分项？删除后将直接生效。`,
       '提示',
-      { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' },
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
     )
   } catch { return }
-  const ids = new Set(list.map(r => r.id))
-  draftItems.value = draftItems.value.filter(it => !ids.has(it.id))
-  refreshTable()
-}
-
-async function handleSaveBatch() {
-  if (!localValid.value) {
-    ElMessage.warning('权重总和必须精确等于 100%')
-    return
-  }
-  saving.value = true
   try {
-    const res = await gradeConfigAPI.saveBatchGradeConfig({
-      internshipId: props.internshipId,
-      sourceTable: props.sourceTable,
-      items: draftItems.value.map(it => ({
-        levelOrder: Number(it.levelOrder),
-        weight: Number(it.weight),
-        maxScore: Number(it.maxScore),
-      })),
-    })
-    if (res?.message === 'successful') {
-      ElMessage.success('配置已保存')
-      const data = res?.data || {}
-      items.value = Array.isArray(data.items) ? cloneItems(data.items) : cloneItems(draftItems.value)
-      draftItems.value = cloneItems(items.value)
-      if (data.maxLevelOrder !== undefined) maxLevelOrder.value = data.maxLevelOrder
-      if (typeof data.locked === 'boolean') locked.value = data.locked
-      loadedKey.value = currentKey()
-      refreshTable()
-    } else {
-      ElMessage.error(res?.message || '保存失败')
+    for (const row of list) {
+      const res = await gradeConfigAPI.deleteGradeConfig({ id: row.id })
+      if (res?.message !== 'successful') {
+        ElMessage.error(res?.message || '删除失败')
+        await initLoad(true)
+        return
+      }
     }
+    ElMessage.success('删除成功')
+    await initLoad(true)
   } catch (e) {
-    console.error('批量保存评分配置失败:', e)
-  } finally {
-    saving.value = false
+    console.error('删除评分项失败:', e)
+    await initLoad(true)
   }
 }
 
-defineExpose({ initLoad, resetState, isDirty: () => dirty.value })
+defineExpose({ initLoad, resetState })
 </script>
 
 <style scoped>
@@ -438,11 +367,6 @@ defineExpose({ initLoad, resetState, isDirty: () => dirty.value })
   margin-bottom: 12px;
 }
 
-.grade-table-wrapper {
-  height: 320px;
-  overflow: hidden;
-}
-
 .grade-table-wrapper :deep(.el-card) {
   border: none;
   box-shadow: none;
@@ -450,15 +374,6 @@ defineExpose({ initLoad, resetState, isDirty: () => dirty.value })
 
 .grade-table-wrapper :deep(.el-card__body) {
   padding: 0;
-}
-
-.grade-table-wrapper :deep(.el-table) {
-  height: 280px !important;
-}
-
-.grade-table-wrapper :deep(.el-table__body-wrapper) {
-  height: 240px !important;
-  overflow-y: auto;
 }
 
 .footer-actions {
@@ -493,9 +408,18 @@ defineExpose({ initLoad, resetState, isDirty: () => dirty.value })
 }
 
 .weight-hint {
-  margin-left: 12px;
+  margin-top: 4px;
   color: #909399;
   font-size: 12px;
+  line-height: 1.4;
+}
+
+.weight-slider {
+  width: 100%;
+}
+
+.weight-slider :deep(.el-slider__input) {
+  width: 110px;
 }
 
 .grade-item-form {
