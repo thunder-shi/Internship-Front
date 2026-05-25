@@ -171,6 +171,20 @@ function getExternalInternshipStudentPostBreakdown(node) {
   });
 }
 
+/**
+ * 为未选岗学生随机分配岗位
+ * @param {Object} node — { internshipId }
+ */
+function randomAssignPostsForUnselectedStudents(node) {
+  return request({
+    url: '/internshipProcess/randomAssignPostsForUnselectedStudents',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+  });
+}
+
 /** 学生查看最近一条选题不通过记录 */
 function getLatestRejectedTitleSelection(node) {
   return request({
@@ -251,6 +265,7 @@ export default {
   listInternalInternshipTeachersNotSubmittedTopic,
   listApprovedExternalInternshipPosts,
   getExternalInternshipStudentPostBreakdown,
+  randomAssignPostsForUnselectedStudents,
   getLatestRejectedTitleSelection,
   acknowledgeRejectedTitleSelection,
   confirmStudentTopicSelection,
