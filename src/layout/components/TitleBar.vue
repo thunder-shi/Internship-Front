@@ -41,6 +41,9 @@
               <el-input v-model="form.verCode" class="verCode-input" type="text" auto-complete="on" placeholder="请输入验证码" />
             </div>
           </el-form-item> -->
+          <el-form-item prop="oldPassword" label="旧密码">
+            <el-input v-model="form.oldPassword" type="password" placeholder="请输入旧密码" />
+          </el-form-item>
           <el-form-item prop="password" label="新密码">
             <el-input v-model="form.password" type="password" placeholder="请输入新密码" />
           </el-form-item>
@@ -88,6 +91,7 @@ watch(
 const form = reactive({
   phone: storeUserInfo.value.phone || '',
   verCode: '',
+  oldPassword: '',
   password: '',
   checkPass: ''
 })
@@ -196,7 +200,7 @@ const submit = async () => {
   if (!formRef.value) return
   await formRef.value.validate(async (valid) => {
     if (valid) {
-      await userAPI.editPassword(store.getters.userInfo.id, form.password)
+      await userAPI.editPassword(store.getters.userInfo.id, form.oldPassword, form.password, false)
       ElMessage.success('修改成功！')
       formRef.value.resetFields()
       dlgPassword.value?.showDialog(false)

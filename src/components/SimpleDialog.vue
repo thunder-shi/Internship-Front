@@ -62,6 +62,7 @@ const props = defineProps({
   simpledialogConfirm: { type: Function, default: null },
   simpledialogConfirmMore: { type: Function, default: null },
   simpledialogSubmit: { type: Function, default: null },
+  simpledialogResetPass: { type: Function, default: null },
 });
 
 const emit = defineEmits([
@@ -210,12 +211,15 @@ async function openDialog(row) {
 }
 
 async function resetPass(password) {
-  const phone = form.phone;
+  if (props.simpledialogResetPass && typeof props.simpledialogResetPass === 'function') {
+    await props.simpledialogResetPass(password, form);
+    return;
+  }
   try {
-    await userAPI.editPassword({ phone: phone, verCode: '1980', password: password });
+    await userAPI.editPassword(form.id, '', password, true);
     ElMessage.success('重置完毕');
   } catch (error) {
-    error();
+    console.error(error);
   }
 }
 

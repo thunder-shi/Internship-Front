@@ -5,6 +5,7 @@
       ref="simpleDlg"
       :default-props="defaultMainSDProps"
       :simpledialog-confirm="confirm"
+      :simpledialog-reset-pass="resetPassword"
       @update-record="updateRecord"
       @close-dialog="closeDialog"
       @open-dialog="openDialog"
@@ -25,6 +26,7 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import SimpleSelect from '@/components/SimpleSelect.vue';
 import listAPI from '@/api/list.js';
@@ -139,16 +141,76 @@ const updateRecord = async () => {
   emit('update-record');
 };
 
+const syncPasswordToForm = (passwordValue) => {
+  form.password = passwordValue;
+  if (simpleDlg.value?.form) {
+    simpleDlg.value.form.password = passwordValue;
+  }
+};
+
+const fetchUserPassword = async (userId) => {
+  const res = await listAPI.getSomeRecords({
+    keyWords: 'BaseUser',
+    pageInfo: { page: 1, size: 1 },
+    searchKey: { id: userId },
+  });
+  return res?.data?.content?.[0]?.password;
+};
+
+const DEFAULT_PASSWORD = '000000';
+
+const isAccountExists = async (account, excludeUserId) => {
+  const trimmedAccount = account?.trim();
+  if (!trimmedAccount) return false;
+  const res = await listAPI.getSomeRecords({
+    keyWords: 'BaseUser',
+    pageInfo: { page: 1, size: 1 },
+    searchKey: { account: trimmedAccount },
+  });
+  const existing = res?.data?.content?.[0];
+  if (!existing) return false;
+  if (excludeUserId != null && existing.id === excludeUserId) return false;
+  return true;
+};
+
+const ensureAccountUnique = async (account, excludeUserId) => {
+  if (await isAccountExists(account, excludeUserId)) {
+    ElMessage.warning(`账号「${account.trim()}」已存在，请更换账号`);
+    throw new Error('DUPLICATE_ACCOUNT');
+  }
+};
+
+const resetPassword = async () => {
+  if (!form.id) return;
+  try {
+    await ElMessageBox.confirm(
+      `确认将该用户密码重置为 ${DEFAULT_PASSWORD}？重置后立即生效。`,
+      '重置密码',
+      { type: 'warning', confirmButtonText: '确认重置', cancelButtonText: '取消' }
+    );
+  } catch {
+    return;
+  }
+  await userAPI.editPassword(form.id, '', DEFAULT_PASSWORD, true);
+  const dbPassword = await fetchUserPassword(form.id);
+  if (dbPassword != null) {
+    syncPasswordToForm(dbPassword);
+  }
+  ElMessage.success('重置完毕');
+};
+
 const confirm = async (option, type, dlgForm) => {
   if (option === 'append') {
-    let password = '000000';
+    await ensureAccountUnique(dlgForm.account);
+    let password = DEFAULT_PASSWORD;
     if (!!dlgForm.password) password = dlgForm.password;
     const res = await listAPI.editOneNode('BaseUser', dlgForm);
     if (res.message === 'successful') {
-      await userAPI.editPassword(res.data.id, password);
+      await userAPI.editPassword(res.data.id, '', password, true);
       userAPI.saveUserRoles(res.data.id, form.roleIds || []);
     }
   } else if (option === 'edit') {
+    await ensureAccountUnique(dlgForm.account, dlgForm.id);
     await userAPI.editUserInfo(dlgForm.id, dlgForm);
     await confirmMore(dlgForm);
   }

@@ -49,12 +49,17 @@ watch(password, (val) => {
   emit('update:modelValue', val);
 });
 
+const DEFAULT_RESET = '000000';
+
 async function reset() {
-  // if (disabled.value) return
-  password.value = '000000';
-  emit('update:modelValue', password.value);
-  emit('update:value', password.value); // 兼容 Vue 2
-  emit('input', password.value); // 兼容旧版本
+  if (props.disabled) {
+    // 编辑模式：只触发重置接口，等父组件回写库中加密 password
+    emit('input', DEFAULT_RESET);
+    return;
+  }
+  password.value = DEFAULT_RESET;
+  emit('update:modelValue', DEFAULT_RESET);
+  emit('update:value', DEFAULT_RESET);
 }
 
 defineOptions({

@@ -55,12 +55,12 @@ function editUserInfo(userId, data) {
   return request.post(`/sign/editUserInfo/${userId}`, data)
 }
 // 修改密码
-function editPassword(userId, password) {
+function editPassword(userId, oldPassword, password, reset = false) {
   return request({
     url: '/sign/editPassword',
     method: 'post',
-    data: { userId, password }
-  })
+    data: { userId, oldPassword, password, reset },
+  });
 }
 // 修改密码
 function getDepartment(parentId) {
