@@ -1,7 +1,7 @@
 <template>
   <div class="tree-list-layout">
     <section class="tree-list-aside">
-      <DataTree :default-props="defaultDTProps" @node-click="handleNodeClick" />
+      <DataTree ref="dataTreeRef" :default-props="defaultDTProps" @node-click="handleNodeClick" @ready="onTreeReady" />
     </section>
     <section class="tree-list-main">
       <!-- 列表1 -->
@@ -19,7 +19,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, nextTick } from 'vue';
 import DataTree from '@/components/DataTree.vue';
 import DataTableList from '@/components/DataTableList.vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
@@ -57,7 +57,9 @@ const props = defineProps({
 const emit = defineEmits(['set-type', 'append-click', 'edit-click']);
 
 const dataTableList = ref(null);
+const dataTreeRef = ref(null);
 const batchAppendDlg = ref(null);
+const treeReadyHandled = ref(false);
 const defaultDTProps = reactive({});
 const defaultDTLProps = reactive({});
 const defaultSDProps = reactive({});
@@ -79,7 +81,30 @@ Object.assign(treeInfo, defaultDTLProps.treeInfo || {});
 defaultDTLProps.treeInfo = treeInfo;
 
 const initDataList = async () => {
-  await dataTableList.value?.initDataList();
+  await dataTableList.value?.initDataList(true);
+};
+
+const isValidDepartmentId = (id) => id != null && id !== '' && id !== -1 && id !== '-1';
+
+const selectDepartmentAndLoad = (node) => {
+  if (!node || !isValidDepartmentId(node.id)) return;
+  Object.assign(treeInfo, {
+    treeKeyWords: defaultDTProps.keyWord,
+    treeNodeId: node.id,
+    treeRelColName: props.defaultProps.treeRelColName,
+  });
+  emit('set-type', node);
+  nextTick(() => initDataList());
+};
+
+const onTreeReady = (firstNode) => {
+  if (treeReadyHandled.value) return;
+  treeReadyHandled.value = true;
+  if (!firstNode || !isValidDepartmentId(firstNode.id)) return;
+  nextTick(() => {
+    dataTreeRef.value?.dataTree?.setCurrentKey?.(firstNode.id);
+    selectDepartmentAndLoad(firstNode);
+  });
 };
 
 function batchImportClick() {
@@ -87,13 +112,8 @@ function batchImportClick() {
 }
 
 const handleNodeClick = (val) => {
-  Object.assign(treeInfo, {
-    treeKeyWords: defaultDTProps.keyWord,
-    treeNodeId: val.id,
-    treeRelColName: props.defaultProps.treeRelColName,
-  });
-  emit('set-type', val);
-  initDataList();
+  if (!isValidDepartmentId(val?.id)) return;
+  selectDepartmentAndLoad(val);
 };
 
 const appendClick = () => {

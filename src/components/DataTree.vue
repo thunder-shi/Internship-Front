@@ -47,7 +47,23 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['node-click'])
+const emit = defineEmits(['node-click', 'ready'])
+
+/** 取树数据中第一个有效部门节点（排除虚拟根 id=-1） */
+function getFirstDepartmentNode(nodes) {
+  if (!Array.isArray(nodes) || nodes.length === 0) return null
+  for (const node of nodes) {
+    const id = node?.id
+    if (id != null && id !== '' && id !== -1 && id !== '-1') {
+      return node
+    }
+  }
+  return null
+}
+
+function emitReady() {
+  emit('ready', getFirstDepartmentNode(treeData.value))
+}
 
 const dataTree = ref(null)
 const treeData = ref([])
@@ -183,6 +199,7 @@ const initDataTree = async (parentId = -1) => {
       sort: sort.value
     })
     treeData.value = normalizeTreeNodesForLazy(res.data || [])
+    emitReady()
     // 数据加载完成后，手动展开根节点（如果存在）
     if (treeData.value.length > 0 && virtualRootFlag.value) {
       // 延迟展开，确保树已渲染
@@ -199,6 +216,7 @@ const initDataTree = async (parentId = -1) => {
   } catch (error) {
     console.error('获取树数据失败:', error)
     treeData.value = []
+    emitReady()
   } finally {
     loading.value = false
     isInitializing = false
@@ -214,6 +232,7 @@ const initDataTreeWithRootRows = async (rows) => {
     maps.clear()
     treeData.value = []
     defaultExpandedKeys.value = []
+    emitReady()
     return
   }
   isInitializing = true
@@ -221,6 +240,7 @@ const initDataTreeWithRootRows = async (rows) => {
   try {
     maps.clear()
     treeData.value = normalizeTreeNodesForLazy(rows)
+    emitReady()
     defaultExpandedKeys.value = rows.map((r) => r.id).filter((id) => id != null && id !== '')
     setTimeout(() => {
       if (dataTree.value && rows[0]?.id != null) {

@@ -76,6 +76,7 @@ const defaultProps = reactive({
     title: { mainTitle: '人员列表' },
     someFlags: {
       noAdvancedSearch: false,
+      autoInit: false,
     },
     searchItems: [
       { name: '姓名', field: 'name', type: 'input' },
