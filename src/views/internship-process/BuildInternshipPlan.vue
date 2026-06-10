@@ -65,6 +65,7 @@ import CONSTANT from '@/utils/constant';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import listAPI from '@/api/list';
 import otherAPI from '@/api/other';
+import treeAPI from '@/api/tree';
 import { ensureEnterpriseAccess } from '@/utils/enterpriseAccess';
 
 defineOptions({
@@ -81,13 +82,43 @@ const enterpriseAccessReady = ref(false);
 const userInfo = computed(() => store.getters.userInfo || {});
 const roles = computed(() => store.getters.roles || []);
 
-// 判断是否是超级管理员
-const isSuperAdmin = computed(() => {
-  return roles.value.some(role => role.name === '超级管理员');
-});
+// 判断是否是超级管理员（roles 是数字数组：role.id 列表，例如 [13] / [1]）
+const isSuperAdmin = computed(() =>
+  roles.value.some(r => r === CONSTANT.ROLE_TABLE.SUPER_ADMIN)
+);
 
 // 用户所属院系ID
 const userDepartmentId = computed(() => userInfo.value.departmentId);
+
+// 院系完整路径（如 "水利水电学院/计算机学院"），由 BaseDepartment 树异步组装
+// store 里的 userInfo.departmentName 已被覆盖为叶子节点名（如 "计算机学院"），
+// 与 Merge View 的 universityName（完整路径）格式不一致，因此需要重新组装
+const departmentFullPath = ref('');
+
+async function loadDepartmentFullPath() {
+  const did = userDepartmentId.value;
+  if (!did) {
+    departmentFullPath.value = '';
+    return;
+  }
+  try {
+    const res = await treeAPI.getAllParentIndex('BaseDepartment', did);
+    // getAllParentIndex 返回从「当前节点」到「根」的数组，反转得到根→叶
+    const chain = [...(res?.data || [])].reverse();
+    departmentFullPath.value = chain
+      .map(n => (n?.name || '').trim())
+      .filter(Boolean)
+      .join('/');
+  } catch (e) {
+    console.warn('查询院系完整路径失败:', e);
+    departmentFullPath.value = '';
+  }
+}
+
+// 是否院系级用户（路径含 '/' 表示在学校根下面）；超管/校级根/无 departmentId 都不算
+const isCollegeUser = computed(() =>
+  !isSuperAdmin.value && departmentFullPath.value.includes('/')
+);
 
 // 计算实习模板下拉框的查询条件（非超级管理员只能选择自己院系的模板）
 const templateSearchKey = computed(() => {
@@ -98,6 +129,38 @@ const templateSearchKey = computed(() => {
     return { universityId: userDepartmentId.value };
   }
   return {};
+});
+
+// 列表查询条件：院系级用户按 universityName 精确匹配本院完整路径
+// Merge View 未暴露 universityId/departmentId，故走 universityName 字符串精确匹配
+const initSearchWords = computed(() => {
+  if (!isCollegeUser.value) {
+    return {};
+  }
+  return {
+    searchKey: { universityName: departmentFullPath.value },
+    regKey: { universityName: '=' },
+    andor: {},
+  };
+});
+
+// 全部提交时的院系范围限制（与列表过滤保持一致）
+const submitAllSearchKey = computed(() => {
+  const base = {
+    isAudit: `${CONSTANT.AUDIT_STATUS.SAVE},${CONSTANT.AUDIT_STATUS.BACK}`,
+  };
+  if (isCollegeUser.value) {
+    base.universityName = departmentFullPath.value;
+  }
+  return base;
+});
+
+const submitAllReg = computed(() => {
+  const reg = { isAudit: CONSTANT.SEARCH_OPERATOR.IN };
+  if (isCollegeUser.value) {
+    reg.universityName = '=';
+  }
+  return reg;
 });
 
 // 当前操作的行数据（用于查看进度）
@@ -426,6 +489,12 @@ onMounted(async () => {
   const access = await ensureEnterpriseAccess(store);
   enterpriseBlocked.value = !access.passed;
   enterpriseAccessReady.value = true;
+  // 异步加载院系完整路径；加载完成后若已变成院系级用户，需要手动刷新列表
+  // （BaseList/DataTableList 只 watch nowSearchWords，不会因 initSearchWords 变化自动重拉）
+  await loadDepartmentFullPath();
+  if (isCollegeUser.value) {
+    baseList.value?.initDataList();
+  }
 });
 
 // 组件销毁前关闭所有对话框，防止遮罩层残留
@@ -442,6 +511,7 @@ const defaultProps = computed(() => ({
     getVerifyRoleName,
     someFlags: { checkFlag: true },
     buttonCondition: {},
+    initSearchWords: initSearchWords.value,
     defaultDTHProps: {
       buttonProps: {
         create: { show: true },
@@ -456,10 +526,8 @@ const defaultProps = computed(() => ({
           type: 'warning',
           submitAll: {
             keyWords: 'ViewVerifyProcessInternshipMerge',
-            searchKey: {
-              isAudit: `${CONSTANT.AUDIT_STATUS.SAVE},${CONSTANT.AUDIT_STATUS.BACK}`,
-            },
-            reg: { isAudit: CONSTANT.SEARCH_OPERATOR.IN },
+            searchKey: submitAllSearchKey.value,
+            reg: submitAllReg.value,
             filterRows: (row) =>
               row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK,
             buildConfirmText: (n) => `确定提交全部 ${n} 条待提交的实习计划吗？`,
