@@ -419,6 +419,18 @@ const handleSubmitClick = async (row) => {
     return;
   }
 
+  // 提交前校验：流程时间 + 提交日志周期 都不能为空
+  const mainMap = await fetchMainInternshipMap([row.internshipId]);
+  if (mainMap === null) {
+    ElMessage.error('校验日志周期失败，请稍后重试');
+    return;
+  }
+  const blockReason = getSubmitBlockReason(row, mainMap.get(row.internshipId));
+  if (blockReason) {
+    ElMessage.warning(`无法提交：${blockReason}，请先在「编辑」中补全后再提交`);
+    return;
+  }
+
   const isNoVerify = row.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY;
   const status = isNoVerify ? CONSTANT.AUDIT_STATUS.PASS : CONSTANT.AUDIT_STATUS.SUBMIT;
   const extraFields = isNoVerify
@@ -442,6 +454,39 @@ const handleSubmitClick = async (row) => {
   }
 };
 
+/**
+ * 校验单条 row + 对应 MainInternship 详情是否满足提交条件：
+ * - 流程时间（row.startTime / row.endTime，来自 Merge View）
+ * - 日志周期（mainItem.reportStartTime / mainItem.reportEndTime，来自 MainInternship）
+ * @returns {string|null} 缺失项描述；null 表示通过
+ */
+function getSubmitBlockReason(row, mainItem) {
+  const missing = [];
+  if (!row?.startTime || !row?.endTime) missing.push('流程时间');
+  if (!mainItem?.reportStartTime || !mainItem?.reportEndTime) missing.push('提交日志周期');
+  if (!missing.length) return null;
+  return missing.join('、') + '未填写';
+}
+
+/** 批量查 MainInternship，按 internshipId 列表返回 Map<id, row> */
+async function fetchMainInternshipMap(internshipIds) {
+  const ids = [...new Set((internshipIds || []).filter((v) => v != null))];
+  if (!ids.length) return new Map();
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'MainInternship',
+      searchKey: { id: ids.join(',') },
+      reg: { id: CONSTANT.SEARCH_OPERATOR.IN },
+      pageInfo: { page: 1, size: ids.length },
+    });
+    const list = res?.data?.content ?? [];
+    return new Map(list.map((m) => [m.id, m]));
+  } catch (e) {
+    console.error('查询 MainInternship 失败:', e);
+    return null; // 用 null 表达查询失败，由调用方判断
+  }
+}
+
 /** 提交单条记录的核心逻辑（供批量/全部提交复用） */
 async function submitSingleRow(row) {
   const isNoVerify = row.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY;
@@ -457,7 +502,80 @@ async function submitSingleRow(row) {
   return res?.message === 'successful';
 }
 
-/** 批量提交：提交勾选的待提交记录 */
+/**
+ * 全部提交：扫描所有待提交记录（带院系范围），跳过不满足流程时间/日志周期的，提交其余的
+ * @param {{ initDataList?: (force?: boolean) => void }} ctx BaseList 注入的刷新方法
+ */
+async function handleSubmitAllClick({ initDataList } = {}) {
+  // 1. 拉取当前院系范围下所有待提交记录
+  let rows = [];
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewVerifyProcessInternshipMerge',
+      searchKey: submitAllSearchKey.value,
+      reg: submitAllReg.value,
+      pageInfo: { page: 1, size: 10000 },
+      sort: { properties: 'id', direction: 'DESC' },
+    });
+    rows = res?.data?.content ?? [];
+  } catch (e) {
+    console.error('查询待提交记录失败:', e);
+    ElMessage.error('查询待提交记录失败，请稍后重试');
+    return;
+  }
+  const candidates = rows.filter(
+    (r) => r && (r.isAudit === CONSTANT.AUDIT_STATUS.SAVE || r.isAudit === CONSTANT.AUDIT_STATUS.BACK)
+  );
+  if (!candidates.length) {
+    ElMessage.info('没有待提交的记录');
+    return;
+  }
+
+  // 2. 批量查 MainInternship 拿日志周期
+  const mainMap = await fetchMainInternshipMap(candidates.map((r) => r.internshipId));
+  if (mainMap === null) {
+    ElMessage.error('校验日志周期失败，请稍后重试');
+    return;
+  }
+
+  // 3. 分流：valid 可提交 / blocked 不满足条件
+  const valid = [];
+  const blocked = [];
+  for (const r of candidates) {
+    const reason = getSubmitBlockReason(r, mainMap.get(r.internshipId));
+    if (reason) blocked.push({ row: r, reason });
+    else valid.push(r);
+  }
+  if (!valid.length) {
+    ElMessage.warning(`共 ${candidates.length} 条待提交，但全部缺少流程时间或日志周期，无法提交`);
+    return;
+  }
+
+  // 4. 确认（带跳过提示）
+  const skipHint = blocked.length ? `（将跳过 ${blocked.length} 条因流程时间或日志周期未填写的记录）` : '';
+  try {
+    await ElMessageBox.confirm(
+      `确定提交 ${valid.length} 条待提交的实习计划吗？${skipHint}`,
+      '全部提交',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    );
+  } catch {
+    return;
+  }
+
+  // 5. 逐条提交
+  let successCount = 0;
+  for (const row of valid) {
+    if (await submitSingleRow(row)) successCount++;
+  }
+  if (successCount > 0) {
+    const tail = blocked.length ? `，已跳过 ${blocked.length} 条不满足条件的记录` : '';
+    ElMessage.success(`全部提交完成，共成功提交 ${successCount} 条记录${tail}`);
+    initDataList ? initDataList(true) : baseList.value?.initDataList();
+  }
+}
+
+/** 批量提交：提交勾选的待提交记录（任一行不满足流程时间/日志周期则全部拦截） */
 async function handleBatchSubmitClick(rows) {
   const rowsArray = Array.isArray(rows) ? rows : [rows].filter(Boolean);
   if (!rowsArray.length) {
@@ -471,6 +589,32 @@ async function handleBatchSubmitClick(rows) {
     ElMessage.warning('选中的记录中没有可以提交的记录');
     return;
   }
+
+  // 提交前校验：流程时间 + 提交日志周期 都不能为空（一票否决）
+  const mainMap = await fetchMainInternshipMap(pendingRows.map((r) => r.internshipId));
+  if (mainMap === null) {
+    ElMessage.error('校验日志周期失败，请稍后重试');
+    return;
+  }
+  const blocked = pendingRows
+    .map((r) => ({
+      row: r,
+      reason: getSubmitBlockReason(r, mainMap.get(r.internshipId)),
+    }))
+    .filter((x) => x.reason);
+  if (blocked.length) {
+    const detail = blocked
+      .slice(0, 5)
+      .map((b) => `「${b.row.internshipName || b.row.internshipCode || `#${b.row.id}`}」${b.reason}`)
+      .join('；');
+    const more = blocked.length > 5 ? `；以及其他 ${blocked.length - 5} 条` : '';
+    ElMessageBox.alert(`存在不满足提交条件的记录：${detail}${more}。请先补全后再提交。`, '无法批量提交', {
+      type: 'warning',
+      confirmButtonText: '我知道了',
+    }).catch(() => {});
+    return;
+  }
+
   let successCount = 0;
   for (const row of pendingRows) {
     if (await submitSingleRow(row)) successCount++;
@@ -525,12 +669,7 @@ const defaultProps = computed(() => ({
           name: '全部提交',
           type: 'warning',
           submitAll: {
-            keyWords: 'ViewVerifyProcessInternshipMerge',
-            searchKey: submitAllSearchKey.value,
-            reg: submitAllReg.value,
-            filterRows: (row) =>
-              row.isAudit === CONSTANT.AUDIT_STATUS.SAVE || row.isAudit === CONSTANT.AUDIT_STATUS.BACK,
-            buildConfirmText: (n) => `确定提交全部 ${n} 条待提交的实习计划吗？`,
+            handler: handleSubmitAllClick,
           },
         },
       },
