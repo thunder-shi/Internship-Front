@@ -35,9 +35,9 @@
       </el-form-item>
     </el-card>
 
-    <div v-if="Object.keys(periodDrafts).length > 0" class="submit-all-bar">
+    <div v-if="draftCount > 0" class="submit-all-bar">
       <el-button type="warning" :loading="submitAllLoading" @click="handleSubmitAllClick">
-        全部提交（{{ Object.keys(periodDrafts).length }} 篇草稿）
+        全部提交（{{ draftCount }} 篇草稿）
       </el-button>
     </div>
 
@@ -60,7 +60,7 @@
         >当前</el-tag>
       </template>
       <template #status="{ row }">
-        <el-tag v-if="periodDrafts[row.periodId]" type="warning" effect="light">草稿</el-tag>
+        <el-tag v-if="isDraftRow(row)" type="warning" effect="light">草稿</el-tag>
         <el-tag v-else :type="getDiaryTagType(row.diary)">{{ getDiaryStatusText(row.diary) }}</el-tag>
       </template>
       <template #totalScore="{ row }">
@@ -71,14 +71,14 @@
         <el-button
           type="warning"
           size="small"
-          :title="row.diary?.submit && !periodDrafts[row.periodId] ? '查看日志' : '编辑日志'"
+          :title="isSubmittedWithoutDraft(row) ? '查看日志' : '编辑日志'"
           :disabled="!selectedPost?._approved && !row.diary && !periodDrafts[row.periodId]"
           @click.stop="openSubmitDialog(row)"
         ><el-icon><Edit /></el-icon></el-button>
         <el-button
           type="success"
           size="small"
-          :disabled="!selectedPost?._approved || isFuturePeriod(row) || (!row.diary && !periodDrafts[row.periodId]) || row.diary?.submit === true"
+          :disabled="isSubmitDisabled(row)"
           :title="submitBtnTitle(row)"
           @click.stop="handleDirectSubmit(row)"
         ><el-icon><Position /></el-icon></el-button>
@@ -130,8 +130,10 @@ watch(selectedPost, (post) => {
 // ── DataTableList ─────────────────────────────────────────────
 const dtlRef = ref(null)
 const currentPeriodId = ref(null)
+const periodRows = ref([])
 
 function onAfterInitData(list) {
+  periodRows.value = Array.isArray(list) ? list : []
   currentPeriodId.value = findCurrentPeriod(list)?.periodId ?? null
 }
 
@@ -191,8 +193,16 @@ function postLabel(post) {
   return post.teacherName ? `${name}（${post.teacherName}）` : name || `课题 #${post.relTitleStudentId}`
 }
 
-function isFuturePeriod(row) {
-  return row.beginTime ? new Date(row.beginTime) > new Date() : false
+function isTrueValue(value) {
+  return value === true || value === 1 || value === '1' || value === 'true'
+}
+
+function isVerified(row) {
+  return isTrueValue(row?.isAllVerified ?? row?.is_all_verified)
+}
+
+function mapKey(value) {
+  return value == null ? '' : String(value)
 }
 
 function findCurrentPeriod(list) {
@@ -247,7 +257,7 @@ async function loadStudentPosts() {
       ? (intVerifyRes.value?.data?.content || intVerifyRes.value?.data || [])
       : []
     // relationId 对应 RelTitleStudent.id，与 ViewRelTitleTeacherStudent.relTitleStudentId 相同
-    const intVerifyMap = new Map(intVerifyList.map(v => [v.relationId, v.isAllVerified === true]))
+    const intVerifyMap = new Map(intVerifyList.map(v => [mapKey(v.relationId), isVerified(v)]))
 
     studentPosts.value = [
       ...extList.map(item => ({
@@ -255,14 +265,14 @@ async function loadStudentPosts() {
         _key: `ext_${item.relationId}`,
         _type: 'external',
         _paramId: item.relationId,
-        _approved: item.isAllVerified === true,
+        _approved: isVerified(item),
       })),
       ...intList.map(item => ({
         ...item,
         _key: `int_${item.relTitleStudentId}`,
         _type: 'internal',
         _paramId: item.relTitleStudentId,
-        _approved: intVerifyMap.get(item.relTitleStudentId) ?? false,
+        _approved: intVerifyMap.get(mapKey(item.relTitleStudentId)) ?? false,
       })),
     ]
   } catch {
@@ -297,6 +307,54 @@ function onViewClick(rowOrArray) {
 const periodDrafts = reactive({})
 const submitAllLoading = ref(false)
 
+function hasPeriodDraft(row) {
+  return !!periodDrafts[row?.periodId]
+}
+
+function hasSavedDraft(row) {
+  if (!row?.diary || isTrueValue(row.diary.submit)) return false
+  return !!row.diary.title?.trim() || !!row.diary.content?.trim()
+}
+
+function isDraftRow(row) {
+  return hasPeriodDraft(row) || hasSavedDraft(row)
+}
+
+function isSubmittedWithoutDraft(row) {
+  return isTrueValue(row?.diary?.submit) && !hasPeriodDraft(row)
+}
+
+function canOperatePeriod(row) {
+  return !!selectedPost.value?._approved || !!row?.diary || hasPeriodDraft(row)
+}
+
+function hasSubmittableDraft(row) {
+  return hasPeriodDraft(row) || hasSavedDraft(row)
+}
+
+const draftRows = computed(() => {
+  const rowsByPeriodId = new Map()
+  periodRows.value.forEach(row => {
+    if (hasSavedDraft(row)) rowsByPeriodId.set(mapKey(row.periodId), row)
+  })
+  Object.keys(periodDrafts).forEach(periodId => {
+    if (!rowsByPeriodId.has(mapKey(periodId))) {
+      rowsByPeriodId.set(mapKey(periodId), { periodId: Number(periodId), diary: null })
+    }
+  })
+  return Array.from(rowsByPeriodId.values())
+})
+
+const draftCount = computed(() => draftRows.value.length)
+
+function isSubmitDisabled(row) {
+  return (
+    !canOperatePeriod(row) ||
+    isSubmittedWithoutDraft(row) ||
+    !hasSubmittableDraft(row)
+  )
+}
+
 // ── 提交日志对话框 ────────────────────────────────────────────
 const dlgSubmitRef = ref(null)
 
@@ -308,16 +366,15 @@ function buildIdParam(post) {
 }
 
 function submitBtnTitle(row) {
-  if (!selectedPost.value?._approved) return '实习未开始'
-  if (isFuturePeriod(row)) return '未到提交时间'
-  if (!row.diary && !periodDrafts[row.periodId]) return '请先保存日志内容'
-  if (row.diary?.submit === true) return '已提交'
+  if (!canOperatePeriod(row)) return '实习未开始'
+  if (isSubmittedWithoutDraft(row)) return '已提交'
+  if (!hasSubmittableDraft(row)) return '请先保存日志内容'
   return '提交日志'
 }
 
 function openSubmitDialog(periodItem) {
   const draft = periodDrafts[periodItem.periodId]
-  const isSubmitted = periodItem.diary?.submit === true
+  const isSubmitted = isSubmittedWithoutDraft(periodItem)
   // 有草稿时用草稿的 title/content 覆盖，保留 diary 其余字段（如 isAudit/relationId）
   const diary = draft
     ? { ...(periodItem.diary ?? {}), title: draft.title, content: draft.content }
@@ -332,9 +389,41 @@ function openSubmitDialog(periodItem) {
   })
 }
 
-function onSaveDraft({ periodId, title, content, files }) {
-  periodDrafts[periodId] = { title, content, files }
-  ElMessage.success('草稿已保存，点击提交按钮上传')
+async function onSaveDraft({ periodId, title, content, files }) {
+  const post = selectedPost.value
+  if (!post) {
+    ElMessage.warning('请先选择实习项目')
+    return
+  }
+
+  const loading = ElLoading.service({ text: '保存草稿中…', background: 'rgba(0,0,0,0.45)' })
+  try {
+    const res = await submitDiary({
+      ...buildIdParam(post),
+      periodId,
+      title,
+      content,
+      submit: false,
+    })
+    if (res?.message !== 'successful') {
+      ElMessage.error(res?.message || '保存草稿失败')
+      return
+    }
+
+    const diaryId = res.data
+    if (files?.length > 0 && diaryId) {
+      loading.setText('上传附件中…')
+      await fileAPI.upload({ files, relationIds: diaryId, tableName: 'main_diary' })
+    }
+
+    periodDrafts[periodId] = { title, content, files: [] }
+    ElMessage.success('草稿已保存，点击提交按钮上传')
+    dtlRef.value?.initDataList()
+  } catch {
+    // 拦截器已处理
+  } finally {
+    loading.close()
+  }
 }
 
 async function handleDirectSubmit(row) {
@@ -381,8 +470,8 @@ async function handleDirectSubmit(row) {
 
 /** 全部提交：提交所有草稿日志 */
 async function handleSubmitAllClick() {
-  const draftEntries = Object.entries(periodDrafts)
-  if (!draftEntries.length) {
+  const rows = draftRows.value
+  if (!rows.length) {
     ElMessage.info('没有待提交的草稿')
     return
   }
@@ -392,19 +481,22 @@ async function handleSubmitAllClick() {
     return
   }
   // 校验所有草稿
-  for (const [periodId, draft] of draftEntries) {
-    if (!draft.title?.trim()) {
-      ElMessage.warning(`第 ${periodId} 期草稿缺少标题，请先填写`)
+  for (const row of rows) {
+    const draft = periodDrafts[row.periodId]
+    const title = draft?.title ?? row.diary?.title
+    const content = draft?.content ?? row.diary?.content
+    if (!title?.trim()) {
+      ElMessage.warning(`第 ${row.periodIndex ?? row.periodId} 期草稿缺少标题，请先填写`)
       return
     }
-    if (!draft.content?.trim()) {
-      ElMessage.warning(`第 ${periodId} 期草稿缺少内容，请先填写`)
+    if (!content?.trim()) {
+      ElMessage.warning(`第 ${row.periodIndex ?? row.periodId} 期草稿缺少内容，请先填写`)
       return
     }
   }
   try {
     await ElMessageBox.confirm(
-      `确定提交全部 ${draftEntries.length} 篇草稿日志吗？`,
+      `确定提交全部 ${rows.length} 篇草稿日志吗？`,
       '全部提交',
       { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
     )
@@ -412,27 +504,31 @@ async function handleSubmitAllClick() {
   submitAllLoading.value = true
   const loading = ElLoading.service({ text: '全部提交中…', background: 'rgba(0,0,0,0.45)' })
   let successCount = 0
-  for (const [periodId, draft] of draftEntries) {
+  for (const row of rows) {
     try {
-      loading.setText(`提交中 (${successCount + 1}/${draftEntries.length})…`)
+      const draft = periodDrafts[row.periodId]
+      const title = draft?.title ?? row.diary?.title
+      const content = draft?.content ?? row.diary?.content
+      const files = draft?.files ?? []
+      loading.setText(`提交中 (${successCount + 1}/${rows.length})…`)
       const res = await submitDiary({
         ...buildIdParam(post),
-        periodId: Number(periodId),
-        title: draft.title,
-        content: draft.content,
+        periodId: Number(row.periodId),
+        title,
+        content,
         submit: true,
       })
       if (res?.message === 'successful') {
         const diaryId = res.data
-        if (draft.files?.length > 0 && diaryId) {
-          loading.setText(`上传附件中 (${successCount + 1}/${draftEntries.length})…`)
-          await fileAPI.upload({ files: draft.files, relationIds: diaryId, tableName: 'main_diary' })
+        if (files.length > 0 && diaryId) {
+          loading.setText(`上传附件中 (${successCount + 1}/${rows.length})…`)
+          await fileAPI.upload({ files, relationIds: diaryId, tableName: 'main_diary' })
         }
-        delete periodDrafts[periodId]
+        delete periodDrafts[row.periodId]
         successCount++
       }
     } catch (e) {
-      console.error(`提交第 ${periodId} 期失败:`, e)
+      console.error(`提交第 ${row.periodId} 期失败:`, e)
     }
   }
   loading.close()
