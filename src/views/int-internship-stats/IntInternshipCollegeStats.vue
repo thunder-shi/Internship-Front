@@ -63,7 +63,6 @@ const selectedDepartmentId = ref(null);
 
 const titleState = reactive({
   mainTitle: '校内实习报名统计',
-  subTitle: '',
 });
 
 const treeProps = computed(() => {
@@ -252,7 +251,6 @@ async function fetchCollegeStats(params) {
 function handleNodeClick(node) {
   if (!node || node.id === -1) return;
   selectedDepartmentId.value = node.id;
-  titleState.subTitle = node.name ? `下钻：${node.name}` : `下钻部门 ID：${node.id}`;
   dataTableListRef.value?.initDataList?.(true);
 }
 
@@ -295,7 +293,6 @@ onMounted(async () => {
       return;
     }
     selectedDepartmentId.value = Number(uid);
-    titleState.subTitle = '';
     const kw = treeProps.value.keyWord;
     const rootRow = await fetchDepartmentSubtreeRootRow(kw, uid);
     nextTick(async () => {

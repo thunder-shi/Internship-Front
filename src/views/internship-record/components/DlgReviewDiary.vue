@@ -4,10 +4,17 @@
     title="批阅实习日志"
     width="640px"
     :close-on-click-modal="false"
+    :close-on-press-escape="!aiReviewing"
+    :show-close="!aiReviewing"
     append-to-body
     @closed="onClosed"
   >
-    <div v-loading="loading">
+    <div
+      class="dialog-panel"
+      v-loading="panelLoading"
+      :element-loading-text="panelLoadingText"
+      element-loading-background="rgba(255, 255, 255, 0.75)"
+    >
       <!-- 学生信息 -->
       <el-descriptions :column="2" border size="small" class="mb-16">
         <el-descriptions-item label="学生姓名">{{ student?.studentName }}</el-descriptions-item>
@@ -65,13 +72,24 @@
           label="评分"
           prop="score"
         >
-          <el-input-number
-            v-model="form.score"
-            :min="0"
-            :max="100"
-            :precision="2"
-            controls-position="right"
-          />
+          <div class="score-row">
+            <el-input-number
+              v-model="form.score"
+              :min="0"
+              :max="100"
+              :precision="2"
+              controls-position="right"
+            />
+            <el-button
+              v-if="!isAlreadyPassed"
+              type="primary"
+              plain
+              :disabled="aiReviewing"
+              @click="handleAiReview"
+            >
+              AI批阅
+            </el-button>
+          </div>
         </el-form-item>
 
         <el-form-item :label="reasonLabel" prop="reason">
@@ -85,12 +103,14 @@
           />
         </el-form-item>
       </el-form>
-    </div>
 
-    <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="submitting" @click="handleSubmit">确认审核</el-button>
-    </template>
+      <div class="dialog-footer">
+        <el-button :disabled="aiReviewing" @click="visible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" :disabled="aiReviewing" @click="handleSubmit">
+          确认审核
+        </el-button>
+      </div>
+    </div>
   </el-dialog>
 </template>
 
@@ -99,6 +119,7 @@ import { ref, computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
 import internshipProcessAPI from '@/api/internshipProcess'
+import { aiReviewDiary } from '@/api/diary'
 import CONSTANT from '@/utils/constant'
 import { getAuditStatusText, getAuditTagType } from '@/utils/verify'
 import { useDiaryFiles } from '@/utils/useDiaryFiles'
@@ -111,12 +132,22 @@ const AUDIT_STATUS = CONSTANT.AUDIT_STATUS
 
 const visible = ref(false)
 const submitting = ref(false)
+const aiReviewing = ref(false)
 const student = ref(null)
 const contextInternshipId = ref(null)
 
 const { files, filesLoading: loading, loadFiles, triggerDownload, triggerPreview, reset: resetFiles } = useDiaryFiles()
 
 const isAlreadyPassed = computed(() => student.value?.diary?.isAllVerified === true)
+
+const AI_REVIEW_LOADING_TEXT = 'AI 批阅中，预计需要一定时间，请耐心等待…'
+
+const panelLoading = computed(() => loading.value || aiReviewing.value)
+const panelLoadingText = computed(() => {
+  if (aiReviewing.value) return AI_REVIEW_LOADING_TEXT
+  if (loading.value) return '加载中…'
+  return ''
+})
 
 const formRef = ref(null)
 const form = reactive({ isAudit: null, reason: '', score: null })
@@ -169,6 +200,40 @@ function onClosed() {
   student.value = null
   contextInternshipId.value = null
   resetFiles()
+}
+
+async function handleAiReview() {
+  const diaryId = student.value?.diary?.relationId
+  if (!diaryId) {
+    ElMessage.error('缺少日志 ID，无法进行 AI 批阅')
+    return
+  }
+
+  try {
+    aiReviewing.value = true
+    const res = await aiReviewDiary({ diaryId })
+    if (res?.message !== 'successful') {
+      ElMessage.error(res?.message || 'AI 批阅失败')
+      return
+    }
+
+    const data = res.data || {}
+    if (data.aiReviewStatus && data.aiReviewStatus !== 'SUCCESS') {
+      ElMessage.error('AI 批阅未成功，请稍后重试')
+      return
+    }
+
+    const score = data.aiReviewScore ?? data.score
+    const comment = data.aiReviewComment ?? data.output
+    if (score != null) form.score = Number(score)
+    if (comment) form.reason = String(comment).slice(0, 500)
+    formRef.value?.clearValidate(['score'])
+    ElMessage.success('AI 批阅完成，已自动填入评分与意见')
+  } catch {
+    // 拦截器已处理
+  } finally {
+    aiReviewing.value = false
+  }
 }
 
 async function handleSubmit() {
@@ -263,5 +328,24 @@ defineExpose({ open })
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dialog-panel {
+  position: relative;
+  min-height: 200px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  margin-top: 8px;
 }
 </style>

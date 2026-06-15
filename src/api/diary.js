@@ -39,3 +39,8 @@ export function deletePeriods(node) {
 export function initDiariesByInternship(node) {
   return request({ url: '/diary/init-by-internship', method: 'post', data: { node } })
 }
+
+/** AI 批阅实习日志（耗时较长，由弹窗内局部遮罩展示进度） */
+export function aiReviewDiary(node) {
+  return request({ url: '/diary/ai-review', method: 'post', data: { node }, loadingMask: false })
+}
