@@ -53,7 +53,7 @@ const props = defineProps({
   keyWords: { type: String, default: '' },
 });
 
-const emit = defineEmits(['selfImport', 'ex-material', 'close-dialog']);
+const emit = defineEmits(['selfImport', 'ex-material', 'close-dialog', 'import-success']);
 
 const dlgBasicRef = ref(null);
 const uploadRef = ref(null);

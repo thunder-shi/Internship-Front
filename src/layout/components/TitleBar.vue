@@ -56,7 +56,7 @@
   </header>
 </template>
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -112,10 +112,23 @@ const defaultDBProps = reactive({
   }
 })
 
+function requireField(message) {
+  return {
+    validator: (_rule, value, callback) => {
+      if (value === undefined || value === null || String(value).trim() === '') {
+        callback(new Error(message))
+      } else {
+        callback()
+      }
+    },
+    trigger: ['blur', 'change'],
+  }
+}
+
 const rules = reactive({
-  // verCode: [{ required: true, message: '请输入', trigger: 'blur' }],
-  // password: [{ required: true, validator: checkPassword, trigger: ['change', 'blur'] }],
-  // checkPass: [{ required: true, validator: validatePass2, trigger: 'blur' }]
+  oldPassword: [requireField('请输入旧密码')],
+  password: [requireField('请输入新密码')],
+  checkPass: [requireField('请再次输入新密码')],
 })
 
 const btnDisabled = ref(false)
@@ -181,7 +194,11 @@ const personalInfo = () => {
 }
 
 const updatePassword = () => {
+  form.oldPassword = ''
+  form.password = ''
+  form.checkPass = ''
   dlgPassword.value?.showDialog(true, form)
+  nextTick(() => formRef.value?.clearValidate())
 }
 
 const logout = async () => {
@@ -196,16 +213,20 @@ const logout = async () => {
 }
 
 const submit = async () => {
-  console.log(form)
-  if (!formRef.value) return
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      await userAPI.editPassword(store.getters.userInfo.id, form.oldPassword, form.password, false)
-      ElMessage.success('修改成功！')
-      formRef.value.resetFields()
-      dlgPassword.value?.showDialog(false)
-    }
-  })
+  if (!formRef.value) return false
+  try {
+    await formRef.value.validate()
+  } catch {
+    return false
+  }
+  try {
+    await userAPI.editPassword(store.getters.userInfo.id, form.oldPassword, form.password, false)
+    ElMessage.success('修改成功！')
+    formRef.value.resetFields()
+    dlgPassword.value?.showDialog(false)
+  } catch {
+    return false
+  }
 }
 
 const closeDialog = (data) => {
