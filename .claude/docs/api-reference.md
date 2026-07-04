@@ -135,6 +135,8 @@ import {
   getStudentPeriods,     // 学生期数列表（含 diary Merge 视图）
   getInternshipPeriods,  // 实习项目总期数（老师视角）
   getPeriodStudents,     // 某期所有学生日志（老师视角）
+  getDiaryReviewOptions, // 当前校内导师可批阅项目/期次（POST /diary/review/options）
+  getDiaryReviewStudents,// 当前校内导师指定项目期次下可批阅日志（POST /diary/review/students）
   initDiariesByInternship, // 批量初始化 MainDiary 占位（POST /diary/init-by-internship）
   generatePeriods,       // 生成期次（清空重建，非追加）
   savePeriod,            // 新增/编辑单条期次（id=null 新增）

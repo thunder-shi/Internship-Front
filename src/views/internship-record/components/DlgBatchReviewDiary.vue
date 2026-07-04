@@ -60,7 +60,7 @@ import { ref, computed, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import internshipProcessAPI from '@/api/internshipProcess'
 import CONSTANT from '@/utils/constant'
-import { getAuditStatusText } from '@/utils/verify'
+import { getAuditStatusText, canReviewDiary } from '@/utils/verify'
 
 defineOptions({ name: 'DlgBatchReviewDiary' })
 
@@ -73,7 +73,7 @@ const submitting = ref(false)
 const batchRows = ref([])
 
 const eligibleCount = computed(() =>
-  batchRows.value.filter(r => r?.diary?.isAudit === AUDIT_STATUS.SUBMIT).length
+  batchRows.value.filter(r => canReviewDiary(r?.diary)).length
 )
 
 const formRef = ref(null)
@@ -108,6 +108,10 @@ const reasonPlaceholder = computed(() => {
   return ''
 })
 
+function getVerifyProcessId(diary) {
+  return diary?.verifyProcessId ?? diary?.id ?? null
+}
+
 function open(rows, options = {}) {
   batchRows.value = Array.isArray(rows) ? rows : [rows]
   form.isAudit = null
@@ -128,7 +132,7 @@ async function handleSubmit() {
     return
   }
 
-  const eligible = batchRows.value.filter(r => r?.diary?.isAudit === AUDIT_STATUS.SUBMIT)
+  const eligible = batchRows.value.filter(r => canReviewDiary(r?.diary))
   if (!eligible.length) {
     ElMessage.warning('选中的记录中没有待审核状态的日志')
     return
@@ -139,7 +143,7 @@ async function handleSubmit() {
     let successCount = 0
     const failedNames = []
     for (const row of eligible) {
-      const processId = row.diary?.id
+      const processId = getVerifyProcessId(row.diary)
       if (!processId) continue
       const payload = { id: processId, isAudit: form.isAudit, reason: form.reason }
       if (form.isAudit === AUDIT_STATUS.PASS) {

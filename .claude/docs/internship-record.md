@@ -7,7 +7,7 @@ UploadInternshipReport.vue  (学生端)
   └── 选择实习项目（校外/校内）→ 选择期数 → DlgSubmitDiary（提交/重提）
 
 ReviewInternshipReport.vue  (老师端)
-  └── 选择实习项目 → 选择期数 → DlgReviewDiary / DlgBatchReviewDiary
+  └── 后端返回当前校内导师可批阅项目/期次 → 选择期数 → DlgReviewDiary / DlgBatchReviewDiary
 
 StuInternshipSign.vue       (学生打卡)
   └── 选择已通过的校外实习岗位 → 打卡提交 → 查看历史
@@ -43,8 +43,9 @@ MainLeaveAudit.vue          (请假审核)
 
 - **`_paramId`**: 校外用 `item.relationId`（= `rel_stu_internship_post.id` = `stuInternshipPostId`）
 - **期数**: `getStudentPeriods({ stuInternshipPostId })` / `getStudentPeriods({ relTitleStudentId })`
-- **MainDiary 占位**: 分配导师时自动调用 `initDiariesByInternship({ internshipId })` 预建占位；submit=false 表示未提交
-- **教师过滤**: 非超级管理员通过 `ViewRelTeacherStudent`（teacherId + internshipId）获取关联学生 ID，前端按 `stuRelationId`（校外）/ `teacherId`（校内）过滤
+- **MainDiary 占位**: 分配导师时后端预建占位；submit=false 表示未提交，草稿也可能带 `verifyProcessId` 和 `isAudit=-1`
+- **日志批阅数据源**: `ReviewInternshipReport.vue` 使用 `/diary/review/options` 获取当前校内导师可批阅项目/期次，使用 `/diary/review/students` 获取待审学生日志；不再前端拼 `ViewRelIntershipUser` / `ViewRelTeacherStudent`
+- **日志 ID 语义**: `diary.diaryId` 是 `MainDiary.id`，用于附件/AI；`diary.verifyProcessId` 是 `MainVerifyProcess.id`，用于 `auditProcess`；`diary.relationId` 兼容旧前端，等同 `diaryId`
 
 ## DlgSubmitDiary 文件上传
 
