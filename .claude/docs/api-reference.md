@@ -144,6 +144,8 @@ import {
 } from '@/api/diary'
 ```
 
+`ReviewInternshipReport.vue` 的项目下拉使用 `ViewRelProcessInternship` 当前时间窗口，期数下拉使用 `getInternshipPeriods` 获取全部期次；学生列表与已交/未交统计使用 `getPeriodStudents` 获取全量条目后前端分页。`getDiaryReviewStudents` 仅适合待批阅列表语义，不应用来计算未提交人数或驱动下拉选项。
+
 ## api/mainSign.js
 
 ```javascript
