@@ -5,16 +5,6 @@
         <DataTree ref="dataTreeRef" :default-props="treeProps" @node-click="handleNodeClick" />
       </aside>
       <main class="stats-main">
-        <div v-if="isSchoolScopeUser" class="stats-scope-bar">
-          <span class="scope-label">统计范围</span>
-          <el-radio-group v-model="statsScope" size="small" @change="onStatsScopeChange">
-            <el-radio-button label="whole">全校汇总</el-radio-button>
-            <el-radio-button label="tree">左侧部门树下钻</el-radio-button>
-          </el-radio-group>
-        </div>
-        <div v-else-if="isDeptAdminOnly" class="stats-scope-bar stats-scope-bar--hint">
-          <span class="scope-hint">统计范围限定在本院账号绑定部门子树内；点击左侧节点可按该节点下钻查看汇总。</span>
-        </div>
         <div class="stats-table-flex">
           <DataTableList
             ref="dataTableListRef"
@@ -60,28 +50,21 @@ const store = useStore();
 const userInfo = computed(() => store.getters.userInfo || {});
 const roles = computed(() => store.getters.roles || []);
 
-const isSchoolScopeUser = computed(() =>
-  isInternshipStatsSchoolScopeUser(userInfo.value, roles.value)
-);
 const isDeptAdminOnly = computed(
   () =>
     isInternshipStatsDepartmentAdmin(userInfo.value, roles.value) &&
-    !isSchoolScopeUser.value
+    !isInternshipStatsSchoolScopeUser(userInfo.value, roles.value)
 );
 
 const dataTreeRef = ref(null);
 const dataTableListRef = ref(null);
 const projectDetailDlgRef = ref(null);
 
-/** 校级 + 「树下钻」时，为左侧所选部门 id；全校汇总时为 null。院系管理员不按此字段请求接口。 */
+/** 校级 + 树下钻时，为左侧所选部门 id；全校汇总时为 null。院系管理员不按此字段请求接口。 */
 const selectedDepartmentId = ref(null);
-
-/** whole | tree */
-const statsScope = ref('whole');
 
 const titleState = reactive({
   mainTitle: '校外实习报名统计',
-  subTitle: '',
 });
 
 const treeProps = computed(() => {
@@ -151,20 +134,6 @@ const defaultDTLProps = reactive({
         width: 220,
       },
       {
-        id: 2,
-        showName: '报名学生数',
-        tableColumnName: 'signupStudentCount',
-        sortable: false,
-        width: 120,
-      },
-      {
-        id: 3,
-        showName: '报名导师数',
-        tableColumnName: 'signupTeacherCount',
-        sortable: false,
-        width: 130,
-      },
-      {
         id: 4,
         showName: '岗位条数',
         tableColumnName: 'postSignupCount',
@@ -179,6 +148,27 @@ const defaultDTLProps = reactive({
         width: 120,
       },
       {
+        id: 3,
+        showName: '报名导师数',
+        tableColumnName: 'signupTeacherCount',
+        sortable: false,
+        width: 130,
+      },
+      {
+        id: 2,
+        showName: '报名学生总数',
+        tableColumnName: 'signupStudentTotalCount',
+        sortable: false,
+        width: 120,
+      },
+      {
+        id: 2,
+        showName: '当前部门报名学生数',
+        tableColumnName: 'signupStudentCount',
+        sortable: false,
+        width: 170,
+      },
+      {
         id: 6,
         showName: '待审核岗位数',
         tableColumnName: 'pendingAuditPostCount',
@@ -187,7 +177,7 @@ const defaultDTLProps = reactive({
       },
       {
         id: 7,
-        showName: '已选好岗学生数',
+        showName: '已选岗学生数',
         tableColumnName: 'studentWithPostSelectionCount',
         sortable: false,
         width: 150,
@@ -233,19 +223,8 @@ async function fetchCollegeStats(params) {
       };
     }
     payload.departmentId = Number(departmentId);
-  } else if (statsScope.value === 'tree') {
-    const departmentId = selectedDepartmentId.value;
-    if (departmentId == null || departmentId === '') {
-      ElMessage.warning('请先在左侧部门树选择要下钻的节点');
-      return {
-        data: {
-          content: [],
-          totalElements: 0,
-          page: { totalElements: 0 },
-        },
-      };
-    }
-    payload.departmentId = Number(departmentId);
+  } else if (selectedDepartmentId.value != null && selectedDepartmentId.value !== '') {
+    payload.departmentId = Number(selectedDepartmentId.value);
   }
 
   try {
@@ -271,31 +250,9 @@ async function fetchCollegeStats(params) {
   }
 }
 
-async function applyStatsScope(scope) {
-  if (scope === 'whole') {
-    selectedDepartmentId.value = null;
-    titleState.subTitle = '统计范围：全校汇总';
-    return;
-  }
-  if (selectedDepartmentId.value != null && selectedDepartmentId.value !== '') {
-    titleState.subTitle = '统计范围：按左侧部门树所选节点下钻';
-  } else {
-    titleState.subTitle = '请在左侧部门树选择下钻节点';
-  }
-}
-
-async function onStatsScopeChange(scope) {
-  await applyStatsScope(scope);
-  dataTableListRef.value?.initDataList?.(true);
-}
-
 function handleNodeClick(node) {
   if (!node || node.id === -1) return;
   selectedDepartmentId.value = node.id;
-  titleState.subTitle = node.name ? `下钻：${node.name}` : `下钻部门 ID：${node.id}`;
-  if (!isDeptAdminOnly.value) {
-    statsScope.value = 'tree';
-  }
   dataTableListRef.value?.initDataList?.(true);
 }
 
@@ -311,7 +268,7 @@ function goProjectDetail(row) {
       selectedDepartmentId.value != null && selectedDepartmentId.value !== ''
         ? selectedDepartmentId.value
         : userInfo.value.departmentId;
-  } else if (statsScope.value === 'tree' && selectedDepartmentId.value != null && selectedDepartmentId.value !== '') {
+  } else if (selectedDepartmentId.value != null && selectedDepartmentId.value !== '') {
     dept = selectedDepartmentId.value;
   } else {
     dept = row?.departmentId;
@@ -338,7 +295,6 @@ onMounted(async () => {
       return;
     }
     selectedDepartmentId.value = Number(uid);
-    titleState.subTitle = '本院及下级部门';
     const kw = treeProps.value.keyWord;
     const rootRow = await fetchDepartmentSubtreeRootRow(kw, uid);
     nextTick(async () => {
@@ -350,8 +306,6 @@ onMounted(async () => {
     return;
   }
 
-  statsScope.value = 'whole';
-  await applyStatsScope('whole');
   nextTick(() => {
     dataTableListRef.value?.initDataList?.(true);
   });
@@ -419,26 +373,6 @@ onMounted(async () => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-.stats-scope-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  background: var(--el-fill-color-light);
-  border-radius: 6px;
-}
-.stats-scope-bar .scope-label {
-  font-size: 13px;
-  color: var(--el-text-color-regular);
-  flex-shrink: 0;
-}
-.stats-scope-bar--hint .scope-hint {
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-  line-height: 1.5;
 }
 .stats-main :deep(.data-table-header) {
   display: flex;

@@ -55,7 +55,31 @@ export function checkIDCard(rule, value, callback) {
 }
 
 // 特殊字符
-// const specialReg = /[`~!@#$%^&*()_\-+=<>?:"{}|,.\/;'\\[\]·~！@#￥%……&*（）——\-+={}|《》？：“”【】、；‘’，。、]/im
+const SPECIAL_CHAR_REG = /[`~!@#$%^&*()_\-+=<>?:"{}|,.\/;'\\[\]·~！@#￥%……&*（）——\-+={}|《》？：“”【】、；‘’，。、]/;
+
+/**
+ * 弱密码校验（有值时才校验）：长度不小于 8 位，且含字母、数字、特殊符号
+ * @returns {string|null} 不通过时返回错误文案，通过或空密码返回 null
+ */
+export function getWeakPasswordReason(password) {
+  const value = String(password ?? '').trim();
+  if (!value) return null;
+  if (value.length < 8) return '密码长度应不小于8位';
+  if (!/[a-zA-Z]/.test(value)) return '密码应包含字母';
+  if (!/\d/.test(value)) return '密码应包含数字';
+  if (!SPECIAL_CHAR_REG.test(value)) return '密码应包含特殊符号';
+  return null;
+}
+
+/** 表单用：密码为空则跳过，有值则校验强度 */
+export function checkOptionalStrongPassword(rule, value, callback) {
+  const reason = getWeakPasswordReason(value);
+  if (reason) {
+    callback(new Error(reason));
+    return;
+  }
+  callback();
+}
 
 // 手机号验证
 export function checkPhone(rule, value, callback) {

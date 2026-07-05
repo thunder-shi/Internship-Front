@@ -226,6 +226,12 @@ function getSubmitStatus(row) {
   return row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY;
 }
 
+async function initDiaryPlaceholders(internshipId) {
+  try {
+    await initDiariesByInternship({ internshipId });
+  } catch {}
+}
+
 async function updateVerifyProcessStatus(rows, isBatch = false) {
   const rowsArray = Array.isArray(rows) ? rows : [rows].filter(Boolean);
   const pendingRows = rowsArray.filter((row) => row?.isAudit === CONSTANT.AUDIT_STATUS.SAVE);
@@ -337,9 +343,7 @@ async function runSystemAssign() {
 
     ElMessage.success('系统分配成功');
     await headerPageRef.value?.baseListRef?.initDataList(true);
-    try {
-      await initDiariesByInternship({ internshipId });
-    } catch {}
+    await initDiaryPlaceholders(internshipId);
   } catch (error) {
     console.error('系统分配失败:', error);
     ElMessage.error('系统分配失败');
@@ -614,6 +618,7 @@ async function confirmManualAssign() {
       ElMessage.success('分配老师成功');
       manualAssignDialogVisible.value = false;
       await headerPageRef.value?.baseListRef?.initDataList(true);
+      await initDiaryPlaceholders(internshipId);
     } catch (error) {
       console.error('分配老师失败:', error);
       ElMessage.error('分配老师失败');
@@ -676,6 +681,7 @@ async function confirmManualAssign() {
     ElMessage.success('手动分配成功');
     manualAssignDialogVisible.value = false;
     await headerPageRef.value?.baseListRef?.initDataList(true);
+    await initDiaryPlaceholders(internshipId);
   } catch (error) {
     console.error('手动分配失败:', error);
     ElMessage.error('手动分配失败');

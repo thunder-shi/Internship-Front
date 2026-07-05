@@ -93,7 +93,7 @@ export function getDiaryTagType(diary) {
  * 日志是否处于可批阅状态（待审核）
  */
 export function canReviewDiary(diary) {
-  return diary?.isAudit === AUDIT_STATUS.SUBMIT
+  return diary?.submit === true && diary?.isAudit === AUDIT_STATUS.SUBMIT
 }
 
 /**

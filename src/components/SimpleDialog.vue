@@ -9,9 +9,33 @@
     ⑦ multiple:是否开启多选（针对下拉框）
   -->
 <template>
-  <DlgBasic ref="dlgBasicRef" :default-props="mergedDefaultDBProps" :dlgbasic-confirm="confirm" :dlgbasic-submit="submit" :dlgbasic-spec-submit="specSubmit" :dlgbasic-spec-confirm="specConfirm" @close-dialog="onCloseDialog" @open-dialog="openDialog">
+  <DlgBasic
+    ref="dlgBasicRef"
+    :default-props="mergedDefaultDBProps"
+    :dlgbasic-confirm="confirm"
+    :dlgbasic-submit="submit"
+    :dlgbasic-spec-submit="specSubmit"
+    :dlgbasic-spec-confirm="specConfirm"
+    @close-dialog="onCloseDialog"
+    @open-dialog="openDialog"
+  >
     <template #mainForm>
-      <FormItemsforDialog ref="formItemsRef" :form="form" :form-items="formItems" :form-rules="formRules" :label-width="labelWidth" :handle-select-change="defaultProps.handleSelectChange" :reset-pass="resetPass" :download-link-click="downloadLinkClick" :before-upload="beforeUpload" :file-types="fileTypes" @simple-select-change="onSimpleSelectChange" @simple-select-init-finish="simpleSelectInitFinish" @tree-select-change="onTreeSelectChange" @cron-change="onCronChange">
+      <FormItemsforDialog
+        ref="formItemsRef"
+        :form="form"
+        :form-items="formItems"
+        :form-rules="formRules"
+        :label-width="labelWidth"
+        :handle-select-change="defaultProps.handleSelectChange"
+        :reset-pass="resetPass"
+        :download-link-click="downloadLinkClick"
+        :before-upload="beforeUpload"
+        :file-types="fileTypes"
+        @simple-select-change="onSimpleSelectChange"
+        @simple-select-init-finish="simpleSelectInitFinish"
+        @tree-select-change="onTreeSelectChange"
+        @cron-change="onCronChange"
+      >
         <template #upItems>
           <slot name="upItems" />
         </template>
@@ -27,7 +51,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onMounted, useAttrs, getCurrentInstance } from 'vue';
+import {
+  ref,
+  reactive,
+  computed,
+  watch,
+  nextTick,
+  onMounted,
+  useAttrs,
+  getCurrentInstance,
+} from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
@@ -216,7 +249,7 @@ async function resetPass(password) {
     return;
   }
   try {
-    await userAPI.editPassword(form.id, '', password, true);
+    await userAPI.editPassword(form.id, '', '', true);
     ElMessage.success('重置完毕');
   } catch (error) {
     console.error(error);
@@ -293,14 +326,14 @@ async function _confirm(option, type, formData = null, auditValue = null) {
       await parent.setupState.confirmClick(form);
     } else {
       // 否则使用emit（向后兼容）
-      emit("confirm-click", form);
+      emit('confirm-click', form);
     }
   } catch (error) {
     // 如果访问父组件失败，使用emit（向后兼容）
     console.warn('无法访问父组件的confirmClick方法，使用emit:', error);
-    emit("confirm-click", form);
+    emit('confirm-click', form);
   }
-  
+
   if (formData != null) {
     Object.assign(form, formData);
   }
@@ -320,7 +353,7 @@ async function _confirm(option, type, formData = null, auditValue = null) {
 
   // 提交前清理隐藏字段的数据，避免后端反射处理失败
   const items = formItems.value || [];
-  items.forEach(item => {
+  items.forEach((item) => {
     if (item.hidden && form.hasOwnProperty(item.field)) {
       // 删除隐藏字段，而不是设置为null，避免后端反射处理失败
       delete form[item.field];
@@ -328,7 +361,15 @@ async function _confirm(option, type, formData = null, auditValue = null) {
   });
 
   const userId = store.getters.userInfo.id;
-  var res = await dlgAPI.commonSubmitDlg(formPanelRef.value, form, keyWord.value, option, isTree, false, userId);
+  var res = await dlgAPI.commonSubmitDlg(
+    formPanelRef.value,
+    form,
+    keyWord.value,
+    option,
+    isTree,
+    false,
+    userId
+  );
   if (res.message === 'successful') {
     if (props.simpledialogConfirmMore && typeof props.simpledialogConfirmMore === 'function') {
       await props.simpledialogConfirmMore(res.data);

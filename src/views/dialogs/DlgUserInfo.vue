@@ -31,6 +31,7 @@ import SimpleDialog from '@/components/SimpleDialog.vue';
 import SimpleSelect from '@/components/SimpleSelect.vue';
 import listAPI from '@/api/list.js';
 import userAPI from '@/api/user.js';
+import { getWeakPasswordReason, checkOptionalStrongPassword } from '@/utils/formRules';
 import _ from 'lodash';
 const props = defineProps({
   propsInfo: {
@@ -49,6 +50,14 @@ const spsRole = ref(null);
 const disabled = computed(() => {
   return props.propsInfo.type === 'edit';
 });
+
+const checkPasswordOnAppendOnly = (rule, value, callback) => {
+  if (props.propsInfo.type === 'edit') {
+    callback();
+    return;
+  }
+  checkOptionalStrongPassword(rule, value, callback);
+};
 
 const defaultMainSDProps = reactive({
   form: {},
@@ -111,6 +120,7 @@ const defaultMainSDProps = reactive({
     jobId: [{ required: true, message: '身份类型不能为空', trigger: 'blur' }],
     departmentId: [{ required: true, message: '单位部门不能为空', trigger: 'blur' }],
     roleIds: [{ required: true, message: '角色不能为空', trigger: 'change', type: 'array' }],
+    password: [{ validator: checkPasswordOnAppendOnly, trigger: ['blur', 'change'] }],
   },
   defaultDBProps: {},
 });
@@ -157,8 +167,6 @@ const fetchUserPassword = async (userId) => {
   return res?.data?.content?.[0]?.password;
 };
 
-const DEFAULT_PASSWORD = '000000';
-
 const isAccountExists = async (account, excludeUserId) => {
   const trimmedAccount = account?.trim();
   if (!trimmedAccount) return false;
@@ -184,14 +192,14 @@ const resetPassword = async () => {
   if (!form.id) return;
   try {
     await ElMessageBox.confirm(
-      `确认将该用户密码重置为 ${DEFAULT_PASSWORD}？重置后立即生效。`,
+      `确认将该用户密码重置为全姓名首字母小写+@+000000？重置后立即生效。`,
       '重置密码',
       { type: 'warning', confirmButtonText: '确认重置', cancelButtonText: '取消' }
     );
   } catch {
     return;
   }
-  await userAPI.editPassword(form.id, '', DEFAULT_PASSWORD, true);
+  await userAPI.editPassword(form.id, '', '', true);
   const dbPassword = await fetchUserPassword(form.id);
   if (dbPassword != null) {
     syncPasswordToForm(dbPassword);
@@ -202,11 +210,17 @@ const resetPassword = async () => {
 const confirm = async (option, type, dlgForm) => {
   if (option === 'append') {
     await ensureAccountUnique(dlgForm.account);
-    let password = DEFAULT_PASSWORD;
-    if (!!dlgForm.password) password = dlgForm.password;
+    const password = dlgForm.password;
+    if (password != null && String(password).trim() !== '') {
+      const weakReason = getWeakPasswordReason(password);
+      if (weakReason) {
+        ElMessage.warning(weakReason);
+        throw new Error('WEAK_PASSWORD');
+      }
+    }
     const res = await listAPI.editOneNode('BaseUser', dlgForm);
     if (res.message === 'successful') {
-      await userAPI.editPassword(res.data.id, '', password, true);
+      await userAPI.editPassword(res.data.id, '', password, false, 'append');
       userAPI.saveUserRoles(res.data.id, form.roleIds || []);
     }
   } else if (option === 'edit') {

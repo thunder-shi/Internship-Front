@@ -20,6 +20,16 @@ export function getPeriodStudents(node) {
   return request({ url: '/diary/period-students', method: 'post', data: { node } })
 }
 
+/** 获取当前校内导师可批阅的实习项目与期次 */
+export function getDiaryReviewOptions() {
+  return request({ url: '/diary/review/options', method: 'post', data: {} })
+}
+
+/** 获取当前校内导师在指定项目期次下可批阅的学生日志 */
+export function getDiaryReviewStudents(node) {
+  return request({ url: '/diary/review/students', method: 'post', data: { node } })
+}
+
 /** 生成期次（管理员端）：cron 与 periodNum 二选一；清空重建，非追加 */
 export function generatePeriods(node) {
   return request({ url: '/diary/generatePeriods', method: 'post', data: { node } })
@@ -38,4 +48,9 @@ export function deletePeriods(node) {
 /** 给指定实习项目的所有学生初始化 MainDiary 占位记录（安排导师后调用） */
 export function initDiariesByInternship(node) {
   return request({ url: '/diary/init-by-internship', method: 'post', data: { node } })
+}
+
+/** AI 批阅实习日志（耗时较长，由弹窗内局部遮罩展示进度） */
+export function aiReviewDiary(node) {
+  return request({ url: '/diary/ai-review', method: 'post', data: { node }, loadingMask: false })
 }
