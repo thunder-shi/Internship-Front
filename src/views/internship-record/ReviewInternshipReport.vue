@@ -1,22 +1,71 @@
 <template>
   <div class="review-internship-report">
     <!-- 顶部：实习项目 + 期数选择 -->
-    <InternshipPeriodSelector v-model:internshipId="selectedInternshipId" v-model:periodId="selectedPeriod"
-      :user-id="userInfo.id" @internship-change="onInternshipChange" @period-change="onPeriodChange" />
+    <el-card class="selector-card" shadow="never" v-loading="optionsLoading">
+      <el-row :gutter="16" align="middle">
+        <el-col :span="10">
+          <el-form-item label="实习项目" label-width="80px" class="mb-0">
+            <el-select
+              v-model="selectedInternshipId"
+              placeholder="请选择实习项目"
+              style="width: 100%"
+              @change="onInternshipChange"
+            >
+              <el-option
+                v-for="item in internshipOptions"
+                :key="item.internshipId"
+                :label="item.internshipName"
+                :value="item.internshipId"
+              />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="期数" label-width="50px" class="mb-0">
+            <el-select
+              v-model="selectedPeriod"
+              placeholder="请选择期数"
+              :disabled="!selectedInternshipId || currentPeriods.length === 0"
+              style="width: 100%"
+              @change="onPeriodChange"
+            >
+              <el-option
+                v-for="p in currentPeriods"
+                :key="p.periodId"
+                :label="periodLabel(p)"
+                :value="p.periodId"
+              />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="4">
+          <el-button :icon="Refresh" @click="refreshReviewOptions">刷新</el-button>
+        </el-col>
+      </el-row>
+    </el-card>
 
     <!-- 统计区 -->
-    <DiaryStatsCard :submitted="submittedCount" :not-submitted="notSubmittedCount" :total="allStudents.length" />
+    <DiaryStatsCard
+      :submitted="submittedCount"
+      :not-submitted="notSubmittedCount"
+      :total="submittedCount + notSubmittedCount"
+    />
 
     <!-- 学生列表 -->
-    <DataTableList v-if="selectedInternshipId" ref="dtlRef" :default-props="dtlProps" :fetch-records="fetchRecordsFunc"
-      :client-filter-fn="activeClientFilterFn" @audit-click="onAuditClick" @view-click="onViewClick">
+    <DataTableList
+      v-if="selectedInternshipId && selectedPeriod"
+      :key="tableKey"
+      ref="dtlRef"
+      :default-props="dtlProps"
+      :fetch-records="fetchRecordsFunc"
+      @audit-click="onAuditClick"
+      @view-click="onViewClick"
+    >
       <template #left>
-        <el-radio-group v-model="activeTab" @change="onTabChange">
-          <el-radio-button value="all">全部（{{ allStudents.length }}）</el-radio-button>
-          <el-radio-button value="submitted">已提交（{{ submittedCount }}）</el-radio-button>
-          <el-radio-button value="not-submitted">未提交（{{ notSubmittedCount }}）</el-radio-button>
-        </el-radio-group>
-        <el-button type="primary" style="margin-left: 12px" @click="onBatchAuditClick">批量审核</el-button>
+        <span class="pending-summary">待批阅：{{ pendingReviewCount }} 人</span>
+        <el-button type="primary" style="margin-left: 12px" :disabled="allStudents.length === 0" @click="onBatchAuditClick">
+          批量审核当前页
+        </el-button>
       </template>
 
       <template #status="{ row }">
@@ -37,7 +86,7 @@
       </template>
     </DataTableList>
 
-    <el-empty v-else description="请先选择实习项目" :image-size="120" />
+    <el-empty v-else :description="emptyDescription" :image-size="120" />
 
     <DlgReviewDiary ref="dlgReviewRef" @success="onReviewSuccess" />
     <DlgBatchReviewDiary ref="dlgBatchReviewRef" @success="onReviewSuccess" />
@@ -48,118 +97,294 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
-import { InfoFilled } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useStore } from 'vuex'
+import { ElMessage } from 'element-plus'
+import { InfoFilled, Refresh } from '@element-plus/icons-vue'
 import DataTableList from '@/components/DataTableList.vue'
 import DlgReviewDiary from './components/DlgReviewDiary.vue'
 import DlgBatchReviewDiary from './components/DlgBatchReviewDiary.vue'
 import DlgStudentDetail from './components/DlgStudentDetail.vue'
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue'
-import InternshipPeriodSelector from './components/InternshipPeriodSelector.vue'
 import DiaryStatsCard from './components/DiaryStatsCard.vue'
 import listAPI from '@/api/list'
-import { getPeriodStudents } from '@/api/diary'
+import { getInternshipPeriods, getPeriodStudents } from '@/api/diary'
 import { getDiaryStatusText, getDiaryTagType, canReviewDiary } from '@/utils/verify'
+import { useProcessWindowProjectSelectKeys } from '@/utils/useProcessWindowProjectSelectKeys'
 
 defineOptions({ name: 'ReviewInternshipReport' })
 
 const store = useStore()
 const userInfo = computed(() => store.getters.userInfo || {})
-const roles = computed(() => store.getters.roles || [])
-const isSuperAdmin = computed(() => roles.value.some(r => r.name === '超级管理员'))
+const { projectSelectSearchKey, projectSelectRegKey } = useProcessWindowProjectSelectKeys(
+  userInfo,
+  false
+)
 
 // ── 实习项目 / 期数选择 ───────────────────────────────────────
 const selectedInternshipId = ref(null)
 const selectedPeriod = ref(null)
+const internshipOptions = ref([])
+const periodOptions = ref([])
+const optionsLoading = ref(false)
 
-function onInternshipChange() {
-  allStudents.value = []
+const currentPeriods = computed(() => periodOptions.value)
+
+const currentPeriod = computed(() =>
+  currentPeriods.value.find(item => item.periodId === selectedPeriod.value) || null
+)
+
+const tableKey = computed(() => `${selectedInternshipId.value || 'none'}-${selectedPeriod.value || 'none'}`)
+const emptyDescription = computed(() => {
+  if (optionsLoading.value) return '加载中'
+  if (internshipOptions.value.length === 0) return '暂无进行中的实习项目'
+  if (!selectedInternshipId.value) return '请先选择实习项目'
+  return '请选择期数'
+})
+
+function findCurrentPeriod(list) {
+  const now = new Date()
+  const active = list.find(p =>
+    p.beginTime && p.endTime &&
+    new Date(p.beginTime) <= now && now <= new Date(p.endTime)
+  )
+  if (active) return active
+  return list[0] || null
 }
 
-function onPeriodChange() {
-  dtlRef.value?.initDataList()
+function selectDefaultPeriod() {
+  const period = findCurrentPeriod(periodOptions.value)
+  selectedPeriod.value = period?.periodId ?? null
+}
+
+function normalizeInternshipOptions(list) {
+  const seen = new Set()
+  const options = []
+  list.forEach(item => {
+    const internshipId = item?.internshipId ?? item?.id
+    if (!internshipId || seen.has(internshipId)) return
+    seen.add(internshipId)
+    options.push({
+      ...item,
+      internshipId,
+      internshipName: item.internshipName || item.name || `实习项目 #${internshipId}`,
+    })
+  })
+  return options
+}
+
+function normalizePeriodOptions(list) {
+  return list.map(item => ({
+    ...item,
+    periodId: item.periodId ?? item.id,
+  })).filter(item => item.periodId != null)
+}
+
+async function loadPeriodOptions(internshipId, preferredPeriodId = null) {
+  periodOptions.value = []
+  selectedPeriod.value = null
+  if (!internshipId) return
+
+  try {
+    const res = await getInternshipPeriods({ internshipId })
+    const list = Array.isArray(res?.data) ? res.data : []
+    periodOptions.value = normalizePeriodOptions(list)
+    const preferredExists = periodOptions.value.some(item => item.periodId === preferredPeriodId)
+    if (preferredExists) {
+      selectedPeriod.value = preferredPeriodId
+    } else {
+      selectDefaultPeriod()
+    }
+  } catch {
+    ElMessage.error('获取期数信息失败')
+  }
+}
+
+async function loadReviewOptions({ keepSelection = true, refreshList = true } = {}) {
+  try {
+    optionsLoading.value = true
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelProcessInternship',
+      pageInfo: { page: 1, size: 1000 },
+      searchKey: projectSelectSearchKey.value,
+      reg: projectSelectRegKey.value,
+      andor: {},
+      sort: { properties: 'startTime', direction: 'DESC' },
+    })
+    const rawOptions = res?.data?.content || res?.data || []
+    internshipOptions.value = normalizeInternshipOptions(rawOptions)
+
+    const previousPeriodId = selectedPeriod.value
+    const selectedInternshipExists = internshipOptions.value.some(item => item.internshipId === selectedInternshipId.value)
+    if (!keepSelection || !selectedInternshipExists) {
+      selectedInternshipId.value = internshipOptions.value[0]?.internshipId ?? null
+    }
+
+    const preferredPeriodId = keepSelection && selectedInternshipExists ? previousPeriodId : null
+    await loadPeriodOptions(selectedInternshipId.value, preferredPeriodId)
+
+    if (!selectedInternshipId.value || !selectedPeriod.value) {
+      resetReviewData()
+      return
+    }
+
+    if (refreshList) {
+      await nextTick()
+      await dtlRef.value?.initDataList(true)
+    }
+  } catch {
+    ElMessage.error('获取实习项目失败')
+  } finally {
+    optionsLoading.value = false
+  }
+}
+
+async function refreshReviewOptions() {
+  await loadReviewOptions({ keepSelection: true, refreshList: true })
+}
+
+async function onInternshipChange(internshipId) {
+  resetReviewData()
+  await loadPeriodOptions(internshipId)
+  await nextTick()
+  dtlRef.value?.initDataList(true)
+}
+
+async function onPeriodChange() {
+  resetReviewData()
+  await nextTick()
+  dtlRef.value?.initDataList(true)
+}
+
+function periodLabel(p) {
+  const idx = `第 ${p.periodIndex} 期`
+  if (!p.beginTime && !p.endTime) return idx
+  const fmt = (dateStr) => dateStr ? dateStr.slice(0, 10) : ''
+  const begin = fmt(p.beginTime)
+  const end = fmt(p.endTime)
+  const dateStr = (begin === end || !end) ? `（${begin}）` : `（${begin} ~ ${end}）`
+  return `${idx}${dateStr}`
 }
 
 // ── 学生列表 DataTableList ────────────────────────────────────
 const dtlRef = ref(null)
-const activeTab = ref('all')
 const allStudents = ref([])
+const reviewTotal = ref(0)
+const submittedCount = ref(0)
+const notSubmittedCount = ref(0)
+const pendingReviewCount = ref(0)
 
-const isSubmitted = (s) => s.diary?.submit === true
-const submittedCount = computed(() => allStudents.value.filter(isSubmitted).length)
-const notSubmittedCount = computed(() => allStudents.value.filter(s => !isSubmitted(s)).length)
-
-function activeClientFilterFn(list) {
-  if (activeTab.value === 'submitted') return list.filter(isSubmitted)
-  if (activeTab.value === 'not-submitted') return list.filter(s => !isSubmitted(s))
-  return list
+function toCount(value, fallback = 0) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
 }
 
-async function fetchRecordsFunc() {
+function resetReviewData() {
+  allStudents.value = []
+  reviewTotal.value = 0
+  submittedCount.value = 0
+  notSubmittedCount.value = 0
+  pendingReviewCount.value = 0
+}
+
+function getDiaryId(diary) {
+  return diary?.diaryId ?? diary?.relationId ?? null
+}
+
+function getVerifyProcessId(diary) {
+  return diary?.verifyProcessId ?? diary?.id ?? null
+}
+
+function normalizeStudentRows(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.students)) return data.students
+  if (Array.isArray(data?.content)) return data.content
+  if (Array.isArray(data?.records)) return data.records
+  return []
+}
+
+function isDiarySubmitted(diary) {
+  return diary?.submit === true
+}
+
+function normalizeDiaryRows(list) {
+  return list.map(row => {
+    const diary = row.diary
+      ? { ...row.diary, periodIndex: row.diary.periodIndex ?? currentPeriod.value?.periodIndex }
+      : null
+
+    return {
+      ...row,
+      id: row.id ?? diary?.verifyProcessId ?? diary?.diaryId ?? row.studentId,
+      diary,
+      _postOrTitle: row.internshipPostName || row.titleName || null,
+      _submitTime: diary?.createTime ?? null,
+      _diaryTitle: diary?.title ?? null,
+      _totalScore: diary?.totalScore ?? null,
+    }
+  })
+}
+
+function sortRows(list, sort = {}) {
+  const field = sort.properties || 'studentName'
+  const direction = sort.direction === 'DESC' ? -1 : 1
+  return [...list].sort((a, b) => {
+    const valA = a[field]
+    const valB = b[field]
+    if (valA == null && valB == null) return 0
+    if (valA == null) return direction
+    if (valB == null) return -direction
+    if (valA < valB) return -direction
+    if (valA > valB) return direction
+    return 0
+  })
+}
+
+function paginateRows(list, pageInfo = {}) {
+  const page = Number(pageInfo.page) || 1
+  const size = Number(pageInfo.size) || 25
+  const start = (page - 1) * size
+  return list.slice(start, start + size)
+}
+
+function refreshStats(data, rows) {
+  const submitted = rows.filter(row => isDiarySubmitted(row.diary)).length
+  const notSubmitted = rows.length - submitted
+  const pending = rows.filter(row => canReviewDiary(row.diary)).length
+
+  submittedCount.value = toCount(data?.submittedCount, submitted)
+  notSubmittedCount.value = toCount(data?.notSubmittedCount, notSubmitted)
+  pendingReviewCount.value = toCount(data?.pendingReviewCount, pending)
+}
+
+async function fetchRecordsFunc(params = {}) {
   if (!selectedInternshipId.value || !selectedPeriod.value) {
-    allStudents.value = []
+    resetReviewData()
     return { data: { content: [], totalElements: 0 }, message: 'successful' }
   }
   const res = await getPeriodStudents({
     internshipId: selectedInternshipId.value,
     periodId: selectedPeriod.value,
+    periodIndex: currentPeriod.value?.periodIndex,
+    userId: userInfo.value?.id,
   })
-  let list = res?.data || []
+  const data = res?.data || {}
+  const fullRows = sortRows(normalizeDiaryRows(normalizeStudentRows(data)), params?.sort)
+  const pageRows = paginateRows(fullRows, params?.pageInfo)
 
-  if (!isSuperAdmin.value) {
-    list = await filterByCurrentTeacher(list)
-  }
-
-  // 扁平化嵌套字段，避免在模板中使用 customize-* 插槽
-  const flat = list.map(row => ({
-    ...row,
-    _postOrTitle: row.internshipPostName || row.titleName || null,
-    _submitTime: row.diary?.createTime ?? null,
-    _diaryTitle: row.diary?.title ?? null,
-    _totalScore: row.diary?.totalScore ?? null,
-  }))
-
-  allStudents.value = flat
-  return { data: { content: flat, totalElements: flat.length }, message: 'successful' }
-}
-
-async function filterByCurrentTeacher(list) {
-  const myId = userInfo.value.id
-  let externalRelIds = new Set()
-  try {
-    const res = await listAPI.getSomeRecords({
-      keyWords: 'ViewRelTeacherStudent',
-      searchKey: { teacherId: myId, internshipId: selectedInternshipId.value },
-      reg: { teacherId: '=', internshipId: '=' },
-      pageInfo: { page: 1, size: 1000 },
-    })
-    const items = res?.data?.content || res?.data || []
-    items.forEach(s => s.relInternshipId != null && externalRelIds.add(s.relInternshipId))
-  } catch {
-    ElMessage.warning('获取负责学生列表失败，请刷新重试')
-    return []
-  }
-
-  return list.filter(row => {
-    if (row.titleName) return row.teacherId === myId
-    if (row.internshipPostName) return externalRelIds.has(row.stuRelationId)
-    return true
-  })
-}
-
-function onTabChange() {
-  dtlRef.value?.initDataList()
+  allStudents.value = pageRows
+  reviewTotal.value = fullRows.length
+  refreshStats(data, fullRows)
+  return { data: { content: pageRows, totalElements: reviewTotal.value }, message: 'successful' }
 }
 
 const dtlProps = computed(() => ({
   someFlags: {
-    autoInit: true,
+    autoInit: false,
     checkFlag: true,
   },
   buttonDisabledCondition: {
-    audit: (row) => row.diary?.submit !== true,
+    audit: (row) => !canReviewDiary(row.diary) || !getVerifyProcessId(row.diary),
   },
   sortStr: { properties: 'studentName', direction: 'ASC' },
   defaultDTHProps: {
@@ -187,7 +412,7 @@ const dtlProps = computed(() => ({
 const showProgressDialog = ref(false)
 const currentRow = ref({})
 const progressProcessInfo = computed(() => ({
-  relationId: currentRow.value.diary?.relationId,
+  relationId: getDiaryId(currentRow.value.diary),
   isAudit: currentRow.value.diary?.isAudit,
   tableName: 'MainDiary',
 }))
@@ -204,7 +429,7 @@ function onAuditClick(row) {
 function onBatchAuditClick() {
   const pending = allStudents.value.filter(r => canReviewDiary(r.diary))
   if (!pending.length) {
-    ElMessage.warning('当前列表中没有待审核的日志')
+    ElMessage.warning('当前页没有待审核的日志')
     return
   }
   dlgBatchReviewRef.value?.open(pending, { internshipId: selectedInternshipId.value })
@@ -221,8 +446,12 @@ function openStudentDetail(row) {
 }
 
 function onReviewSuccess() {
-  dtlRef.value?.initDataList()
+  loadReviewOptions({ keepSelection: true, refreshList: true })
 }
+
+onMounted(() => {
+  loadReviewOptions({ keepSelection: false, refreshList: true })
+})
 </script>
 
 <style scoped>
@@ -230,5 +459,18 @@ function onReviewSuccess() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.selector-card :deep(.el-card__body) {
+  padding: 14px 16px;
+}
+
+.mb-0 {
+  margin-bottom: 0;
+}
+
+.pending-summary {
+  color: #606266;
+  font-size: 14px;
 }
 </style>

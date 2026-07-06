@@ -181,6 +181,14 @@ const reasonPlaceholder = computed(() => {
   return ''
 })
 
+function getDiaryId(diary) {
+  return diary?.diaryId ?? diary?.relationId ?? null
+}
+
+function getVerifyProcessId(diary) {
+  return diary?.verifyProcessId ?? diary?.id ?? null
+}
+
 function open(row, options = {}) {
   student.value = row
   contextInternshipId.value = options.internshipId ?? row?.internshipId ?? row?.diary?.internshipId ?? null
@@ -190,8 +198,9 @@ function open(row, options = {}) {
   resetFiles()
   visible.value = true
 
-  if (row?.diary?.relationId) {
-    loadFiles(row.diary.relationId)
+  const diaryId = getDiaryId(row?.diary)
+  if (diaryId) {
+    loadFiles(diaryId)
   }
 }
 
@@ -203,7 +212,7 @@ function onClosed() {
 }
 
 async function handleAiReview() {
-  const diaryId = student.value?.diary?.relationId
+  const diaryId = getDiaryId(student.value?.diary)
   if (!diaryId) {
     ElMessage.error('缺少日志 ID，无法进行 AI 批阅')
     return
@@ -254,7 +263,7 @@ async function handleSubmit() {
     } catch { return }
   }
 
-  const processId = student.value?.diary?.id
+  const processId = getVerifyProcessId(student.value?.diary)
   if (!processId) {
     ElMessage.error('缺少审核记录 ID，无法提交')
     return
