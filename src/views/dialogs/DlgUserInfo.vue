@@ -33,6 +33,8 @@ import listAPI from '@/api/list.js';
 import userAPI from '@/api/user.js';
 import { getWeakPasswordReason, checkOptionalStrongPassword } from '@/utils/formRules';
 import _ from 'lodash';
+
+const DEFAULT_PASSWORD_RULE_TEXT = 'SLSDsx#加学工号后四位';
 const props = defineProps({
   propsInfo: {
     type: Object,
@@ -119,6 +121,7 @@ const defaultMainSDProps = reactive({
     majorId: [{ required: true, message: '专业不能为空', trigger: 'blur' }],
     jobId: [{ required: true, message: '身份类型不能为空', trigger: 'blur' }],
     departmentId: [{ required: true, message: '单位部门不能为空', trigger: 'blur' }],
+    workId: [{ required: true, message: '工号不能为空', trigger: 'blur' }],
     roleIds: [{ required: true, message: '角色不能为空', trigger: 'change', type: 'array' }],
     password: [{ validator: checkPasswordOnAppendOnly, trigger: ['blur', 'change'] }],
   },
@@ -192,7 +195,7 @@ const resetPassword = async () => {
   if (!form.id) return;
   try {
     await ElMessageBox.confirm(
-      `确认将该用户密码重置为全姓名首字母小写+@+000000？重置后立即生效。`,
+      `确认将该用户密码重置为 ${DEFAULT_PASSWORD_RULE_TEXT}？重置后立即生效。`,
       '重置密码',
       { type: 'warning', confirmButtonText: '确认重置', cancelButtonText: '取消' }
     );
