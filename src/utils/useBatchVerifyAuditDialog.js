@@ -25,20 +25,20 @@ export function useBatchVerifyAuditDialog(dlgVerifyRef) {
       return;
     }
     const preSelected = lastBatchAuditCommand.value;
-    const targetStatus =
-      preSelected === CONSTANT.AUDIT_STATUS.BACK
-        ? CONSTANT.AUDIT_STATUS.PASS
-        : CONSTANT.AUDIT_STATUS.SUBMIT;
     const targetRows = rows.filter((r) => {
       if (!r) return false;
       const st = r.isAudit ?? r.is_audit;
-      return st === targetStatus;
+      // 退回：待审核、已通过均可（与操作栏单条审核一致）
+      if (preSelected === CONSTANT.AUDIT_STATUS.BACK) {
+        return st === CONSTANT.AUDIT_STATUS.SUBMIT || st === CONSTANT.AUDIT_STATUS.PASS;
+      }
+      return st === CONSTANT.AUDIT_STATUS.SUBMIT;
     });
 
     if (!targetRows.length) {
       ElMessage.warning(
         preSelected === CONSTANT.AUDIT_STATUS.BACK
-          ? '选中的记录中没有已通过的数据可退回'
+          ? '选中的记录中没有待审核或已通过的数据可退回'
           : '选中的记录中没有待审核的数据'
       );
       return;
