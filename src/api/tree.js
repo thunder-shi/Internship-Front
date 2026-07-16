@@ -149,6 +149,15 @@ const commonSearch = ({ treeInfo, listKeyWords, searchKey, regKey, pageInfo, sor
   })
 }
 
+/** 判断部门子树下是否仍有未删除人员 */
+const hasUndeletedUsersInDepartmentSubtree = (departmentId) => {
+  return request({
+    url: '/dataTree/hasUndeletedUsersInDepartmentSubtree',
+    method: 'post',
+    data: { departmentId }
+  })
+}
+
 export default {
   getAllNodes,
   delOneNode,
@@ -158,5 +167,6 @@ export default {
   getAllBrotherIndex,
   getAllParentIndex,
   getAllChildIndex,
-  commonSearch
+  commonSearch,
+  hasUndeletedUsersInDepartmentSubtree
 }

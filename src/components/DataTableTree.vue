@@ -471,17 +471,30 @@ async function editClick(row) {
 
 // 按钮删除
 async function deleteClick(row) {
+  const beforeDelete = props.defaultProps?.beforeDelete
+  if (typeof beforeDelete === 'function') {
+    try {
+      const allowed = await beforeDelete(row)
+      if (!allowed) return
+    } catch (e) {
+      console.error('删除前校验失败:', e)
+      return
+    }
+  }
   if (hasListener('delete-click')) {
     // 有监听器:只触发事件,交给父组件处理
     emit('delete-click', row)
   } else {
     // 无监听器:执行默认逻辑
     loading.value = true
-    await treeAPI.delManyNode(keyWord.value.edit, row)
-    dataTreeRef.value.clearSelection()
-    updatePartTree(row[0])
-    ElMessage.success('删除成功！')
-    loading.value = false
+    try {
+      await treeAPI.delManyNode(keyWord.value.edit, row)
+      dataTreeRef.value.clearSelection()
+      updatePartTree(row[0])
+      ElMessage.success('删除成功！')
+    } finally {
+      loading.value = false
+    }
   }
 }
 

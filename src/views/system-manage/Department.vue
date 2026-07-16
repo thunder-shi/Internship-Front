@@ -4,14 +4,38 @@
 
 <script setup>
 import { reactive, ref, nextTick, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import BaseTableTree from '@/views/master-page/BaseTableTree.vue'
+import treeAPI from '@/api/tree'
 
 defineOptions({
   name: 'UnitDepartment'
 })
 
+/** 删除前：子树下仍有人员则禁止删除 */
+async function beforeDeleteDepartments(rows) {
+  const list = Array.isArray(rows) ? rows : [rows]
+  for (const row of list) {
+    const departmentId = row?.id
+    if (departmentId == null || departmentId === '' || departmentId === -1 || departmentId === '-1') {
+      ElMessage.warning('不能删除该节点')
+      return false
+    }
+    const res = await treeAPI.hasUndeletedUsersInDepartmentSubtree(departmentId)
+    const data = res?.data || {}
+    if (data.hasUsers) {
+      const name = row.name || departmentId
+      const userCount = data.userCount ?? 0
+      ElMessage.warning(`部门「${name}」及其下级仍有 ${userCount} 名人员，无法删除`)
+      return false
+    }
+  }
+  return true
+}
+
 const defaultProps = reactive({
   defaultDTTProps: {
+    beforeDelete: beforeDeleteDepartments,
     defaultDTHProps: {
       buttonProps: { update: { show: true }, create: { show: true }, delete: { show: true }, export: { show: true }, up: { show: true }, down: { show: true } },
       keyWord: { edit: 'BaseDepartment', view: 'ViewBaseDepartment' },
