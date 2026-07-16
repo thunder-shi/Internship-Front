@@ -26,11 +26,21 @@
   width: 320px;
   transition: width 0.2s ease;
 
-  .el-card__body {
-    padding: 5px 12px;
+  // v-adaptive-card 会给 .el-card 定高；需 flex + body 溢出，否则树超出可视区却无滚动条
+  .el-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
-  .el-tree {
+  .el-card__header {
+    flex-shrink: 0;
+  }
+
+  .el-card__body {
+    padding: 5px 12px;
+    flex: 1;
+    min-height: 0;
     overflow: auto;
   }
 }
