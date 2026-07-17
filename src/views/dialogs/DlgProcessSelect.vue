@@ -31,6 +31,9 @@ const simpleDialogRef = ref(null);
 // 标记是否正在初始化（编辑模式打开时不清空已有值）
 let isInitializing = false;
 
+// 后端种子数据中 SysRole.ID=17 是未删除的 "--" 默认角色，用于未启用的审核级别占位。
+const DEFAULT_EMPTY_VERIFY_ROLE_ID = 17;
+
 // 审核角色字段配置
 const verifyRoleFields = [
   { field: 'verifyFirstRoleId', name: '一审角色', level: 2 },
@@ -218,24 +221,33 @@ async function saveProcessData(form) {
     return null;
   }
   
-  // 将 internshipTypeId 或 internshipId 添加到表单数据中
-  const saveData = {
-    ...form,
-    internshipTypeId: props.internshipTypeId,
-    internshipId: props.internshipId
-  };
+  const internshipMode = isInternshipMode();
+  const relationId = internshipMode ? props.internshipId : props.internshipTypeId;
+  if (relationId == null || relationId === '' || Number(relationId) === 0) {
+    ElMessage.warning(internshipMode ? '缺少实习项目，无法保存流程' : '缺少实习模板，无法保存流程');
+    return null;
+  }
 
-  // 将隐藏的审核角色字段从提交数据中移除（不传参）
+  const saveData = { ...form };
+  if (internshipMode) {
+    saveData.internshipId = relationId;
+    delete saveData.internshipTypeId;
+  } else {
+    saveData.internshipTypeId = relationId;
+    delete saveData.internshipId;
+  }
+
+  // 未启用的审核级别也要给视图 inner join 一个有效角色，否则模板流程可能保存成功但列表查不到。
   verifyRoleFields.forEach((roleConfig) => {
     const formItem = defaultProps.formItems.find(item => item.field === roleConfig.field);
     if (formItem && formItem.hidden) {
-      delete saveData[roleConfig.field];
+      saveData[roleConfig.field] = DEFAULT_EMPTY_VERIFY_ROLE_ID;
     }
   });
 
   // 后端直接使用北京时间，无需转换
   // 根据模式确定要使用的 keyWord
-  const keyWord = isInternshipMode() ? 'RelProcessInternship' : 'RelProcessInternshipType';
+  const keyWord = internshipMode ? 'RelProcessInternship' : 'RelProcessInternshipType';
   
   // 根据审核要求设置 currentVerifyTypeId
   // 如果审核要求的 code 是"NO_VERIFY"（无需审核），则 currentVerifyTypeId = NO_VERIFY；否则 = ONE_VERIFY
@@ -297,4 +309,3 @@ defineExpose({
   showDialog
 });
 </script>
-
