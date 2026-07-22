@@ -21,7 +21,9 @@
         <el-descriptions-item label="岗位/题目">
           {{ student?.internshipPostName || student?.titleName || '——' }}
         </el-descriptions-item>
-        <el-descriptions-item label="第几期">第 {{ student?.diary?.periodIndex }} 期</el-descriptions-item>
+        <el-descriptions-item label="第几期"
+          >第 {{ student?.diary?.periodIndex }} 期</el-descriptions-item
+        >
         <el-descriptions-item label="当前状态">
           <el-tag :type="getAuditTagType(student?.diary?.isAudit)">
             {{ getAuditStatusText(student?.diary?.isAudit) }}
@@ -42,8 +44,12 @@
           <div v-for="file in files" :key="file.id" class="file-item">
             <el-icon class="file-icon"><Document /></el-icon>
             <span class="file-name" :title="file.name">{{ file.name }}</span>
-            <el-button type="success" link size="small" @click="triggerPreview(file)">预览</el-button>
-            <el-button type="primary" link size="small" @click="triggerDownload(file)">下载</el-button>
+            <el-button type="success" link size="small" @click="triggerPreview(file)"
+              >预览</el-button
+            >
+            <el-button type="primary" link size="small" @click="triggerDownload(file)"
+              >下载</el-button
+            >
           </div>
         </div>
       </el-form-item>
@@ -65,13 +71,6 @@
             <el-radio v-if="!isAlreadyPassed" :label="AUDIT_STATUS.PASS">审核通过</el-radio>
             <el-radio :label="AUDIT_STATUS.BACK">退回修改</el-radio>
           </el-radio-group>
-        </el-form-item>
-
-        <el-form-item
-          v-if="form.isAudit === AUDIT_STATUS.PASS"
-          label="评分"
-          prop="score"
-        >
           <div class="score-row">
             <el-input-number
               v-model="form.score"
@@ -92,6 +91,14 @@
           </div>
         </el-form-item>
 
+        <!-- <el-form-item
+          v-if="form.isAudit === AUDIT_STATUS.PASS"
+          label="评分"
+          prop="score"
+        >
+          
+        </el-form-item> -->
+
         <el-form-item :label="reasonLabel" prop="reason">
           <el-input
             v-model="form.reason"
@@ -106,7 +113,12 @@
 
       <div class="dialog-footer">
         <el-button :disabled="aiReviewing" @click="visible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" :disabled="aiReviewing" @click="handleSubmit">
+        <el-button
+          type="primary"
+          :loading="submitting"
+          :disabled="aiReviewing"
+          @click="handleSubmit"
+        >
           确认审核
         </el-button>
       </div>
@@ -115,190 +127,203 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document } from '@element-plus/icons-vue'
-import internshipProcessAPI from '@/api/internshipProcess'
-import { aiReviewDiary } from '@/api/diary'
-import CONSTANT from '@/utils/constant'
-import { getAuditStatusText, getAuditTagType } from '@/utils/verify'
-import { useDiaryFiles } from '@/utils/useDiaryFiles'
+import { ref, computed, reactive } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Document } from '@element-plus/icons-vue';
+import internshipProcessAPI from '@/api/internshipProcess';
+import { aiReviewDiary } from '@/api/diary';
+import CONSTANT from '@/utils/constant';
+import { getAuditStatusText, getAuditTagType } from '@/utils/verify';
+import { useDiaryFiles } from '@/utils/useDiaryFiles';
 
-defineOptions({ name: 'DlgReviewDiary' })
+defineOptions({ name: 'DlgReviewDiary' });
 
-const emit = defineEmits(['success'])
+const emit = defineEmits(['success']);
 
-const AUDIT_STATUS = CONSTANT.AUDIT_STATUS
+const AUDIT_STATUS = CONSTANT.AUDIT_STATUS;
 
-const visible = ref(false)
-const submitting = ref(false)
-const aiReviewing = ref(false)
-const student = ref(null)
-const contextInternshipId = ref(null)
+const visible = ref(false);
+const submitting = ref(false);
+const aiReviewing = ref(false);
+const student = ref(null);
+const contextInternshipId = ref(null);
 
-const { files, filesLoading: loading, loadFiles, triggerDownload, triggerPreview, reset: resetFiles } = useDiaryFiles()
+const {
+  files,
+  filesLoading: loading,
+  loadFiles,
+  triggerDownload,
+  triggerPreview,
+  reset: resetFiles,
+} = useDiaryFiles();
 
-const isAlreadyPassed = computed(() => student.value?.diary?.isAllVerified === true)
+const isAlreadyPassed = computed(() => student.value?.diary?.isAllVerified === true);
 
-const AI_REVIEW_LOADING_TEXT = 'AI 批阅中，预计需要一定时间，请耐心等待…'
+const AI_REVIEW_LOADING_TEXT = 'AI 批阅中，预计需要一定时间，请耐心等待…';
 
-const panelLoading = computed(() => loading.value || aiReviewing.value)
+const panelLoading = computed(() => loading.value || aiReviewing.value);
 const panelLoadingText = computed(() => {
-  if (aiReviewing.value) return AI_REVIEW_LOADING_TEXT
-  if (loading.value) return '加载中…'
-  return ''
-})
+  if (aiReviewing.value) return AI_REVIEW_LOADING_TEXT;
+  if (loading.value) return '加载中…';
+  return '';
+});
 
-const formRef = ref(null)
-const form = reactive({ isAudit: null, reason: '', score: null })
+const formRef = ref(null);
+const form = reactive({ isAudit: null, reason: '', score: null });
 const formRules = {
   isAudit: [{ required: true, message: '请选择审核结果', trigger: 'change' }],
-  score: [
-    {
-      validator: (_rule, val, cb) => {
-        if (form.isAudit !== AUDIT_STATUS.PASS) return cb()
-        const n = Number(val)
-        if (val === null || val === '' || !Number.isFinite(n)) {
-          cb(new Error('请填写评分'))
-        } else if (n < 0 || n > 100) {
-          cb(new Error('评分应在 0-100 之间'))
-        } else cb()
-      },
-      trigger: 'blur',
-    },
-  ],
-}
+  // score: [
+  //   {
+  //     validator: (_rule, val, cb) => {
+  //       if (form.isAudit !== AUDIT_STATUS.PASS) return cb();
+  //       const n = Number(val);
+  //       if (val === null || val === '' || !Number.isFinite(n)) {
+  //         cb(new Error('请填写评分'));
+  //       } else if (n < 0 || n > 100) {
+  //         cb(new Error('评分应在 0-100 之间'));
+  //       } else cb();
+  //     },
+  //     trigger: 'blur',
+  //   },
+  // ],
+};
 
 const reasonLabel = computed(() => {
-  if (form.isAudit === AUDIT_STATUS.PASS) return '批阅意见'
-  if (form.isAudit === AUDIT_STATUS.BACK) return '退回原因'
-  return '意见'
-})
+  if (form.isAudit === AUDIT_STATUS.PASS) return '批阅意见';
+  if (form.isAudit === AUDIT_STATUS.BACK) return '退回原因';
+  return '意见';
+});
 
 const reasonPlaceholder = computed(() => {
-  if (form.isAudit === AUDIT_STATUS.PASS) return '选填，填写后学生可查看'
-  if (form.isAudit === AUDIT_STATUS.BACK) return '请说明退回原因，学生可重新提交'
-  return ''
-})
+  if (form.isAudit === AUDIT_STATUS.PASS) return '选填，填写后学生可查看';
+  if (form.isAudit === AUDIT_STATUS.BACK) return '请说明退回原因，学生可重新提交';
+  return '';
+});
 
 function getDiaryId(diary) {
-  return diary?.diaryId ?? diary?.relationId ?? null
+  return diary?.diaryId ?? diary?.relationId ?? null;
 }
 
 function getVerifyProcessId(diary) {
-  return diary?.verifyProcessId ?? diary?.id ?? null
+  return diary?.verifyProcessId ?? diary?.id ?? null;
 }
 
 function open(row, options = {}) {
-  student.value = row
-  contextInternshipId.value = options.internshipId ?? row?.internshipId ?? row?.diary?.internshipId ?? null
-  form.isAudit = null
-  form.reason = ''
-  form.score = null
-  resetFiles()
-  visible.value = true
+  student.value = row;
+  contextInternshipId.value =
+    options.internshipId ?? row?.internshipId ?? row?.diary?.internshipId ?? null;
+  form.isAudit = null;
+  form.reason = '';
+  form.score = null;
+  resetFiles();
+  visible.value = true;
 
-  const diaryId = getDiaryId(row?.diary)
+  const diaryId = getDiaryId(row?.diary);
   if (diaryId) {
-    loadFiles(diaryId)
+    loadFiles(diaryId);
   }
 }
 
 function onClosed() {
-  formRef.value?.clearValidate()
-  student.value = null
-  contextInternshipId.value = null
-  resetFiles()
+  formRef.value?.clearValidate();
+  student.value = null;
+  contextInternshipId.value = null;
+  resetFiles();
 }
 
 async function handleAiReview() {
-  const diaryId = getDiaryId(student.value?.diary)
+  const diaryId = getDiaryId(student.value?.diary);
   if (!diaryId) {
-    ElMessage.error('缺少日志 ID，无法进行 AI 批阅')
-    return
+    ElMessage.error('缺少日志 ID，无法进行 AI 批阅');
+    return;
   }
 
   try {
-    aiReviewing.value = true
-    const res = await aiReviewDiary({ diaryId })
+    aiReviewing.value = true;
+    const res = await aiReviewDiary({ diaryId });
     if (res?.message !== 'successful') {
-      ElMessage.error(res?.message || 'AI 批阅失败')
-      return
+      ElMessage.error(res?.message || 'AI 批阅失败');
+      return;
     }
 
-    const data = res.data || {}
+    const data = res.data || {};
     if (data.aiReviewStatus && data.aiReviewStatus !== 'SUCCESS') {
-      ElMessage.error('AI 批阅未成功，请稍后重试')
-      return
+      ElMessage.error('AI 批阅未成功，请稍后重试');
+      return;
     }
 
-    const score = data.aiReviewScore ?? data.score
-    const comment = data.aiReviewComment ?? data.output
-    if (score != null) form.score = Number(score)
-    if (comment) form.reason = String(comment).slice(0, 500)
-    formRef.value?.clearValidate(['score'])
-    ElMessage.success('AI 批阅完成，已自动填入评分与意见')
+    const score = data.aiReviewScore ?? data.score;
+    const comment = data.aiReviewComment ?? data.output;
+    if (score != null) form.score = Number(score);
+    if (comment) form.reason = String(comment).slice(0, 500);
+    // formRef.value?.clearValidate(['score']);
+    // ElMessage.success('AI 批阅完成，已自动填入评分与意见');
+    ElMessage.success('AI 批阅完成，已自动填入意见');
   } catch {
     // 拦截器已处理
   } finally {
-    aiReviewing.value = false
+    aiReviewing.value = false;
   }
 }
 
 async function handleSubmit() {
   try {
-    await formRef.value.validate()
+    await formRef.value.validate();
   } catch {
-    return
+    return;
   }
 
   // 已通过时二次确认
   if (isAlreadyPassed.value) {
     try {
-      await ElMessageBox.confirm(
-        '当前日志已审核通过，确认要退回修改吗？',
-        '提示',
-        { confirmButtonText: '确认退回', cancelButtonText: '取消', type: 'warning' }
-      )
-    } catch { return }
+      await ElMessageBox.confirm('当前日志已审核通过，确认要退回修改吗？', '提示', {
+        confirmButtonText: '确认退回',
+        cancelButtonText: '取消',
+        type: 'warning',
+      });
+    } catch {
+      return;
+    }
   }
 
-  const processId = getVerifyProcessId(student.value?.diary)
+  const processId = getVerifyProcessId(student.value?.diary);
   if (!processId) {
-    ElMessage.error('缺少审核记录 ID，无法提交')
-    return
+    ElMessage.error('缺少审核记录 ID，无法提交');
+    return;
   }
 
   try {
-    submitting.value = true
+    submitting.value = true;
     const payload = {
       id: processId,
       isAudit: form.isAudit,
       reason: form.reason,
-    }
+    };
     if (form.isAudit === AUDIT_STATUS.PASS) {
-      payload.score = Number(form.score)
+      // payload.score = Number(form.score);
     }
-    const res = await internshipProcessAPI.auditProcess(payload)
+    const res = await internshipProcessAPI.auditProcess(payload);
     if (res?.message !== 'successful') {
-      ElMessage.error(res?.message || '审核失败')
-      return
+      ElMessage.error(res?.message || '审核失败');
+      return;
     }
-    ElMessage.success(`审核完成：${getAuditStatusText(form.isAudit)}`)
-    visible.value = false
-    emit('success')
+    ElMessage.success(`审核完成：${getAuditStatusText(form.isAudit)}`);
+    visible.value = false;
+    emit('success');
   } catch (e) {
-    ElMessage.error('审核提交失败：' + (e?.message || ''))
+    ElMessage.error('审核提交失败：' + (e?.message || ''));
   } finally {
-    submitting.value = false
+    submitting.value = false;
   }
 }
 
-defineExpose({ open })
+defineExpose({ open });
 </script>
 
 <style scoped>
-.mb-16 { margin-bottom: 16px; }
+.mb-16 {
+  margin-bottom: 16px;
+}
 
 .diary-content {
   white-space: pre-wrap;
@@ -329,7 +354,10 @@ defineExpose({ open })
   border-radius: 4px;
 }
 
-.file-icon { color: #409eff; flex-shrink: 0; }
+.file-icon {
+  color: #409eff;
+  flex-shrink: 0;
+}
 
 .file-name {
   flex: 1;
