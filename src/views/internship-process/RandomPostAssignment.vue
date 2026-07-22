@@ -216,7 +216,7 @@ const defaultDTLProps = computed(() => ({
       },
       submit: { show: false },
       visible: { show: false },
-      more2: { show: true, name: '批量提交', type: 'primary' },
+      more2: { show: false },
       more5: { show: false },
       create: { show: false },
       update: { show: false },
