@@ -17,6 +17,10 @@
       />
 
       <el-form ref="formRef" :model="form" :rules="readonly ? {} : formRules" label-width="90px">
+        <el-form-item v-if="readonly" label="报告分数">
+          <span>{{ scoreText }}</span>
+        </el-form-item>
+
         <!-- 日志标题 -->
         <el-form-item label="日志标题" prop="title">
           <el-input
@@ -245,6 +249,11 @@ const totalSizeWarning = computed(() => totalFileSize.value > MAX_TOTAL * 0.8)
 const dialogTitle = computed(() => {
   if (readonly.value) return `第 ${periodIndex.value} 期实习日志（查看）`
   return `编辑 — 第 ${periodIndex.value} 期实习日志`
+})
+
+const scoreText = computed(() => {
+  const score = currentDiary.value?.totalScore ?? currentDiary.value?.score
+  return score == null || score === '' ? '——' : score
 })
 
 function open(opts) {

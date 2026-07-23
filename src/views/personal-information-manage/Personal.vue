@@ -16,6 +16,9 @@
       <el-form-item label="所在学校/单位">
         <div>{{ fullDepartmentName || '--' }}</div>
       </el-form-item>
+      <el-form-item label="专业">
+        <div>{{ fullMajorName || '--' }}</div>
+      </el-form-item>
       <!-- <el-form-item label="所在院系/部门" prop="departmentId">
         <SimpleSelect v-model="form.departmentId" key-words="BaseDepartment" :search-key="searchKey" @update-value="onSimpleSelectChange"  />
       </el-form-item> -->
@@ -79,6 +82,8 @@ const form = reactive(JSON.parse(JSON.stringify(initialFormData)))
 
 // 完整部门路径（从根节点到当前节点）
 const fullDepartmentName = ref(form.departmentName || '')
+// 完整专业路径（从根节点到当前节点）
+const fullMajorName = ref(form.majorName || '')
 
 async function loadFullDepartmentPath() {
   const deptId = form.departmentId
@@ -95,7 +100,25 @@ async function loadFullDepartmentPath() {
   }
 }
 
-onMounted(() => { loadFullDepartmentPath() })
+async function loadFullMajorPath() {
+  const majorId = form.majorId
+  if (!majorId) return
+  try {
+    const res = await treeAPI.getAllParentIndex('BaseMajor', majorId)
+    if (res.data && res.data.length > 0) {
+      // res.data 从当前节点到根节点排列，需要反转后拼接
+      const names = res.data.map(item => item.name).reverse()
+      fullMajorName.value = names.join(' / ')
+    }
+  } catch (e) {
+    console.error('加载专业完整路径失败:', e)
+  }
+}
+
+onMounted(() => {
+  loadFullDepartmentPath()
+  loadFullMajorPath()
+})
 
 const formRule = reactive({
   account: [{ required: true, trigger: 'blur', message: '请输入登录账号' }],

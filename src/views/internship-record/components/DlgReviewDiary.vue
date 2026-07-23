@@ -29,6 +29,9 @@
             {{ getAuditStatusText(student?.diary?.isAudit) }}
           </el-tag>
         </el-descriptions-item>
+        <el-descriptions-item label="报告分数">
+          {{ formatDiaryScore(student?.diary) }}
+        </el-descriptions-item>
         <el-descriptions-item v-if="student?.diary?.title" label="日志标题" :span="2">
           {{ student.diary.title }}
         </el-descriptions-item>
@@ -67,10 +70,13 @@
       <!-- 审核表单 -->
       <el-form ref="formRef" :model="form" :rules="formRules" label-width="90px">
         <el-form-item label="审核结果" prop="isAudit">
-          <el-radio-group v-model="form.isAudit">
+          <el-radio-group v-model="form.isAudit" @change="clearScoreBackendError">
             <el-radio v-if="!isAlreadyPassed" :label="AUDIT_STATUS.PASS">审核通过</el-radio>
             <el-radio :label="AUDIT_STATUS.BACK">退回修改</el-radio>
           </el-radio-group>
+        </el-form-item>
+
+        <el-form-item v-if="form.isAudit === AUDIT_STATUS.PASS" label="评分" prop="score">
           <div class="score-row">
             <el-input-number
               v-model="form.score"
@@ -78,6 +84,7 @@
               :max="100"
               :precision="2"
               controls-position="right"
+              @change="clearScoreBackendError"
             />
             <el-button
               v-if="!isAlreadyPassed"
@@ -90,14 +97,6 @@
             </el-button>
           </div>
         </el-form-item>
-
-        <!-- <el-form-item
-          v-if="form.isAudit === AUDIT_STATUS.PASS"
-          label="评分"
-          prop="score"
-        >
-          
-        </el-form-item> -->
 
         <el-form-item :label="reasonLabel" prop="reason">
           <el-input
@@ -170,22 +169,24 @@ const panelLoadingText = computed(() => {
 
 const formRef = ref(null);
 const form = reactive({ isAudit: null, reason: '', score: null });
+const scoreBackendError = ref('');
 const formRules = {
   isAudit: [{ required: true, message: '请选择审核结果', trigger: 'change' }],
-  // score: [
-  //   {
-  //     validator: (_rule, val, cb) => {
-  //       if (form.isAudit !== AUDIT_STATUS.PASS) return cb();
-  //       const n = Number(val);
-  //       if (val === null || val === '' || !Number.isFinite(n)) {
-  //         cb(new Error('请填写评分'));
-  //       } else if (n < 0 || n > 100) {
-  //         cb(new Error('评分应在 0-100 之间'));
-  //       } else cb();
-  //     },
-  //     trigger: 'blur',
-  //   },
-  // ],
+  score: [
+    {
+      validator: (_rule, val, cb) => {
+        if (form.isAudit !== AUDIT_STATUS.PASS) return cb();
+        if (scoreBackendError.value) return cb(new Error(scoreBackendError.value));
+        const n = Number(val);
+        if (val === null || val === '' || !Number.isFinite(n)) {
+          cb(new Error('日志审核通过必须填写 score'));
+        } else if (n < 0 || n > 100) {
+          cb(new Error('score 超出范围 [0, 100]'));
+        } else cb();
+      },
+      trigger: ['blur', 'change'],
+    },
+  ],
 };
 
 const reasonLabel = computed(() => {
@@ -205,7 +206,45 @@ function getDiaryId(diary) {
 }
 
 function getVerifyProcessId(diary) {
-  return diary?.verifyProcessId ?? diary?.id ?? null;
+  const processId =
+    diary?.verifyProcessId ??
+    diary?.verify_process_id ??
+    diary?.mainVerifyProcessId ??
+    diary?.main_verify_process_id ??
+    diary?.mvpId ??
+    diary?.auditId;
+  if (processId != null && processId !== '') return processId;
+
+  const fallbackId = diary?.id;
+  if (fallbackId != null && fallbackId !== diary?.diaryId && fallbackId !== diary?.relationId) {
+    return fallbackId;
+  }
+  return null;
+}
+
+function formatDiaryScore(diary) {
+  const score = diary?.totalScore ?? diary?.score;
+  return score == null || score === '' ? '——' : score;
+}
+
+function resolveScoreValidationMessage(message) {
+  if (!message) return '';
+  const text = String(message);
+  if (text.includes('score') && text.includes('必须填写')) return '日志审核通过必须填写 score';
+  if (text.includes('score') && text.includes('超出范围')) return 'score 超出范围 [0, 100]';
+  return '';
+}
+
+function clearScoreBackendError() {
+  if (!scoreBackendError.value) return;
+  scoreBackendError.value = '';
+  formRef.value?.clearValidate?.(['score']);
+}
+
+function showScoreFieldError(message) {
+  scoreBackendError.value = message;
+  const result = formRef.value?.validateField?.('score');
+  result?.catch?.(() => {});
 }
 
 function open(row, options = {}) {
@@ -215,6 +254,7 @@ function open(row, options = {}) {
   form.isAudit = null;
   form.reason = '';
   form.score = null;
+  scoreBackendError.value = '';
   resetFiles();
   visible.value = true;
 
@@ -226,6 +266,7 @@ function open(row, options = {}) {
 
 function onClosed() {
   formRef.value?.clearValidate();
+  scoreBackendError.value = '';
   student.value = null;
   contextInternshipId.value = null;
   resetFiles();
@@ -256,9 +297,8 @@ async function handleAiReview() {
     const comment = data.aiReviewComment ?? data.output;
     if (score != null) form.score = Number(score);
     if (comment) form.reason = String(comment).slice(0, 500);
-    // formRef.value?.clearValidate(['score']);
-    // ElMessage.success('AI 批阅完成，已自动填入评分与意见');
-    ElMessage.success('AI 批阅完成，已自动填入意见');
+    clearScoreBackendError();
+    ElMessage.success('AI 批阅完成，已自动填入评分与意见');
   } catch {
     // 拦截器已处理
   } finally {
@@ -267,6 +307,7 @@ async function handleAiReview() {
 }
 
 async function handleSubmit() {
+  scoreBackendError.value = '';
   try {
     await formRef.value.validate();
   } catch {
@@ -300,10 +341,15 @@ async function handleSubmit() {
       reason: form.reason,
     };
     if (form.isAudit === AUDIT_STATUS.PASS) {
-      // payload.score = Number(form.score);
+      payload.score = Number(form.score);
     }
     const res = await internshipProcessAPI.auditProcess(payload);
     if (res?.message !== 'successful') {
+      const scoreError = resolveScoreValidationMessage(res?.message);
+      if (scoreError) {
+        showScoreFieldError(scoreError);
+        return;
+      }
       ElMessage.error(res?.message || '审核失败');
       return;
     }
@@ -311,6 +357,11 @@ async function handleSubmit() {
     visible.value = false;
     emit('success');
   } catch (e) {
+    const scoreError = resolveScoreValidationMessage(e?.message || e?.response?.data?.message);
+    if (scoreError) {
+      showScoreFieldError(scoreError);
+      return;
+    }
     ElMessage.error('审核提交失败：' + (e?.message || ''));
   } finally {
     submitting.value = false;

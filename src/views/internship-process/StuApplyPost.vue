@@ -1,5 +1,9 @@
 <template>
-  <el-result v-if="internshipType === null" icon="info" title="未到时间，请等候学校通知" />
+  <el-result
+    v-if="ready && studentInternshipIds.length === 0"
+    icon="info"
+    title="未到时间，请等候学校通知"
+  />
   <template v-else-if="ready">
     <!-- 控制栏：项目选择 + Tab 切换 -->
     <el-card shadow="never" class="control-bar">
@@ -94,7 +98,6 @@ const headerPageRef = ref(null);
 const dlgPostDetail = ref(null);
 
 const userInfo = computed(() => store.getters.userInfo || {});
-const internshipType = computed(() => store.getters.studentInternshipType);
 const { getVerifyRoleName } = useVerifyFilter();
 
 const titleObj = reactive({ mainTitle: '学生岗位报名' });

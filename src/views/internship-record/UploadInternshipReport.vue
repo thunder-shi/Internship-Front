@@ -160,7 +160,7 @@ async function fetchRecordsFunc() {
   });
   const list = (res?.data || []).map((row) => ({
     ...row,
-    _totalScore: row.diary?.totalScore ?? null,
+    _totalScore: getDiaryScore(row.diary),
   }));
 
   return { data: { content: list, totalElements: list.length }, message: 'successful' };
@@ -188,7 +188,7 @@ const dtlProps = computed(() => ({
       { id: 2, showName: '开始时间', theOrder: 2, tableColumnName: 'beginTime' },
       { id: 3, showName: '结束时间', theOrder: 3, tableColumnName: 'endTime' },
       { id: 4, showName: '状态', theOrder: 4, tableColumnName: 'customize-status' },
-      // { id: 5, showName: '总成绩',   theOrder: 5, tableColumnName: 'customize-totalScore' },
+      { id: 5, showName: '总成绩', theOrder: 5, tableColumnName: 'customize-totalScore' },
     ],
   },
 }));
@@ -211,6 +211,10 @@ function isTrueValue(value) {
 
 function isVerified(row) {
   return isTrueValue(row?.isAllVerified ?? row?.is_all_verified);
+}
+
+function getDiaryScore(diary) {
+  return diary?.totalScore ?? diary?.score ?? null;
 }
 
 function mapKey(value) {

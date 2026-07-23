@@ -311,7 +311,20 @@ function getDiaryId(diary) {
 }
 
 function getVerifyProcessId(diary) {
-  return diary?.verifyProcessId ?? diary?.id ?? null;
+  const processId =
+    diary?.verifyProcessId ??
+    diary?.verify_process_id ??
+    diary?.mainVerifyProcessId ??
+    diary?.main_verify_process_id ??
+    diary?.mvpId ??
+    diary?.auditId;
+  if (processId != null && processId !== '') return processId;
+
+  const fallbackId = diary?.id;
+  if (fallbackId != null && fallbackId !== diary?.diaryId && fallbackId !== diary?.relationId) {
+    return fallbackId;
+  }
+  return null;
 }
 
 function normalizeStudentRows(data) {
@@ -324,6 +337,10 @@ function normalizeStudentRows(data) {
 
 function isDiarySubmitted(diary) {
   return diary?.submit === true;
+}
+
+function getDiaryScore(diary) {
+  return diary?.totalScore ?? diary?.score ?? null;
 }
 
 function normalizeDiaryRows(list) {
@@ -339,7 +356,7 @@ function normalizeDiaryRows(list) {
       _postOrTitle: row.internshipPostName || row.titleName || null,
       _submitTime: diary?.createTime ?? null,
       _diaryTitle: diary?.title ?? null,
-      _totalScore: diary?.totalScore ?? null,
+      _totalScore: getDiaryScore(diary),
     };
   });
 }
@@ -422,7 +439,7 @@ const dtlProps = computed(() => ({
       { id: 4, showName: '提交时间', theOrder: 4, tableColumnName: '_submitTime' },
       { id: 5, showName: '日志标题', theOrder: 5, tableColumnName: '_diaryTitle' },
       { id: 7, showName: '审核状态', theOrder: 7, tableColumnName: 'customize-status' },
-      // { id: 8, showName: '总成绩', theOrder: 8, tableColumnName: 'customize-totalScore' },
+      { id: 8, showName: '总成绩', theOrder: 8, tableColumnName: 'customize-totalScore' },
     ],
   },
 }));
