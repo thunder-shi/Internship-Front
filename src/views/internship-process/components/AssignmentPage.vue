@@ -461,7 +461,7 @@ async function downloadImportTemplate() {
     );
     const fileName =
       props.importRole === 'teacher'
-        ? '选择指导老师导入模板.xlsx'
+        ? '老师项目安排导入模板.xlsx'
         : '学生实习项目安排导入模板.xlsx';
     proxy.downloadFile(content, fileName);
   } catch (error) {
@@ -520,14 +520,12 @@ async function handleImportDialogConfirm() {
     const failed = Number(result.failedCount) || 0;
     const total = Number(result.totalExcelRowCount) || 0;
     const failures = Array.isArray(result.failures) ? result.failures : [];
-    const failureLines = failures
-      .slice(0, 10)
-      .map((item) => {
-        const row = item?.row != null ? `第${item.row}行` : '未知行';
-        const account = item?.account ? `（${item.account}）` : '';
-        const reason = item?.reason || '导入失败';
-        return `${row}${account}：${reason}`;
-      });
+    const failureLines = failures.slice(0, 10).map((item) => {
+      const row = item?.row != null ? `第${item.row}行` : '未知行';
+      const account = item?.account ? `（${item.account}）` : '';
+      const reason = item?.reason || '导入失败';
+      return `${row}${account}：${reason}`;
+    });
     const moreFail =
       failures.length > 10 ? `<div>……其余 ${failures.length - 10} 条失败未展示</div>` : '';
     const html = [
@@ -575,7 +573,9 @@ defineExpose({
   border-radius: 6px;
   background: var(--el-fill-color-blank);
   cursor: pointer;
-  transition: border-color 0.2s, background-color 0.2s;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
 }
 .import-dropzone:hover,
 .import-dropzone.is-dragover {
