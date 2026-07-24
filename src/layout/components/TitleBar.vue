@@ -112,23 +112,51 @@ const defaultDBProps = reactive({
   }
 })
 
-function requireField(message) {
-  return {
-    validator: (_rule, value, callback) => {
-      if (value === undefined || value === null || String(value).trim() === '') {
-        callback(new Error(message))
-      } else {
-        callback()
-      }
-    },
-    trigger: ['blur', 'change'],
+const validateNewPassword = (_rule, value, callback) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    callback(new Error('请输入新密码'))
+    return
   }
+  if (String(value) === String(form.oldPassword || '')) {
+    callback(new Error('新密码与旧密码一致'))
+    return
+  }
+  if (form.checkPass) {
+    formRef.value?.validateField('checkPass')
+  }
+  callback()
+}
+
+const validateCheckPass = (_rule, value, callback) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    callback(new Error('请再次输入新密码'))
+    return
+  }
+  if (String(value) !== String(form.password || '')) {
+    callback(new Error('两次输入的新密码不一致'))
+    return
+  }
+  callback()
 }
 
 const rules = reactive({
-  oldPassword: [requireField('请输入旧密码')],
-  password: [requireField('请输入新密码')],
-  checkPass: [requireField('请再次输入新密码')],
+  oldPassword: [
+    {
+      validator: (_rule, value, callback) => {
+        if (value === undefined || value === null || String(value).trim() === '') {
+          callback(new Error('请输入旧密码'))
+          return
+        }
+        if (form.password) {
+          formRef.value?.validateField('password')
+        }
+        callback()
+      },
+      trigger: ['blur', 'change'],
+    },
+  ],
+  password: [{ validator: validateNewPassword, trigger: ['blur', 'change'] }],
+  checkPass: [{ validator: validateCheckPass, trigger: ['blur', 'change'] }],
 })
 
 const btnDisabled = ref(false)
@@ -219,11 +247,26 @@ const submit = async () => {
   } catch {
     return false
   }
+  if (String(form.password) !== String(form.checkPass)) {
+    ElMessage.warning('两次输入的新密码不一致')
+    return false
+  }
+  if (String(form.password) === String(form.oldPassword)) {
+    ElMessage.warning('新密码与旧密码一致')
+    return false
+  }
   try {
     await userAPI.editPassword(store.getters.userInfo.id, form.oldPassword, form.password, false)
-    ElMessage.success('修改成功！')
+    ElMessage.success('修改成功！请使用新密码重新登录')
     formRef.value.resetFields()
     dlgPassword.value?.showDialog(false)
+    try {
+      await store.dispatch('user/logout')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+    router.push('/Login')
+    return true
   } catch {
     return false
   }

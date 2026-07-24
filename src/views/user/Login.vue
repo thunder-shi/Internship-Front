@@ -324,7 +324,8 @@ export default {
               }
             }, 200); // 增加等待时间，确保路由完全加载
           } catch (error) {
-            this.$message.error(error?.message || '登录失败');
+            // 登录失败提示已由 request 拦截器统一处理（用户名或密码错误）
+            console.error('登录失败:', error);
           } finally {
             this.loading = false;
           }
