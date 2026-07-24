@@ -14,6 +14,7 @@
     @view-click="handleViewClick"
     @more2-click="handleBatchSubmitClick"
     @more3-click="handleBatchAppendClick"
+    @more4-click="handleImportAppendClick"
     @project-selected="handleProjectSelected"
   >
     <template #dialogs>
@@ -61,12 +62,59 @@
           </el-button>
         </template>
       </el-dialog>
+      <el-dialog
+        v-model="importDialogVisible"
+        title="导入新增"
+        width="480px"
+        append-to-body
+        :close-on-click-modal="false"
+        @closed="resetImportDialog"
+      >
+        <div
+          class="import-dropzone"
+          :class="{ 'is-dragover': importDragOver }"
+          @click="fileInputRef?.click()"
+          @dragenter.prevent="onImportDragEnter"
+          @dragover.prevent="onImportDragOver"
+          @dragleave.prevent="onImportDragLeave"
+          @drop.prevent="onImportDrop"
+        >
+          <div class="import-dropzone-title">将文件拖到此处，或<em>点击选择</em></div>
+          <div class="import-file-tip" @click.stop>
+            <span class="import-template-link" @click="downloadImportTemplate">下载模板</span>
+            <span>仅支持 xls / xlsx，不超过 5MB</span>
+          </div>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            style="display: none"
+            @change="onImportFileChange"
+          />
+        </div>
+        <div v-if="importFile" class="import-file-list">
+          <div class="import-file-item">
+            <div class="import-file-meta">
+              <span class="import-file-name" :title="importFile.name">{{ importFile.name }}</span>
+              <span class="import-file-size">{{ formatImportFileSize(importFile.size) }}</span>
+            </div>
+            <el-button type="danger" link @click="clearImportFile">移除</el-button>
+          </div>
+        </div>
+        <div v-else class="import-file-empty">尚未添加文件</div>
+        <template #footer>
+          <el-button @click="importDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="importLoading" @click="handleImportDialogConfirm">
+            确定
+          </el-button>
+        </template>
+      </el-dialog>
     </template>
   </InternshipPostHeaderPage>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, getCurrentInstance } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
@@ -74,6 +122,7 @@ import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import SimpleTreeSelect from '@/components/SimpleTreeSelect.vue';
 import CONSTANT from '@/utils/constant';
 import otherAPI from '@/api/other';
+import internshipProcessAPI from '@/api/internshipProcess';
 import { useVerifyFilter } from '@/utils/useVerifyFilter';
 import { useAssignmentActions } from '@/utils/useAssignmentActions';
 import { useAssignmentPageConfig } from '@/utils/useAssignmentPageConfig';
@@ -83,6 +132,7 @@ defineOptions({
   name: 'AssignmentPage',
 });
 
+const { proxy } = getCurrentInstance();
 const props = defineProps({
   /** 页面标题，如「学生实习项目安排」 */
   pageTitle: { type: String, required: true },
@@ -96,6 +146,8 @@ const props = defineProps({
   selectDialogComponent: { type: Object, required: true },
   /** 是否显示表头「批量新增」（按部门批量初始化学生名单） */
   showBatchAppend: { type: Boolean, default: true },
+  /** 是否显示表头「导入新增」（Excel 导入 RelIntershipUser） */
+  showImportAppend: { type: Boolean, default: false },
 });
 const store = useStore();
 const userInfo = computed(() => store.getters.userInfo || {});
@@ -127,6 +179,11 @@ const dlgSelectInternship = ref(null);
 const batchDialogVisible = ref(false);
 const batchAppendLoading = ref(false);
 const selectedDepartmentIds = ref([]);
+const importDialogVisible = ref(false);
+const importLoading = ref(false);
+const importFile = ref(null);
+const importDragOver = ref(false);
+const fileInputRef = ref(null);
 const departmentSearchKeys = computed(() => {
   const searchKey = {};
   if (userInfo.value.schoolId) {
@@ -203,6 +260,12 @@ const buttonPropsComputed = computed(() => ({
   more3: {
     show: props.showBatchAppend,
     name: '批量新增',
+    type: 'primary',
+    disabled: !currentInternship.value || !currentInternship.value.internshipId,
+  },
+  more4: {
+    show: props.showImportAppend,
+    name: '导入新增',
     type: 'primary',
     disabled: !currentInternship.value || !currentInternship.value.internshipId,
   },
@@ -319,9 +382,227 @@ async function handleBatchDialogConfirm() {
   }
 }
 
+function handleImportAppendClick() {
+  if (!currentInternship.value?.internshipId) {
+    ElMessage.warning('请先选择实习项目');
+    return;
+  }
+  resetImportDialog();
+  importDialogVisible.value = true;
+}
+
+function resetImportDialog() {
+  importFile.value = null;
+  importDragOver.value = false;
+  if (fileInputRef.value) {
+    fileInputRef.value.value = '';
+  }
+}
+
+function clearImportFile() {
+  resetImportDialog();
+}
+
+function formatImportFileSize(size) {
+  const bytes = Number(size) || 0;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function setImportFile(file) {
+  if (!file) {
+    importFile.value = null;
+    return;
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (!['xls', 'xlsx'].includes(ext)) {
+    ElMessage.error('上传文件只能是 xls/xlsx 格式');
+    resetImportDialog();
+    return;
+  }
+  if (file.size / 1024 / 1024 >= 5) {
+    ElMessage.error('上传文件大小不能超过 5 MB');
+    resetImportDialog();
+    return;
+  }
+  importFile.value = file;
+}
+
+function onImportFileChange(event) {
+  setImportFile(event?.target?.files?.[0]);
+}
+
+function onImportDragEnter() {
+  importDragOver.value = true;
+}
+
+function onImportDragOver() {
+  importDragOver.value = true;
+}
+
+function onImportDragLeave(event) {
+  if (event.currentTarget?.contains?.(event.relatedTarget)) return;
+  importDragOver.value = false;
+}
+
+function onImportDrop(event) {
+  importDragOver.value = false;
+  const file = event?.dataTransfer?.files?.[0];
+  setImportFile(file);
+}
+
+async function downloadImportTemplate() {
+  try {
+    const content = await internshipProcessAPI.downloadRelIntershipUserImportTemplate();
+    proxy.downloadFile(content, '学生实习项目安排导入模板.xlsx');
+  } catch (error) {
+    console.error('下载模板失败:', error);
+    ElMessage.error('下载模板失败');
+  }
+}
+
+async function handleImportDialogConfirm() {
+  if (!importFile.value) {
+    ElMessage.warning('请选择 Excel 文件');
+    return;
+  }
+  const internshipId = Number(currentInternship.value?.internshipId);
+  const processId = Number(currentInternship.value?.realId);
+  const verifyRoleId = Number(currentInternship.value?.verifyFirstRoleId);
+  const createUserId = Number(userInfo.value?.id);
+  const currentVerifyTypeId =
+    currentInternship.value?.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      : CONSTANT.VERIFY_LEVEL.ONE_VERIFY;
+  if (!internshipId || Number.isNaN(internshipId)) {
+    ElMessage.warning('缺少 internshipId，无法导入');
+    return;
+  }
+  if (!processId || Number.isNaN(processId)) {
+    ElMessage.warning('缺少 processId，无法导入');
+    return;
+  }
+  if (!createUserId || Number.isNaN(createUserId)) {
+    ElMessage.warning('缺少 createUserId，无法导入');
+    return;
+  }
+
+  importLoading.value = true;
+  try {
+    const payload = {
+      file: importFile.value,
+      internshipId,
+      processId,
+      createUserId,
+      currentVerifyTypeId,
+    };
+    if (verifyRoleId && !Number.isNaN(verifyRoleId)) {
+      payload.verifyRoleId = verifyRoleId;
+    }
+    const res = await internshipProcessAPI.importRelIntershipUserByExcel(payload);
+    if (!res || res.message !== 'successful') {
+      ElMessage.error(res?.message || '导入失败');
+      return;
+    }
+    ElMessage.success('导入成功');
+    importDialogVisible.value = false;
+    headerPageRef.value?.baseListRef?.initDataList(true);
+  } catch (error) {
+    console.error('导入失败:', error);
+    const backendMsg = error?.response?.data?.message || error?.message;
+    ElMessage.error(backendMsg ? `导入失败，${backendMsg}` : '导入失败');
+  } finally {
+    importLoading.value = false;
+  }
+}
+
 defineExpose({
   baseListRef: computed(() => headerPageRef.value?.baseListRef),
   currentInternship,
   updateSearchWordsAndRefresh: () => headerPageRef.value?.updateSearchWordsAndRefresh(),
 });
 </script>
+
+<style scoped>
+.import-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 140px;
+  padding: 20px 16px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  background: var(--el-fill-color-blank);
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.import-dropzone:hover,
+.import-dropzone.is-dragover {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+.import-dropzone-title {
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.import-dropzone-title em {
+  color: var(--el-color-primary);
+  font-style: normal;
+}
+.import-file-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.import-template-link {
+  color: var(--el-color-primary);
+  cursor: pointer;
+}
+.import-file-list {
+  margin-top: 12px;
+}
+.import-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: #f5f7fa;
+}
+.import-file-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.import-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #303133;
+  font-size: 13px;
+  font-weight: 500;
+}
+.import-file-size {
+  color: #909399;
+  font-size: 12px;
+}
+.import-file-empty {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--el-border-color-lighter);
+  border-radius: 6px;
+  color: #c0c4cc;
+  font-size: 13px;
+  text-align: center;
+}
+</style>
