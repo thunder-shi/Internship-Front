@@ -8,6 +8,7 @@
     :list-key-word="TUTOR_ASSIGNMENT_INTERNAL_LIST_KEY_WORD"
     :assignable-teacher-job-code="CONSTANT.USER_JOB_CODE.SCHOOL_TEACHER"
     system-assign-mode="manual"
+    :show-import-assign="true"
     :submit-row-condition="submitRowCondition"
   >
     <template #rightOperate="{ row }">

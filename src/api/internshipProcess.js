@@ -294,6 +294,45 @@ function downloadRelIntershipUserImportTemplate(role) {
   });
 }
 
+/**
+ * Excel 导入手动分配师生
+ * @param {Object} params
+ * @param {File} params.file
+ * @param {number|string} params.internshipId
+ * @param {number|string} params.processId
+ * @param {number|string} params.createUserId
+ * @param {number|string} [params.verifyRoleId]
+ * @param {number|string} [params.currentVerifyTypeId]
+ */
+function importManualAssignTeacherStudentByExcel(params) {
+  const formData = new FormData();
+  formData.append('file', params.file);
+  formData.append('internshipId', params.internshipId);
+  formData.append('processId', params.processId);
+  formData.append('createUserId', params.createUserId);
+  if (params.verifyRoleId != null && params.verifyRoleId !== '') {
+    formData.append('verifyRoleId', params.verifyRoleId);
+  }
+  if (params.currentVerifyTypeId != null && params.currentVerifyTypeId !== '') {
+    formData.append('currentVerifyTypeId', params.currentVerifyTypeId);
+  }
+  return request({
+    url: '/internshipProcess/importManualAssignTeacherStudentByExcel',
+    method: 'post',
+    data: formData,
+    timeout: 300000,
+  });
+}
+
+/** 下载手动分配师生 Excel 导入模板 */
+function downloadManualAssignTeacherStudentImportTemplate() {
+  return request({
+    url: '/internshipProcess/downloadManualAssignTeacherStudentImportTemplate',
+    method: 'post',
+    responseType: 'blob',
+  });
+}
+
 export default {
   auditProcess,
   activateProcess,
@@ -317,5 +356,7 @@ export default {
   applySelfInternship,
   importRelIntershipUserByExcel,
   downloadRelIntershipUserImportTemplate,
+  importManualAssignTeacherStudentByExcel,
+  downloadManualAssignTeacherStudentImportTemplate,
   // getNowInternship
 };
