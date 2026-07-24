@@ -116,7 +116,7 @@
 <script setup>
 import { ref, computed, getCurrentInstance } from 'vue';
 import { useStore } from 'vuex';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
 import SimpleTreeSelect from '@/components/SimpleTreeSelect.vue';
@@ -148,6 +148,8 @@ const props = defineProps({
   showBatchAppend: { type: Boolean, default: true },
   /** 是否显示表头「导入新增」（Excel 导入 RelIntershipUser） */
   showImportAppend: { type: Boolean, default: false },
+  /** 导入角色：student / teacher */
+  importRole: { type: String, default: 'student' },
 });
 const store = useStore();
 const userInfo = computed(() => store.getters.userInfo || {});
@@ -454,8 +456,14 @@ function onImportDrop(event) {
 
 async function downloadImportTemplate() {
   try {
-    const content = await internshipProcessAPI.downloadRelIntershipUserImportTemplate();
-    proxy.downloadFile(content, '学生实习项目安排导入模板.xlsx');
+    const content = await internshipProcessAPI.downloadRelIntershipUserImportTemplate(
+      props.importRole
+    );
+    const fileName =
+      props.importRole === 'teacher'
+        ? '选择指导老师导入模板.xlsx'
+        : '学生实习项目安排导入模板.xlsx';
+    proxy.downloadFile(content, fileName);
   } catch (error) {
     console.error('下载模板失败:', error);
     ElMessage.error('下载模板失败');
@@ -495,6 +503,7 @@ async function handleImportDialogConfirm() {
       internshipId,
       processId,
       createUserId,
+      role: props.importRole,
       currentVerifyTypeId,
     };
     if (verifyRoleId && !Number.isNaN(verifyRoleId)) {
@@ -505,9 +514,38 @@ async function handleImportDialogConfirm() {
       ElMessage.error(res?.message || '导入失败');
       return;
     }
-    ElMessage.success('导入成功');
+    const result = res.data || {};
+    const created = Number(result.createdRelIntershipUserCount) || 0;
+    const skipped = Number(result.skippedExistingCount) || 0;
+    const failed = Number(result.failedCount) || 0;
+    const total = Number(result.totalExcelRowCount) || 0;
+    const failures = Array.isArray(result.failures) ? result.failures : [];
+    const failureLines = failures
+      .slice(0, 10)
+      .map((item) => {
+        const row = item?.row != null ? `第${item.row}行` : '未知行';
+        const account = item?.account ? `（${item.account}）` : '';
+        const reason = item?.reason || '导入失败';
+        return `${row}${account}：${reason}`;
+      });
+    const moreFail =
+      failures.length > 10 ? `<div>……其余 ${failures.length - 10} 条失败未展示</div>` : '';
+    const html = [
+      `<div>Excel 共 ${total} 行</div>`,
+      `<div>新增成功 ${created} 条</div>`,
+      `<div>已存在跳过 ${skipped} 条</div>`,
+      `<div>失败 ${failed} 条</div>`,
+      failureLines.length
+        ? `<div style="margin-top:8px;text-align:left;">失败明细：<br/>${failureLines.join('<br/>')}${moreFail}</div>`
+        : '',
+    ].join('');
     importDialogVisible.value = false;
     headerPageRef.value?.baseListRef?.initDataList(true);
+    await ElMessageBox.alert(html, '导入结果', {
+      dangerouslyUseHTMLString: true,
+      confirmButtonText: '知道了',
+      type: failed > 0 ? 'warning' : 'success',
+    });
   } catch (error) {
     console.error('导入失败:', error);
     const backendMsg = error?.response?.data?.message || error?.message;

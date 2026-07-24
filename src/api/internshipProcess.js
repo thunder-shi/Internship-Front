@@ -251,12 +251,13 @@ function applySelfInternship(node) {
 }
 
 /**
- * Excel 导入学生实习项目安排（RelIntershipUser）
+ * Excel 导入实习项目安排（RelIntershipUser）
  * @param {Object} params
  * @param {File} params.file - .xls / .xlsx
  * @param {number|string} params.internshipId
  * @param {number|string} params.processId
  * @param {number|string} params.createUserId
+ * @param {string} params.role - student / teacher
  * @param {number|string} [params.verifyRoleId]
  * @param {number|string} [params.currentVerifyTypeId]
  */
@@ -266,6 +267,7 @@ function importRelIntershipUserByExcel(params) {
   formData.append('internshipId', params.internshipId);
   formData.append('processId', params.processId);
   formData.append('createUserId', params.createUserId);
+  formData.append('role', params.role);
   if (params.verifyRoleId != null && params.verifyRoleId !== '') {
     formData.append('verifyRoleId', params.verifyRoleId);
   }
@@ -280,11 +282,14 @@ function importRelIntershipUserByExcel(params) {
   });
 }
 
-/** 下载学生实习项目安排 Excel 导入模板 */
-function downloadRelIntershipUserImportTemplate() {
+/** 下载实习项目安排 Excel 导入模板 */
+function downloadRelIntershipUserImportTemplate(role) {
+  const formData = new FormData();
+  formData.append('role', role);
   return request({
     url: '/internshipProcess/downloadRelIntershipUserImportTemplate',
     method: 'post',
+    data: formData,
     responseType: 'blob',
   });
 }
