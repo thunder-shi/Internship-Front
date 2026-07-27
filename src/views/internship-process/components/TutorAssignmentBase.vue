@@ -288,10 +288,17 @@ function getSubmitStatus(row) {
   return row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY;
 }
 
+/**
+ * 全量 /diary/init-by-internship 会大事务改 main_verify_process，易锁等待。
+ * 系统分配 / 手动分配 / Excel 导入后端已 ensureDiaryEntries，勿再调。
+ * 仅「行内只改老师」（editOneNode，未走分配接口）时补一次，用于刷新日志审核人。
+ */
 async function initDiaryPlaceholders(internshipId) {
   try {
     await initDiariesByInternship({ internshipId });
-  } catch {}
+  } catch (error) {
+    console.error('初始化日志占位失败:', error);
+  }
 }
 
 async function updateVerifyProcessStatus(rows, isBatch = false) {
@@ -405,7 +412,6 @@ async function runSystemAssign() {
 
     ElMessage.success('系统分配成功');
     await headerPageRef.value?.baseListRef?.initDataList(true);
-    await initDiaryPlaceholders(internshipId);
   } catch (error) {
     console.error('系统分配失败:', error);
     ElMessage.error('系统分配失败');
@@ -727,7 +733,7 @@ async function handleImportAssignConfirm() {
     const failures = Array.isArray(result.failures) ? result.failures : [];
     importAssignDialogVisible.value = false;
     await headerPageRef.value?.baseListRef?.initDataList(true);
-    await initDiaryPlaceholders(internshipId);
+    // 后端 import/manualAssign 已建日志桩，不再调全量 init-by-internship（易锁 main_verify_process）
     if (
       !Number.isNaN(created) ||
       !Number.isNaN(skipped) ||
@@ -932,7 +938,6 @@ async function confirmManualAssign() {
     ElMessage.success('手动分配成功');
     manualAssignDialogVisible.value = false;
     await headerPageRef.value?.baseListRef?.initDataList(true);
-    await initDiaryPlaceholders(internshipId);
   } catch (error) {
     console.error('手动分配失败:', error);
     ElMessage.error('手动分配失败');
