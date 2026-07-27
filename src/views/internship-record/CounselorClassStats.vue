@@ -10,10 +10,16 @@
         </div>
         <div class="filter-item mode-filter">
           <span class="filter-label">实习类型</span>
-          <el-select v-model="internshipMode" @change="refreshTable">
+          <el-select v-model="internshipMode" clearable placeholder="全部类型" @change="loadReport">
             <el-option label="全部" value="" />
             <el-option label="校外实习" value="EXTERNAL" />
             <el-option label="校内实习" value="INTERNAL" />
+          </el-select>
+        </div>
+        <div class="filter-item status-filter">
+          <span class="filter-label">实习状态</span>
+          <el-select v-model="internshipStatusCode" clearable placeholder="全部状态" @change="loadReport">
+            <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
         <div class="filter-item keyword-item">
@@ -28,15 +34,6 @@
         <el-button type="primary" :icon="Refresh" :loading="loading" @click="refreshAll">刷新统计</el-button>
       </div>
     </el-card>
-
-    <el-alert
-      v-if="failedSources.length"
-      class="source-alert"
-      type="warning"
-      show-icon
-      :closable="false"
-      :title="`以下数据未能完整加载：${failedSources.join('、')}。对应统计不应视为 0。`"
-    />
 
     <el-empty v-if="!loading && !classOptions.length" description="当前账号尚未配置所辖班级" />
 
@@ -63,7 +60,7 @@
       </div>
 
       <div class="table-card">
-        <div class="table-tip">打卡、请假为“审核通过/总数”，任务为“已提交/总数”</div>
+        <div class="table-tip">打卡、请假为“审核通过/总数”，日志为“已提交/总期次”，实习状态以后端聚合视图为准</div>
         <DataTableList
           :key="tableKey"
           ref="tableRef"
@@ -71,8 +68,10 @@
           :fetch-records="fetchTableRecords"
           @view-click="handleViewClick"
         >
-          <template #auditStatus="{ row }">
-            <el-tag :type="auditTagType(row.auditStatus)" effect="plain">{{ row.auditStatus }}</el-tag>
+          <template #internshipStatus="{ row }">
+            <el-tag :type="internshipStatusTag(row.internshipStatusCode)" effect="plain">
+              {{ internshipStatusName(row) }}
+            </el-tag>
           </template>
           <template #signStat="{ row }">{{ row.signPassed }}/{{ row.signCount }}</template>
           <template #leaveStat="{ row }">{{ row.leavePassed }}/{{ row.leaveCount }}</template>
@@ -92,64 +91,21 @@
           <el-descriptions-item label="岗位/题目">{{ display(detailRow.subjectName) }}</el-descriptions-item>
           <el-descriptions-item label="校内指导老师">{{ display(detailRow.schoolTeacherName) }}</el-descriptions-item>
           <el-descriptions-item label="企业导师">{{ display(detailRow.companyTeacherName) }}</el-descriptions-item>
-          <el-descriptions-item label="实习状态">{{ display(detailRow.auditStatus) }}</el-descriptions-item>
+          <el-descriptions-item label="实习状态">
+            <el-tag :type="internshipStatusTag(detailRow.internshipStatusCode)" effect="plain">
+              {{ internshipStatusName(detailRow) }}
+            </el-tag>
+          </el-descriptions-item>
         </el-descriptions>
 
-        <el-tabs v-model="detailTab">
-          <el-tab-pane :label="`打卡记录（${detailRow.signCount}）`" name="sign">
-            <el-table :data="detailRow.signRows" border stripe max-height="420" empty-text="暂无打卡记录">
-              <el-table-column label="类型" width="80">
-                <template #default="{ row }">{{ signTypeText(row) }}</template>
-              </el-table-column>
-              <el-table-column label="打卡时间" min-width="165">
-                <template #default="{ row }">{{ display(row.createTime ?? row.signTime) }}</template>
-              </el-table-column>
-              <el-table-column label="地址" min-width="180" show-overflow-tooltip>
-                <template #default="{ row }">{{ display(row.address) }}</template>
-              </el-table-column>
-              <el-table-column label="审核状态" width="100">
-                <template #default="{ row }">{{ auditStatusText(row) }}</template>
-              </el-table-column>
-              <el-table-column label="审核意见" min-width="160" show-overflow-tooltip>
-                <template #default="{ row }">{{ display(row.reason) }}</template>
-              </el-table-column>
-            </el-table>
-          </el-tab-pane>
-
-          <el-tab-pane :label="`请假记录（${detailRow.leaveCount}）`" name="leave">
-            <el-table :data="detailRow.leaveRows" border stripe max-height="420" empty-text="暂无请假记录">
-              <el-table-column label="开始时间" min-width="165">
-                <template #default="{ row }">{{ display(row.startTime) }}</template>
-              </el-table-column>
-              <el-table-column label="结束时间" min-width="165">
-                <template #default="{ row }">{{ display(row.endTime) }}</template>
-              </el-table-column>
-              <el-table-column label="请假原因" min-width="220" show-overflow-tooltip>
-                <template #default="{ row }">{{ display(row.remarks ?? row.reason) }}</template>
-              </el-table-column>
-              <el-table-column label="审核状态" width="100">
-                <template #default="{ row }">{{ auditStatusText(row) }}</template>
-              </el-table-column>
-            </el-table>
-          </el-tab-pane>
-
-          <el-tab-pane :label="`任务提交（${detailRow.taskSubmitted}/${detailRow.taskTotal}）`" name="task">
-            <el-table :data="detailRow.taskRows" border stripe max-height="420" empty-text="暂无任务期次">
-              <el-table-column prop="periodIndex" label="期次" width="75" />
-              <el-table-column prop="beginTime" label="开始时间" min-width="150" />
-              <el-table-column prop="endTime" label="结束时间" min-width="150" />
-              <el-table-column label="任务标题" min-width="180" show-overflow-tooltip>
-                <template #default="{ row }">{{ display(row.diary?.title) }}</template>
-              </el-table-column>
-              <el-table-column label="提交状态" width="100">
-                <template #default="{ row }">{{ taskStatusText(row) }}</template>
-              </el-table-column>
-              <el-table-column label="成绩" width="80">
-                <template #default="{ row }">{{ display(row.diary?.totalScore) }}</template>
-              </el-table-column>
-            </el-table>
-          </el-tab-pane>
-        </el-tabs>
+        <el-descriptions :column="3" border>
+          <el-descriptions-item label="打卡通过/总数">{{ countPair(detailRow.signPassed, detailRow.signCount) }}</el-descriptions-item>
+          <el-descriptions-item label="请假通过/总数">{{ countPair(detailRow.leavePassed, detailRow.leaveCount) }}</el-descriptions-item>
+          <el-descriptions-item label="日志提交/总期次">{{ countPair(detailRow.taskSubmitted, detailRow.taskTotal) }}</el-descriptions-item>
+          <el-descriptions-item label="日志通过/总期次">{{ countPair(detailRow.taskPassed, detailRow.taskTotal) }}</el-descriptions-item>
+          <el-descriptions-item label="终止申请编号">{{ display(detailRow.terminationId) }}</el-descriptions-item>
+          <el-descriptions-item label="关系表">{{ display(detailRow.relationTable) }}</el-descriptions-item>
+        </el-descriptions>
       </template>
     </el-dialog>
   </div>
@@ -162,10 +118,35 @@ import { ElMessage } from 'element-plus';
 import { Refresh } from '@element-plus/icons-vue';
 import DataTableList from '@/components/DataTableList.vue';
 import listAPI from '@/api/list';
-import { getStudentPeriods } from '@/api/diary';
 import CONSTANT from '@/utils/constant';
 
 defineOptions({ name: 'CounselorClassStats' });
+
+const REPORT_VIEW = 'ViewCounselorClassInternshipStats';
+
+const statusOptions = [
+  { label: '未安排', value: 'UNASSIGNED' },
+  { label: '待选题/选岗', value: 'PENDING_SELECTION' },
+  { label: '实习中', value: 'IN_PROGRESS' },
+  { label: '已完成', value: 'COMPLETED' },
+  { label: '已终止', value: 'TERMINATED' },
+];
+
+const STATUS_NAME_MAP = {
+  UNASSIGNED: '未安排',
+  PENDING_SELECTION: '待选题/选岗',
+  IN_PROGRESS: '实习中',
+  COMPLETED: '已完成',
+  TERMINATED: '已终止',
+};
+
+const STATUS_TAG_MAP = {
+  UNASSIGNED: 'info',
+  PENDING_SELECTION: 'warning',
+  IN_PROGRESS: 'primary',
+  COMPLETED: 'success',
+  TERMINATED: 'info',
+};
 
 const store = useStore();
 const userInfo = computed(() => store.getters.userInfo || {});
@@ -173,23 +154,14 @@ const loading = ref(false);
 const classOptions = ref([]);
 const selectedClassId = ref('');
 const internshipMode = ref('');
+const internshipStatusCode = ref('');
 const keyword = ref('');
 const reportRows = ref([]);
-const failedSources = ref([]);
 const tableRef = ref(null);
 const tableKey = ref(0);
 const detailVisible = ref(false);
 const detailRow = ref(null);
-const detailTab = ref('sign');
 let loadVersion = 0;
-
-const STATUS_TEXT = {
-  [-1]: '待提交',
-  0: '待审核',
-  1: '已通过',
-  2: '不通过',
-  3: '已退回',
-};
 
 const tableProps = reactive({
   title: { mainTitle: '所辖班级学生实习全量统计' },
@@ -228,7 +200,7 @@ const tableProps = reactive({
       { id: 6, showName: '岗位/题目', tableColumnName: 'subjectName', sortable: true, width: 170 },
       { id: 7, showName: '校内指导老师', tableColumnName: 'schoolTeacherName', sortable: true, width: 130 },
       { id: 8, showName: '企业导师', tableColumnName: 'companyTeacherName', sortable: true, width: 110 },
-      { id: 9, showName: '实习状态', tableColumnName: 'customize-auditStatus', width: 100 },
+      { id: 9, showName: '实习状态', tableColumnName: 'customize-internshipStatus', width: 120 },
       { id: 10, showName: '打卡', tableColumnName: 'customize-signStat', width: 80 },
       { id: 11, showName: '请假', tableColumnName: 'customize-leaveStat', width: 80 },
       { id: 12, showName: '任务提交', tableColumnName: 'customize-taskStat', width: 95 },
@@ -247,6 +219,7 @@ const filteredRows = computed(() => {
   const query = keyword.value.toLowerCase();
   return reportRows.value.filter((row) => {
     if (internshipMode.value && row.internshipMode !== internshipMode.value) return false;
+    if (internshipStatusCode.value && row.internshipStatusCode !== internshipStatusCode.value) return false;
     if (!query) return true;
     return [
       row.studentName,
@@ -262,7 +235,9 @@ const filteredRows = computed(() => {
 
 const summary = computed(() => {
   const rows = reportRows.value;
-  const studentIds = new Set(rows.map((row) => String(row.studentId)));
+  const studentIds = new Set(
+    rows.map((row) => row.studentId).filter((id) => id !== null && id !== undefined).map(String)
+  );
   return {
     classCount: selectedClassIds.value.length,
     studentCount: studentIds.size,
@@ -281,9 +256,19 @@ function compareValues(left, right) {
   return String(left).localeCompare(String(right), 'zh-CN', { numeric: true });
 }
 
+function sortFieldOf(field) {
+  const map = {
+    'customize-internshipStatus': 'internshipStatusName',
+    'customize-signStat': 'signCount',
+    'customize-leaveStat': 'leaveCount',
+    'customize-taskStat': 'taskTotal',
+  };
+  return map[field] || field;
+}
+
 async function fetchTableRecords(params = {}) {
   const sort = params.sort || {};
-  const field = sort.properties || 'className';
+  const field = sortFieldOf(sort.properties || 'className');
   const direction = sort.direction === 'DESC' ? -1 : 1;
   const rows = [...filteredRows.value].sort((left, right) => {
     const primary = compareValues(left[field], right[field]);
@@ -316,306 +301,79 @@ function responseRows(res) {
   return [];
 }
 
-async function fetchAll(keyWords, searchKey = {}, reg = {}) {
+async function fetchAll(keyWords, searchKey = {}, reg = {}, sort = { properties: 'Id', direction: 'DESC' }) {
   const res = await listAPI.getSomeRecords({
     keyWords,
     pageInfo: { page: 1, size: 5000 },
     searchKey,
     reg,
     andor: {},
-    sort: { properties: 'Id', direction: 'DESC' },
+    sort,
   });
   return responseRows(res);
-}
-
-function firstValue(row, keys) {
-  for (const key of keys) {
-    const value = row?.[key];
-    if (value !== undefined && value !== null && value !== '') return value;
-  }
-  return null;
 }
 
 function sameId(left, right) {
   return left != null && right != null && String(left) === String(right);
 }
 
-function studentIdOf(row) {
-  return firstValue(row, ['studentId', 'stuId', 'userId', 'id']);
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function internshipIdOf(row) {
-  return firstValue(row, ['internshipId', 'mainInternshipId']);
+function normalizeStatusCode(value) {
+  return String(value || '').toUpperCase();
 }
 
-function uniqueRows(rows, keyFn) {
-  const map = new Map();
-  rows.forEach((row, index) => {
-    const key = keyFn(row) ?? `row-${index}`;
-    if (!map.has(String(key))) map.set(String(key), row);
-  });
-  return Array.from(map.values());
-}
-
-function isTrue(value) {
-  return value === true || value === 1 || value === '1' || value === 'true';
-}
-
-function auditStatusValue(row) {
-  return firstValue(row, ['isAudit', 'auditStatus', 'status']);
-}
-
-function isAuditPassed(row) {
-  return isTrue(row?.isAllVerified ?? row?.is_all_verified) || Number(auditStatusValue(row)) === 1;
-}
-
-function auditStatusText(row) {
-  if (isTrue(row?.isAllVerified ?? row?.is_all_verified)) return '已通过';
-  const status = Number(auditStatusValue(row));
-  return STATUS_TEXT[status] || '未知';
-}
-
-function auditTagType(status) {
-  if (status === '已通过') return 'success';
-  if (status === '待审核') return 'warning';
-  if (status === '不通过') return 'danger';
-  return 'info';
-}
-
-function teacherMap(rows) {
-  const map = new Map();
-  rows.forEach((row) => {
-    const studentId = studentIdOf(row);
-    const internshipId = internshipIdOf(row);
-    const teacherName = firstValue(row, ['teacherName', 'userName', 'name']);
-    if (studentId == null || internshipId == null || !teacherName) return;
-    const key = `${studentId}_${internshipId}`;
-    const names = map.get(key) || new Set();
-    names.add(String(teacherName));
-    map.set(key, names);
-  });
-  return new Map(Array.from(map.entries()).map(([key, names]) => [key, Array.from(names).join('、')]));
-}
-
-function buildRelationRows(
-  students,
-  assignmentRows,
-  extRows,
-  intRows,
-  intVerifyRows,
-  schoolTutorRows,
-  companyTutorRows
-) {
-  const studentMap = new Map(students.map((student) => [String(student.studentId), student]));
-  const schoolTutorMap = teacherMap(schoolTutorRows);
-  const companyTutorMap = teacherMap(companyTutorRows);
-  const intVerifyMap = new Map();
-  intVerifyRows.forEach((row) => {
-    const relationId = firstValue(row, ['relationId', 'relTitleStudentId']);
-    if (relationId != null && !intVerifyMap.has(String(relationId))) {
-      intVerifyMap.set(String(relationId), row);
-    }
-  });
-
-  const relationsByStudent = new Map();
-  const addRelation = (studentId, relation) => {
-    if (studentId == null || !studentMap.has(String(studentId))) return;
-    const list = relationsByStudent.get(String(studentId)) || [];
-    list.push(relation);
-    relationsByStudent.set(String(studentId), list);
-  };
-
-  const uniqueExtRows = uniqueRows(extRows, (row) => firstValue(row, ['relationId', 'relStuInternshipPostId']));
-  uniqueExtRows.forEach((row) => {
-    const studentId = studentIdOf(row);
-    const internshipId = internshipIdOf(row);
-    const relationId = firstValue(row, ['relationId', 'relStuInternshipPostId']);
-    const teacherKey = `${studentId}_${internshipId}`;
-    addRelation(studentId, {
-      relationId,
-      relationTable: 'RelStuInternshipPost',
-      hasInternship: true,
-      internshipMode: 'EXTERNAL',
-      internshipModeName: '校外实习',
-      internshipId,
-      internshipName: firstValue(row, ['internshipName', 'mainInternshipName']),
-      subjectName: firstValue(row, ['internshipPostName', 'postName', 'selfPostName']),
-      schoolTeacherName: schoolTutorMap.get(teacherKey) || firstValue(row, ['teacherName']),
-      companyTeacherName: companyTutorMap.get(teacherKey) || firstValue(row, ['companyTeacherName', 'enterpriseTeacherName']),
-      auditSource: row,
-    });
-  });
-
-  const uniqueIntRows = uniqueRows(intRows, (row) => firstValue(row, ['relTitleStudentId', 'relationId']));
-  uniqueIntRows.forEach((row) => {
-    const studentId = studentIdOf(row);
-    const relationId = firstValue(row, ['relTitleStudentId', 'relationId']);
-    addRelation(studentId, {
-      relationId,
-      relationTable: 'RelTitleStudent',
-      hasInternship: true,
-      internshipMode: 'INTERNAL',
-      internshipModeName: '校内实习',
-      internshipId: internshipIdOf(row),
-      internshipName: firstValue(row, ['internshipName', 'mainInternshipName']),
-      subjectName: firstValue(row, ['titleName', 'name']),
-      schoolTeacherName: firstValue(row, ['teacherName']),
-      companyTeacherName: null,
-      auditSource: intVerifyMap.get(String(relationId)) || null,
-    });
-  });
-
-  const uniqueAssignmentRows = uniqueRows(
-    assignmentRows,
-    (row) => firstValue(row, ['relationId', 'relIntershipUserId', 'relInternshipUserId'])
-  );
-  uniqueAssignmentRows.forEach((row) => {
-    const studentId = studentIdOf(row);
-    const internshipId = internshipIdOf(row);
-    if (studentId == null || internshipId == null) return;
-    const currentRelations = relationsByStudent.get(String(studentId)) || [];
-    if (currentRelations.some((item) => sameId(item.internshipId, internshipId))) return;
-    const typeName = String(firstValue(row, ['intTypeName', 'internshipTypeName', 'typeName']) || '');
-    const isExternal = typeName.includes('校外');
-    const isInternal = typeName.includes('校内');
-    const teacherKey = `${studentId}_${internshipId}`;
-    addRelation(studentId, {
-      relationId: null,
-      relationTable: null,
-      hasInternship: true,
-      internshipMode: isExternal ? 'EXTERNAL' : isInternal ? 'INTERNAL' : '',
-      internshipModeName: typeName || '已安排',
-      internshipId,
-      internshipName: firstValue(row, ['internshipName', 'mainInternshipName']),
-      subjectName: null,
-      schoolTeacherName: schoolTutorMap.get(teacherKey) || null,
-      companyTeacherName: companyTutorMap.get(teacherKey) || null,
-      auditSource: row,
-    });
-  });
-
-  const result = [];
-  students.forEach((student) => {
-    const relations = relationsByStudent.get(String(student.studentId)) || [];
-    if (!relations.length) {
-      result.push({
-        ...student,
-        id: `student-${student.studentId}`,
-        relationId: null,
-        relationTable: null,
-        hasInternship: false,
-        internshipMode: '',
-        internshipModeName: '未安排',
-        internshipId: null,
-        internshipName: null,
-        subjectName: null,
-        schoolTeacherName: null,
-        companyTeacherName: null,
-        auditStatus: '未安排',
-      });
-      return;
-    }
-    relations.forEach((relation, index) => {
-      result.push({
-        ...student,
-        ...relation,
-        id: `${relation.internshipMode}-${relation.relationId ?? student.studentId}-${index}`,
-        auditStatus: relation.auditSource ? auditStatusText(relation.auditSource) : '未知',
-      });
-    });
-  });
-  return result;
-}
-
-function recordBelongsToRelation(record, relation, relationCount) {
-  if (!sameId(studentIdOf(record), relation.studentId)) return false;
-  const recordInternshipId = internshipIdOf(record);
-  if (recordInternshipId != null && relation.internshipId != null) {
-    return sameId(recordInternshipId, relation.internshipId);
-  }
-  const recordRelationId = firstValue(record, ['stuInternshipId', 'relStuInternshipPostId', 'internshipRelationId']);
-  if (recordRelationId != null && relation.relationId != null) {
-    return sameId(recordRelationId, relation.relationId);
-  }
-  return relationCount === 1;
-}
-
-function attachRecordStats(rows, signRows, leaveRows) {
-  const relationCountMap = new Map();
-  rows.forEach((row) => {
-    const key = String(row.studentId);
-    relationCountMap.set(key, (relationCountMap.get(key) || 0) + 1);
-  });
-  rows.forEach((row) => {
-    const relationCount = relationCountMap.get(String(row.studentId)) || 1;
-    row.signRows = uniqueRows(
-      signRows.filter((item) => recordBelongsToRelation(item, row, relationCount)),
-      (item) => firstValue(item, ['relationId', 'mainSignId', 'signId', 'id'])
-    );
-    row.leaveRows = uniqueRows(
-      leaveRows.filter((item) => recordBelongsToRelation(item, row, relationCount)),
-      (item) => firstValue(item, ['leaveId', 'mainLeaveId', 'relationId', 'id'])
-    );
-    row.signCount = row.signRows.length;
-    row.signPassed = row.signRows.filter(isAuditPassed).length;
-    row.leaveCount = row.leaveRows.length;
-    row.leavePassed = row.leaveRows.filter(isAuditPassed).length;
-  });
-}
-
-function isTaskSubmitted(row) {
-  return isTrue(row?.diary?.submit);
-}
-
-async function loadTasks(rows) {
-  const targets = rows.filter((row) => row.relationId != null && row.relationTable);
-  let nextIndex = 0;
-  let failedCount = 0;
-  const worker = async () => {
-    while (nextIndex < targets.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      const row = targets[index];
-      try {
-        const res = await getStudentPeriods({
-          relationId: row.relationId,
-          tableName: row.relationTable,
-        });
-        row.taskRows = Array.isArray(res?.data) ? res.data : [];
-      } catch {
-        row.taskRows = [];
-        row.taskLoadFailed = true;
-        failedCount += 1;
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(6, targets.length) }, worker));
-  rows.forEach((row) => {
-    row.taskRows = row.taskRows || [];
-    row.taskTotal = row.taskRows.length;
-    row.taskSubmitted = row.taskRows.filter(isTaskSubmitted).length;
-    row.signRows = row.signRows || [];
-    row.leaveRows = row.leaveRows || [];
-    row.signCount = row.signCount || 0;
-    row.signPassed = row.signPassed || 0;
-    row.leaveCount = row.leaveCount || 0;
-    row.leavePassed = row.leavePassed || 0;
-  });
-  return failedCount;
-}
-
-function normalizeStudents(rows, classMap) {
-  return uniqueRows(rows, (row) => firstValue(row, ['id', 'userId'])).map((row) => {
-    const studentId = firstValue(row, ['id', 'userId']);
-    const classId = firstValue(row, ['departmentId', 'classId']);
+function normalizeReportRows(rows) {
+  return rows.map((row, index) => {
+    const internshipStatus = normalizeStatusCode(row.internshipStatusCode);
+    const internshipModeValue = String(row.internshipMode || '').toUpperCase();
     return {
-      studentId,
-      studentName: firstValue(row, ['name', 'userName', 'studentName']),
-      studentAccount: firstValue(row, ['studentAccount', 'account', 'studentNo']),
-      classId,
-      className: classMap.get(String(classId)) || firstValue(row, ['departmentName', 'className']),
+      ...row,
+      id:
+        row.id ??
+        `${row.classId ?? 'class'}-${row.studentId ?? index}-${row.internshipId ?? 'none'}-${row.relationTable ?? 'none'}-${row.relationId ?? 'none'}`,
+      internshipMode: internshipModeValue,
+      internshipModeName:
+        row.internshipModeName ||
+        (internshipModeValue === 'EXTERNAL'
+          ? '校外实习'
+          : internshipModeValue === 'INTERNAL'
+            ? '校内实习'
+            : '未安排'),
+      internshipStatusCode: internshipStatus,
+      internshipStatusName: row.internshipStatusName || STATUS_NAME_MAP[internshipStatus] || internshipStatus,
+      signCount: toNumber(row.signCount),
+      signPassed: toNumber(row.signPassed),
+      leaveCount: toNumber(row.leaveCount),
+      leavePassed: toNumber(row.leavePassed),
+      taskTotal: toNumber(row.taskTotal),
+      taskSubmitted: toNumber(row.taskSubmitted),
+      taskPassed: toNumber(row.taskPassed),
+      hasInternship: internshipStatus !== 'UNASSIGNED',
     };
   });
+}
+
+function buildReportSearchWords() {
+  const counselorId = userInfo.value?.id;
+  const searchKey = { counselorId };
+  const reg = { counselorId: CONSTANT.SEARCH_OPERATOR.EQ };
+  if (selectedClassId.value !== '' && selectedClassId.value != null) {
+    searchKey.classId = selectedClassId.value;
+    reg.classId = CONSTANT.SEARCH_OPERATOR.EQ;
+  }
+  if (internshipMode.value) {
+    searchKey.internshipMode = internshipMode.value;
+    reg.internshipMode = CONSTANT.SEARCH_OPERATOR.EQ;
+  }
+  if (internshipStatusCode.value) {
+    searchKey.internshipStatusCode = internshipStatusCode.value;
+    reg.internshipStatusCode = CONSTANT.SEARCH_OPERATOR.EQ;
+  }
+  return { searchKey, reg };
 }
 
 async function loadClassOptions() {
@@ -648,68 +406,23 @@ async function loadClassOptions() {
 
 async function loadReport() {
   const version = ++loadVersion;
-  const classIds = selectedClassIds.value;
-  failedSources.value = [];
   reportRows.value = [];
-  if (!classIds.length) {
+  if (!userInfo.value?.id || !classOptions.value.length) {
     await refreshTable();
     return;
   }
 
   loading.value = true;
   try {
-    const studentsRaw = await fetchAll(
-      'ViewBaseUser',
-      { departmentId: classIds.join(','), jobCode: 'STUDENT' },
-      { departmentId: CONSTANT.SEARCH_OPERATOR.IN, jobCode: CONSTANT.SEARCH_OPERATOR.EQ }
+    const { searchKey, reg } = buildReportSearchWords();
+    const rows = await fetchAll(
+      REPORT_VIEW,
+      searchKey,
+      reg,
+      { properties: 'className', direction: 'ASC' }
     );
     if (version !== loadVersion) return;
-
-    const classMap = new Map(classOptions.value.map((item) => [String(item.id), item.name]));
-    const students = normalizeStudents(studentsRaw, classMap);
-    const studentIds = students.map((item) => item.studentId).filter((id) => id != null);
-    if (!studentIds.length) {
-      reportRows.value = [];
-      return;
-    }
-
-    const idList = studentIds.join(',');
-    const sources = [
-      ['学生实习安排', 'ViewVerifyProcessRelIntershipUserMerge', 'userId'],
-      ['校外实习', 'ViewVerifyProcessRelStuInternshipPostMerge', 'studentId'],
-      ['校内实习', 'ViewRelTitleTeacherStudent', 'stuId'],
-      ['校内实习审核状态', 'ViewVerifyProcessRelTitleStudentMerge', 'stuId'],
-      ['校内指导老师', 'ViewVerifyProcessRelIntTeacherStudentMerge', 'studentId'],
-      ['企业导师', 'ViewVerifyProcessRelEntTeacherStudentMerge', 'studentId'],
-      ['打卡', 'ViewVerifyMainSignMerge', 'studentId'],
-      ['请假', 'ViewLeaveUniversalDetails', 'studentId'],
-    ];
-    const results = await Promise.allSettled(
-      sources.map(([, keyWords, field]) =>
-        fetchAll(keyWords, { [field]: idList }, { [field]: CONSTANT.SEARCH_OPERATOR.IN })
-      )
-    );
-    if (version !== loadVersion) return;
-
-    const data = results.map((result, index) => {
-      if (result.status === 'fulfilled') return result.value;
-      failedSources.value.push(sources[index][0]);
-      return [];
-    });
-    const rows = buildRelationRows(
-      students,
-      data[0],
-      data[1],
-      data[2],
-      data[3],
-      data[4],
-      data[5]
-    );
-    attachRecordStats(rows, data[6], data[7]);
-    const taskFailedCount = await loadTasks(rows);
-    if (version !== loadVersion) return;
-    if (taskFailedCount > 0) failedSources.value.push(`任务提交（${taskFailedCount} 条实习记录）`);
-    reportRows.value = rows;
+    reportRows.value = normalizeReportRows(rows);
   } catch (error) {
     console.error('加载辅导员班级统计失败:', error);
     reportRows.value = [];
@@ -736,7 +449,6 @@ async function handleClassChange() {
 
 function openDetail(row) {
   detailRow.value = row;
-  detailTab.value = 'sign';
   detailVisible.value = true;
 }
 
@@ -749,17 +461,17 @@ function display(value) {
   return value === null || value === undefined || value === '' ? '—' : value;
 }
 
-function signTypeText(row) {
-  const value = Number(firstValue(row, ['signType', 'type']));
-  if (value === 1) return '签到';
-  if (value === 2) return '签退';
-  return '打卡';
+function countPair(passed, total) {
+  return `${toNumber(passed)} / ${toNumber(total)}`;
 }
 
-function taskStatusText(row) {
-  if (!isTaskSubmitted(row)) return '未提交';
-  if (auditStatusValue(row.diary || {}) == null) return '已提交';
-  return auditStatusText(row.diary || {});
+function internshipStatusName(row) {
+  const status = normalizeStatusCode(row?.internshipStatusCode);
+  return row?.internshipStatusName || STATUS_NAME_MAP[status] || display(status);
+}
+
+function internshipStatusTag(statusCode) {
+  return STATUS_TAG_MAP[normalizeStatusCode(statusCode)] || 'info';
 }
 
 onMounted(refreshAll);
@@ -771,14 +483,13 @@ onMounted(refreshAll);
 }
 
 .filter-card,
-.source-alert,
 .summary-grid {
   margin-bottom: 16px;
 }
 
 .filter-row {
   display: grid;
-  grid-template-columns: 320px 230px minmax(360px, 1fr) auto;
+  grid-template-columns: 280px 220px 230px minmax(320px, 1fr) auto;
   align-items: center;
   gap: 12px;
 }
@@ -828,11 +539,15 @@ onMounted(refreshAll);
 
 @media (max-width: 1200px) {
   .filter-row {
-    grid-template-columns: minmax(260px, 1fr) minmax(210px, 0.7fr) auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .keyword-item {
     grid-column: 1 / 3;
+  }
+
+  .filter-row > .el-button {
+    justify-self: start;
   }
 
   .summary-grid {
@@ -840,7 +555,7 @@ onMounted(refreshAll);
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .filter-row {
     grid-template-columns: 1fr;
   }
