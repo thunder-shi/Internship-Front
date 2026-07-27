@@ -25,6 +25,8 @@ const SEARCH_OPERATOR = Object.freeze({
   NOT_IN: '!()',
   RANGE: '<=>',
   FIND_IN_SET: 'fi()',
+  IS_NULL: 'null',
+  IS_NOT_NULL: '!null',
 });
 
 // 分割操作符

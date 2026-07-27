@@ -3,6 +3,7 @@ import listAPI from '@/api/list';
 import CONSTANT from '@/utils/constant';
 
 const DEFAULT_PAGE_INFO = { page: 1, size: 10000 };
+const DEFAULT_BATCH_SIZE = 50;
 
 /** 无需审核、自动通过时写入 MainVerifyProcess 的附加字段（与行内提交一致） */
 const DEFAULT_AUTO_PASS_EXTRA = {
@@ -31,6 +32,7 @@ const DEFAULT_AUTO_PASS_EXTRA = {
  * @param {object} [submitAll.autoPassExtra] 自动通过行附加字段；默认带 verifyUserName/reason；显式传 {} 则不附加
  * @param {number|string} [submitAll.noVerifyVerifyTypeId] 视为「无需审核」的 verifyTypeId，默认 VERIFY_LEVEL.NO_VERIFY
  * @param {(row: object) => object|undefined} [submitAll.mapNode] 自定义每条节点；返回假值则跳过
+ * @param {number} [submitAll.batchSize=50] editManyNodes 每批条数
  * @param {string} [submitAll.confirmTitle]
  * @param {(count: number) => string} [submitAll.buildConfirmText]
  * @param {() => boolean} [submitAll.guard] 返回 false 时中止（需自行提示）
@@ -60,6 +62,7 @@ export async function runSubmitAllByQuery(submitAll, options = {}) {
     autoPassExtra: autoPassExtraOpt,
     noVerifyVerifyTypeId = CONSTANT.VERIFY_LEVEL.NO_VERIFY,
     mapNode,
+    batchSize = DEFAULT_BATCH_SIZE,
     confirmTitle = '全部提交',
     buildConfirmText = (n) => `确定提交全部 ${n} 条记录吗？`,
   } = submitAll;
@@ -145,11 +148,37 @@ export async function runSubmitAllByQuery(submitAll, options = {}) {
     return;
   }
 
-  const resInfo = await listAPI.editManyNodes(editKeyWords, nodes);
-  if (resInfo?.message === 'successful') {
-    ElMessage.success(`全部提交完成，共成功提交 ${nodes.length} 条记录`);
-    initDataList?.(true);
-  } else {
-    ElMessage.warning(resInfo?.message || '批量提交失败');
+  const chunkSize =
+    Number.isInteger(batchSize) && batchSize > 0 ? batchSize : DEFAULT_BATCH_SIZE;
+  const chunks = [];
+  for (let i = 0; i < nodes.length; i += chunkSize) {
+    chunks.push(nodes.slice(i, i + chunkSize));
   }
+
+  const results = await Promise.allSettled(
+    chunks.map((chunk) => listAPI.editManyNodes(editKeyWords, chunk))
+  );
+
+  let successCount = 0;
+  let failedCount = 0;
+  results.forEach((result, index) => {
+    const chunkLen = chunks[index].length;
+    if (result.status === 'fulfilled' && result.value?.message === 'successful') {
+      successCount += chunkLen;
+    } else {
+      failedCount += chunkLen;
+    }
+  });
+
+  if (failedCount === 0) {
+    ElMessage.success(`全部提交完成，共成功提交 ${successCount} 条记录`);
+    initDataList?.(true);
+    return;
+  }
+  if (successCount > 0) {
+    ElMessage.warning(`部分提交成功：成功 ${successCount} 条，失败 ${failedCount} 条`);
+    initDataList?.(true);
+    return;
+  }
+  ElMessage.warning('批量提交失败');
 }

@@ -31,7 +31,7 @@ async function getVerifyUserIds(params) {
   });
 }
 
-// 按实习项目初始化师生分配（系统分配）
+// 按实习项目初始化师生分配（系统分配，异步启动）
 async function initTeacherStudentByInternshipId(params) {
   return request({
     url: '/internshipProcess/initTeacherStudentByInternshipId',
@@ -39,6 +39,18 @@ async function initTeacherStudentByInternshipId(params) {
     data: {
       node: JSON.stringify(params),
     },
+  });
+}
+
+/** 查询系统分配校内导师任务进度 */
+async function getInitTeacherStudentTaskStatus(params) {
+  return request({
+    url: '/internshipProcess/getInitTeacherStudentTaskStatus',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+    loadingMask: false,
   });
 }
 
@@ -172,7 +184,7 @@ function getExternalInternshipStudentPostBreakdown(node) {
 }
 
 /**
- * 为未选岗学生随机分配岗位
+ * 为未选岗学生随机分配岗位（异步启动，立即返回 taskId）
  * @param {Object} node — { internshipId }
  */
 function randomAssignPostsForUnselectedStudents(node) {
@@ -182,6 +194,21 @@ function randomAssignPostsForUnselectedStudents(node) {
     data: {
       node: JSON.stringify(node),
     },
+  });
+}
+
+/**
+ * 查询随机分配岗位任务进度
+ * @param {Object} node — { taskId }
+ */
+function getRandomAssignPostsTaskStatus(node) {
+  return request({
+    url: '/internshipProcess/getRandomAssignPostsTaskStatus',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+    loadingMask: false,
   });
 }
 
@@ -295,7 +322,7 @@ function downloadRelIntershipUserImportTemplate(role) {
 }
 
 /**
- * Excel 导入手动分配师生
+ * Excel 导入手动分配师生（异步启动，立即返回 taskId）
  * @param {Object} params
  * @param {File} params.file
  * @param {number|string} params.internshipId
@@ -324,6 +351,18 @@ function importManualAssignTeacherStudentByExcel(params) {
   });
 }
 
+/** 查询 Excel 导入分配任务进度 */
+function getImportManualAssignTeacherStudentTaskStatus(params) {
+  return request({
+    url: '/internshipProcess/getImportManualAssignTeacherStudentTaskStatus',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+    loadingMask: false,
+  });
+}
+
 /** 下载手动分配师生 Excel 导入模板 */
 function downloadManualAssignTeacherStudentImportTemplate() {
   return request({
@@ -338,6 +377,7 @@ export default {
   activateProcess,
   getVerifyUserIds,
   initTeacherStudentByInternshipId,
+  getInitTeacherStudentTaskStatus,
   initEnterpriseTutorByInternshipId,
   manualAssignTeacherStudent,
   listAssignableTeachers,
@@ -349,6 +389,7 @@ export default {
   listApprovedExternalInternshipPosts,
   getExternalInternshipStudentPostBreakdown,
   randomAssignPostsForUnselectedStudents,
+  getRandomAssignPostsTaskStatus,
   getLatestRejectedTitleSelection,
   acknowledgeRejectedTitleSelection,
   confirmStudentTopicSelection,
@@ -357,6 +398,7 @@ export default {
   importRelIntershipUserByExcel,
   downloadRelIntershipUserImportTemplate,
   importManualAssignTeacherStudentByExcel,
+  getImportManualAssignTeacherStudentTaskStatus,
   downloadManualAssignTeacherStudentImportTemplate,
   // getNowInternship
 };

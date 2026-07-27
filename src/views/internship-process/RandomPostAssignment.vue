@@ -14,10 +14,41 @@
     @more2-click="handleBatchSubmitRowsClick"
     @more3-click="handleRandomAssign"
   />
+
+  <el-dialog
+    v-model="progressVisible"
+    title="随机分配进度"
+    width="420px"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+    :show-close="progressFinished"
+    @closed="onProgressDialogClosed"
+  >
+    <div class="assign-progress-body">
+      <el-progress
+        :percentage="progressPercent"
+        :status="progressBarStatus"
+        :stroke-width="16"
+      />
+      <div class="assign-progress-meta">
+        <div>状态：{{ progressStatusText }}</div>
+        <div>进度：{{ progressProcessed }} / {{ progressTotal }}</div>
+        <div>成功 {{ progressAssigned }} · 失败 {{ progressFailed }} · 未分配 {{ progressUnassigned }}</div>
+        <div v-if="progressMessage" class="assign-progress-msg">{{ progressMessage }}</div>
+        <div v-if="progressDetailsText" class="assign-progress-details">{{ progressDetailsText }}</div>
+      </div>
+    </div>
+    <template #footer>
+      <el-button v-if="progressFinished" type="primary" @click="progressVisible = false">
+        知道了
+      </el-button>
+      <span v-else class="assign-progress-hint">分配进行中，请稍候…</span>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
-import { computed, ref, unref } from 'vue';
+import { computed, onBeforeUnmount, ref, unref } from 'vue';
 import { ElMessage } from 'element-plus';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import CONSTANT from '@/utils/constant';
@@ -35,6 +66,66 @@ const processTypeCode = CONSTANT.PROCESS_TYPE.EXTERNAL_STUDENT_ASSIGN_POST;
 const headerPageRef = ref(null);
 const randomAssignLoading = ref(false);
 const { getVerifyRoleName } = useVerifyFilter();
+
+const progressVisible = ref(false);
+const progressFinished = ref(false);
+const progressPercent = ref(0);
+const progressProcessed = ref(0);
+const progressTotal = ref(0);
+const progressAssigned = ref(0);
+const progressFailed = ref(0);
+const progressUnassigned = ref(0);
+const progressStatus = ref('');
+const progressMessage = ref('');
+const progressDetails = ref(null);
+let pollTimer = null;
+let pollFailStreak = 0;
+const POLL_FAIL_LIMIT = 5;
+
+const progressStatusText = computed(() => {
+  const map = {
+    PENDING: '排队中',
+    RUNNING: '分配中',
+    SUCCESS: '已完成',
+    FAILED: '失败',
+  };
+  return map[progressStatus.value] || progressStatus.value || '—';
+});
+
+const progressBarStatus = computed(() => {
+  if (progressStatus.value === 'SUCCESS') return 'success';
+  if (progressStatus.value === 'FAILED') return 'exception';
+  return undefined;
+});
+
+const progressDetailsText = computed(() => {
+  const details = progressDetails.value;
+  if (details == null) return '';
+  if (typeof details === 'string') return details;
+  if (Array.isArray(details)) {
+    if (!details.length) return '';
+    const preview = details
+      .slice(0, 5)
+      .map((item) => {
+        if (item == null) return '';
+        if (typeof item === 'string') return item;
+        const name = item.studentName || item.account || item.userId || '';
+        const reason = item.reason || item.message || item.status || '';
+        return [name, reason].filter(Boolean).join('：');
+      })
+      .filter(Boolean);
+    const more = details.length > 5 ? `……共 ${details.length} 条明细` : '';
+    return [...preview, more].filter(Boolean).join('\n');
+  }
+  if (typeof details === 'object') {
+    try {
+      return JSON.stringify(details);
+    } catch {
+      return '';
+    }
+  }
+  return String(details);
+});
 
 const {
   titleObj,
@@ -166,6 +257,77 @@ async function fetchStudentPostRecords(params) {
   };
 }
 
+function stopPolling() {
+  if (pollTimer != null) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function applyProgress(data) {
+  progressStatus.value = data.status || '';
+  progressPercent.value = Math.min(100, Math.max(0, Number(data.percent ?? 0)));
+  progressProcessed.value = Number(data.processed ?? 0);
+  progressTotal.value = Number(data.total ?? data.candidateStudentCount ?? 0);
+  progressAssigned.value = Number(data.assignedCount ?? 0);
+  progressFailed.value = Number(data.failedCount ?? 0);
+  progressUnassigned.value = Number(data.unassignedCount ?? 0);
+  progressMessage.value = data.message || '';
+  if (data.details !== undefined) {
+    progressDetails.value = data.details;
+  }
+}
+
+function finishProgress(success) {
+  progressFinished.value = true;
+  stopPolling();
+  randomAssignLoading.value = false;
+  if (success) {
+    ElMessage.success(
+      `分配完成：成功 ${progressAssigned.value}，失败 ${progressFailed.value}，未分配 ${progressUnassigned.value}`
+    );
+    refreshList();
+  } else {
+    ElMessage.error(progressMessage.value || '随机分配失败');
+  }
+}
+
+async function pollTaskStatus(taskId) {
+  try {
+    const res = await internshipProcessAPI.getRandomAssignPostsTaskStatus({ taskId });
+    if (res?.message !== 'successful') {
+      pollFailStreak += 1;
+      progressMessage.value = res?.message || '查询进度失败';
+      if (pollFailStreak >= POLL_FAIL_LIMIT) {
+        finishProgress(false);
+      }
+      return;
+    }
+    pollFailStreak = 0;
+    const data = unwrapPayload(res);
+    applyProgress(data);
+    if (data.status === 'SUCCESS') {
+      finishProgress(true);
+    } else if (data.status === 'FAILED') {
+      finishProgress(false);
+    }
+  } catch (error) {
+    console.error('查询随机分配进度失败:', error);
+    pollFailStreak += 1;
+    progressMessage.value = error?.response?.data?.message || error?.message || '查询进度失败';
+    if (pollFailStreak >= POLL_FAIL_LIMIT) {
+      finishProgress(false);
+    }
+  }
+}
+
+function onProgressDialogClosed() {
+  stopPolling();
+  if (!progressFinished.value) {
+    randomAssignLoading.value = false;
+  }
+}
+
 async function handleRandomAssign() {
   const cur = currentInternship.value;
   const internshipId = Number(cur?.internshipId ?? cur?.id ?? 0);
@@ -175,23 +337,63 @@ async function handleRandomAssign() {
   }
 
   randomAssignLoading.value = true;
+  progressFinished.value = false;
+  progressPercent.value = 0;
+  progressProcessed.value = 0;
+  progressTotal.value = 0;
+  progressAssigned.value = 0;
+  progressFailed.value = 0;
+  progressUnassigned.value = 0;
+  progressStatus.value = 'PENDING';
+  progressMessage.value = '';
+  progressDetails.value = null;
+  pollFailStreak = 0;
+  progressVisible.value = true;
+
   try {
     const res = await internshipProcessAPI.randomAssignPostsForUnselectedStudents({
       internshipId,
     });
-    if (res?.message === 'successful') {
-      ElMessage.success('随机分配成功');
-      refreshList();
-    } else {
-      ElMessage.warning(res?.message || '随机分配失败');
+    if (res?.message !== 'successful') {
+      progressMessage.value = res?.message || '启动随机分配失败';
+      finishProgress(false);
+      return;
     }
+    const data = unwrapPayload(res);
+    applyProgress(data);
+
+    // 启动时已无学生 / 已完成
+    if (data.status === 'SUCCESS') {
+      finishProgress(true);
+      return;
+    }
+    if (data.status === 'FAILED') {
+      finishProgress(false);
+      return;
+    }
+
+    const taskId = data.taskId;
+    if (!taskId) {
+      progressMessage.value = '未返回 taskId';
+      finishProgress(false);
+      return;
+    }
+
+    stopPolling();
+    pollTimer = setInterval(() => {
+      void pollTaskStatus(taskId);
+    }, 1000);
+    await pollTaskStatus(taskId);
   } catch (error) {
     console.error('随机分配失败:', error);
-    ElMessage.error('随机分配失败');
-  } finally {
-    randomAssignLoading.value = false;
+    progressMessage.value = error?.response?.data?.message || error?.message || '随机分配失败';
+    finishProgress(false);
   }
 }
+
+onBeforeUnmount(() => {
+  stopPolling();
+});
 
 const isMore1DisabledRef = computed(() => isMore1Disabled.value);
 
@@ -255,3 +457,32 @@ defineExpose({
   updateSearchWordsAndRefresh: () => headerPageRef.value?.updateSearchWordsAndRefresh?.(),
 });
 </script>
+
+<style scoped>
+.assign-progress-body {
+  padding: 8px 4px 0;
+}
+.assign-progress-meta {
+  margin-top: 16px;
+  line-height: 1.8;
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+}
+.assign-progress-msg {
+  margin-top: 4px;
+  color: var(--el-color-danger);
+}
+.assign-progress-details {
+  margin-top: 8px;
+  white-space: pre-line;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 120px;
+  overflow: auto;
+}
+.assign-progress-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+</style>
