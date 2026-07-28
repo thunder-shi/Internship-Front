@@ -1,16 +1,42 @@
 <template>
-  <div class="counselor-class-stats" v-loading="loading">
+  <div class="counselor-class-stats" v-loading="pageLoading">
     <el-card shadow="never" class="filter-card">
       <div class="filter-row">
+        <div class="filter-item project-filter">
+          <span class="filter-label">实习项目</span>
+          <el-select
+            v-model="selectedInternshipId"
+            placeholder="请选择实习项目"
+            :loading="projectOptionsLoading"
+            :disabled="!projectOptions.length"
+            clearable
+            filterable
+            @change="handleProjectChange"
+          >
+            <el-option
+              v-for="item in projectOptions"
+              :key="item.internshipId"
+              :label="item.internshipName"
+              :value="item.internshipId"
+            />
+          </el-select>
+        </div>
         <div class="filter-item class-filter">
           <span class="filter-label">班级</span>
-          <el-select v-model="selectedClassId" placeholder="全部所辖班级" clearable @change="handleClassChange">
+          <el-select
+            v-model="selectedClassId"
+            placeholder="全部所辖班级"
+            :loading="classOptionsLoading"
+            :disabled="!hasSelectedProject"
+            clearable
+            @change="handleReportFilterChange"
+          >
             <el-option v-for="item in classOptions" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </div>
         <div class="filter-item mode-filter">
           <span class="filter-label">实习类型</span>
-          <el-select v-model="internshipMode" clearable placeholder="全部类型" @change="loadReport">
+          <el-select v-model="internshipMode" :disabled="!hasSelectedProject" clearable placeholder="全部类型" @change="handleReportFilterChange">
             <el-option label="全部" value="" />
             <el-option label="校外实习" value="EXTERNAL" />
             <el-option label="校内实习" value="INTERNAL" />
@@ -18,7 +44,7 @@
         </div>
         <div class="filter-item status-filter">
           <span class="filter-label">实习状态</span>
-          <el-select v-model="internshipStatusCode" clearable placeholder="全部状态" @change="loadReport">
+          <el-select v-model="internshipStatusCode" :disabled="!hasSelectedProject" clearable placeholder="全部状态" @change="handleReportFilterChange">
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
@@ -26,41 +52,56 @@
           <span class="filter-label">关键词</span>
           <el-input
             v-model.trim="keyword"
+            :disabled="!hasSelectedProject"
             clearable
             placeholder="姓名、学号、项目、岗位/题目或导师"
-            @input="refreshTable"
+            @keyup.enter="handleReportFilterChange"
+            @clear="handleReportFilterChange"
           />
         </div>
-        <el-button type="primary" :icon="Refresh" :loading="loading" @click="refreshAll">刷新统计</el-button>
+        <el-button type="primary" :icon="Refresh" :loading="pageLoading" @click="refreshAll">刷新统计</el-button>
       </div>
     </el-card>
 
-    <el-empty v-if="!loading && !classOptions.length" description="当前账号尚未配置所辖班级" />
+    <el-empty
+      v-if="!projectOptionsLoading && projectOptionsError"
+      description="实习项目加载失败，请点击“刷新统计”重试"
+    />
+    <el-empty
+      v-else-if="!projectOptionsLoading && !projectOptions.length"
+      description="当前账号暂无可统计的实习项目"
+    />
+    <el-empty
+      v-else-if="!projectOptionsLoading && !hasSelectedProject"
+      description="请先选择实习项目"
+    />
 
-    <template v-else>
+    <template v-else-if="hasSelectedProject">
       <div class="summary-grid">
         <el-card shadow="never" class="summary-card">
-          <el-statistic title="统计班级" :value="summary.classCount" suffix="个" />
+          <el-statistic title="本页班级" :value="summary.classCount" suffix="个" />
         </el-card>
         <el-card shadow="never" class="summary-card">
-          <el-statistic title="学生人数" :value="summary.studentCount" suffix="人" />
+          <el-statistic title="本页学生" :value="summary.studentCount" suffix="人" />
         </el-card>
         <el-card shadow="never" class="summary-card">
-          <el-statistic title="实习记录" :value="summary.internshipCount" suffix="条" />
+          <el-statistic title="本页实习记录" :value="summary.internshipCount" suffix="条" />
         </el-card>
         <el-card shadow="never" class="summary-card">
-          <el-statistic title="打卡记录" :value="summary.signCount" suffix="次" />
+          <el-statistic title="本页打卡记录" :value="summary.signCount" suffix="次" />
         </el-card>
         <el-card shadow="never" class="summary-card">
-          <el-statistic title="请假记录" :value="summary.leaveCount" suffix="次" />
+          <el-statistic title="本页请假记录" :value="summary.leaveCount" suffix="次" />
         </el-card>
         <el-card shadow="never" class="summary-card">
-          <el-statistic title="任务提交" :value="summary.taskSubmitted" :suffix="` / ${summary.taskTotal}`" />
+          <el-statistic title="本页任务提交" :value="summary.taskSubmitted" :suffix="` / ${summary.taskTotal}`" />
         </el-card>
       </div>
 
       <div class="table-card">
-        <div class="table-tip">打卡、请假为“审核通过/总数”，日志为“已提交/总期次”，实习状态以后端聚合视图为准</div>
+        <div class="table-tip">
+          当前筛选共 {{ reportTotal }} 条；打卡、请假为“审核通过/总数”，日志为“已提交/总期次”，上方汇总为当前页数据
+        </div>
         <DataTableList
           :key="tableKey"
           ref="tableRef"
@@ -112,7 +153,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
 import { Refresh } from '@element-plus/icons-vue';
@@ -123,6 +164,7 @@ import CONSTANT from '@/utils/constant';
 defineOptions({ name: 'CounselorClassStats' });
 
 const REPORT_VIEW = 'ViewCounselorClassInternshipStats';
+const PROJECT_OPTION_VIEW = 'ViewCounselorInternshipOption';
 
 const statusOptions = [
   { label: '未安排', value: 'UNASSIGNED' },
@@ -152,26 +194,39 @@ const store = useStore();
 const userInfo = computed(() => store.getters.userInfo || {});
 const loading = ref(false);
 const classOptions = ref([]);
+const classOptionsLoading = ref(false);
+const projectOptions = ref([]);
+const projectOptionsLoading = ref(false);
+const projectOptionsError = ref(false);
+const selectedInternshipId = ref('');
 const selectedClassId = ref('');
 const internshipMode = ref('');
 const internshipStatusCode = ref('');
 const keyword = ref('');
 const reportRows = ref([]);
+const reportTotal = ref(0);
 const tableRef = ref(null);
 const tableKey = ref(0);
 const detailVisible = ref(false);
 const detailRow = ref(null);
-let loadVersion = 0;
+let projectOptionsVersion = 0;
+let classOptionsVersion = 0;
+let reportRequestVersion = 0;
+
+const hasSelectedProject = computed(
+  () => selectedInternshipId.value !== '' && selectedInternshipId.value != null
+);
+const pageLoading = computed(() => projectOptionsLoading.value || loading.value);
 
 const tableProps = reactive({
   title: { mainTitle: '所辖班级学生实习全量统计' },
   pageInfo: { page: 1, size: 20, sizes: [10, 20, 50, 100] },
-  sortStr: { properties: 'className', direction: 'ASC' },
+  sortStr: { properties: 'id', direction: 'DESC' },
   bottomOffset: 24,
   initSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   nowSearchWords: { searchKey: {}, regKey: {}, andor: {} },
   someFlags: {
-    autoInit: false,
+    autoInit: true,
     checkFlag: false,
     hideSelectColumn: true,
     showPage: true,
@@ -208,38 +263,16 @@ const tableProps = reactive({
   },
 });
 
-const selectedClassIds = computed(() => {
-  if (selectedClassId.value !== '' && selectedClassId.value != null) {
-    return [selectedClassId.value];
-  }
-  return classOptions.value.map((item) => item.id);
-});
-
-const filteredRows = computed(() => {
-  const query = keyword.value.toLowerCase();
-  return reportRows.value.filter((row) => {
-    if (internshipMode.value && row.internshipMode !== internshipMode.value) return false;
-    if (internshipStatusCode.value && row.internshipStatusCode !== internshipStatusCode.value) return false;
-    if (!query) return true;
-    return [
-      row.studentName,
-      row.studentAccount,
-      row.className,
-      row.internshipName,
-      row.subjectName,
-      row.schoolTeacherName,
-      row.companyTeacherName,
-    ].some((value) => String(value || '').toLowerCase().includes(query));
-  });
-});
-
 const summary = computed(() => {
   const rows = reportRows.value;
+  const classIds = new Set(
+    rows.map((row) => row.classId).filter((id) => id !== null && id !== undefined).map(String)
+  );
   const studentIds = new Set(
     rows.map((row) => row.studentId).filter((id) => id !== null && id !== undefined).map(String)
   );
   return {
-    classCount: selectedClassIds.value.length,
+    classCount: classIds.size,
     studentCount: studentIds.size,
     internshipCount: rows.filter((row) => row.hasInternship).length,
     signCount: rows.reduce((sum, row) => sum + row.signCount, 0),
@@ -248,13 +281,6 @@ const summary = computed(() => {
     taskTotal: rows.reduce((sum, row) => sum + row.taskTotal, 0),
   };
 });
-
-function compareValues(left, right) {
-  if (left == null && right == null) return 0;
-  if (left == null) return 1;
-  if (right == null) return -1;
-  return String(left).localeCompare(String(right), 'zh-CN', { numeric: true });
-}
 
 function sortFieldOf(field) {
   const map = {
@@ -267,31 +293,111 @@ function sortFieldOf(field) {
 }
 
 async function fetchTableRecords(params = {}) {
+  const counselorId = userInfo.value?.id;
+  const internshipId = selectedInternshipId.value;
+  if (!counselorId || internshipId === '' || internshipId == null) {
+    return emptyListResponse();
+  }
+
+  const requestVersion = ++reportRequestVersion;
+  const requestedCounselorId = String(counselorId);
+  const requestedInternshipId = String(internshipId);
+  const { searchKey, reg } = buildReportSearchWords(params.searchKey, params.reg);
   const sort = params.sort || {};
-  const field = sortFieldOf(sort.properties || 'className');
-  const direction = sort.direction === 'DESC' ? -1 : 1;
-  const rows = [...filteredRows.value].sort((left, right) => {
-    const primary = compareValues(left[field], right[field]);
-    if (primary !== 0) return primary * direction;
-    return compareValues(left.studentAccount, right.studentAccount);
-  });
-  const page = Number(params.pageInfo?.page) || 1;
-  const size = Number(params.pageInfo?.size) || 20;
-  const start = (page - 1) * size;
+  const pageInfo = {
+    page: Number(params.pageInfo?.page) || 1,
+    size: Number(params.pageInfo?.size) || 20,
+  };
+  const requestSort = {
+    properties: sortFieldOf(sort.properties || 'id'),
+    direction: sort.direction === 'ASC' ? 'ASC' : 'DESC',
+  };
+
+  loading.value = true;
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: REPORT_VIEW,
+      pageInfo,
+      searchKey,
+      reg,
+      andor: {},
+      sort: requestSort,
+    });
+    if (
+      requestVersion !== reportRequestVersion ||
+      String(userInfo.value?.id) !== requestedCounselorId ||
+      String(selectedInternshipId.value) !== requestedInternshipId
+    ) {
+      return emptyListResponse(pageInfo);
+    }
+
+    let rows = normalizeReportRows(responseRows(res));
+    const query = keyword.value.toLowerCase();
+    if (query) {
+      rows = rows.filter((row) =>
+        [
+          row.studentName,
+          row.studentAccount,
+          row.className,
+          row.internshipName,
+          row.subjectName,
+          row.schoolTeacherName,
+          row.companyTeacherName,
+        ].some((value) => String(value || '').toLowerCase().includes(query))
+      );
+    }
+    const total = responseTotal(res, rows.length);
+    reportRows.value = rows;
+    reportTotal.value = total;
+    return replaceResponseRows(res, rows, total);
+  } catch (error) {
+    if (requestVersion === reportRequestVersion) {
+      console.error('加载辅导员班级统计失败:', error);
+      reportRows.value = [];
+      reportTotal.value = 0;
+      ElMessage.error('加载班级统计失败');
+    }
+    return emptyListResponse(pageInfo);
+  } finally {
+    if (requestVersion === reportRequestVersion) {
+      loading.value = false;
+    }
+  }
+}
+
+function emptyListResponse(pageInfo = {}) {
   return {
     data: {
-      content: rows.slice(start, start + size),
-      totalElements: rows.length,
-      page: { totalElements: rows.length },
+      content: [],
+      totalElements: 0,
+      page: {
+        number: Number(pageInfo.page) || 1,
+        size: Number(pageInfo.size) || 20,
+        totalElements: 0,
+      },
     },
     message: 'successful',
   };
 }
 
-async function refreshTable() {
-  tableKey.value += 1;
-  await nextTick();
-  await tableRef.value?.initDataList?.(true);
+function responseTotal(res, fallback = 0) {
+  return Number(res?.data?.page?.totalElements ?? res?.data?.totalElements ?? fallback) || 0;
+}
+
+function replaceResponseRows(res, rows, total) {
+  const sourceData = res?.data && !Array.isArray(res.data) ? res.data : {};
+  return {
+    ...res,
+    data: {
+      ...sourceData,
+      content: rows,
+      totalElements: total,
+      page: {
+        ...(sourceData.page || {}),
+        totalElements: total,
+      },
+    },
+  };
 }
 
 function responseRows(res) {
@@ -299,22 +405,6 @@ function responseRows(res) {
   if (Array.isArray(res?.data?.records)) return res.data.records;
   if (Array.isArray(res?.data)) return res.data;
   return [];
-}
-
-async function fetchAll(keyWords, searchKey = {}, reg = {}, sort = { properties: 'Id', direction: 'DESC' }) {
-  const res = await listAPI.getSomeRecords({
-    keyWords,
-    pageInfo: { page: 1, size: 5000 },
-    searchKey,
-    reg,
-    andor: {},
-    sort,
-  });
-  return responseRows(res);
-}
-
-function sameId(left, right) {
-  return left != null && right != null && String(left) === String(right);
 }
 
 function toNumber(value) {
@@ -357,10 +447,16 @@ function normalizeReportRows(rows) {
   });
 }
 
-function buildReportSearchWords() {
+function buildReportSearchWords(extraSearchKey = {}, extraReg = {}) {
   const counselorId = userInfo.value?.id;
-  const searchKey = { counselorId };
-  const reg = { counselorId: CONSTANT.SEARCH_OPERATOR.EQ };
+  const searchKey = {
+    counselorId,
+    internshipId: selectedInternshipId.value,
+  };
+  const reg = {
+    counselorId: CONSTANT.SEARCH_OPERATOR.EQ,
+    internshipId: CONSTANT.SEARCH_OPERATOR.EQ,
+  };
   if (selectedClassId.value !== '' && selectedClassId.value != null) {
     searchKey.classId = selectedClassId.value;
     reg.classId = CONSTANT.SEARCH_OPERATOR.EQ;
@@ -373,23 +469,96 @@ function buildReportSearchWords() {
     searchKey.internshipStatusCode = internshipStatusCode.value;
     reg.internshipStatusCode = CONSTANT.SEARCH_OPERATOR.EQ;
   }
+  ['classId', 'studentId', 'internshipMode', 'internshipStatusCode'].forEach((field) => {
+    if (
+      searchKey[field] === undefined &&
+      extraSearchKey?.[field] !== undefined &&
+      extraSearchKey[field] !== ''
+    ) {
+      searchKey[field] = extraSearchKey[field];
+      reg[field] = extraReg?.[field] || CONSTANT.SEARCH_OPERATOR.EQ;
+    }
+  });
   return { searchKey, reg };
 }
 
-async function loadClassOptions() {
-  const counselorId = userInfo.value?.id;
+async function loadProjectOptions({ counselorId = userInfo.value?.id, preserveSelection = false } = {}) {
+  const version = ++projectOptionsVersion;
+  const previousInternshipId = preserveSelection ? selectedInternshipId.value : '';
   if (!counselorId) {
-    classOptions.value = [];
-    reportRows.value = [];
-    ElMessage.warning('无法获取当前辅导员信息');
+    projectOptions.value = [];
+    selectedInternshipId.value = '';
+    projectOptionsError.value = false;
     return;
   }
+
+  projectOptionsLoading.value = true;
+  projectOptionsError.value = false;
   try {
-    const rows = await fetchAll(
-      'ViewRelCounselorClass',
-      { counselorId },
-      { counselorId: CONSTANT.SEARCH_OPERATOR.EQ }
+    const res = await listAPI.getSomeRecords({
+      keyWords: PROJECT_OPTION_VIEW,
+      pageInfo: { page: 1, size: 1000 },
+      searchKey: { counselorId },
+      reg: { counselorId: CONSTANT.SEARCH_OPERATOR.EQ },
+      andor: {},
+      sort: { properties: 'internshipId', direction: 'DESC' },
+    });
+    if (version !== projectOptionsVersion || String(userInfo.value?.id) !== String(counselorId)) {
+      return;
+    }
+    projectOptions.value = responseRows(res)
+      .filter((row) => row.internshipId !== null && row.internshipId !== undefined && row.internshipId !== '')
+      .map((row) => ({
+        ...row,
+        internshipName: row.internshipName || `实习项目 #${row.internshipId}`,
+      }));
+    const previousStillExists = projectOptions.value.some(
+      (item) => String(item.internshipId) === String(previousInternshipId)
     );
+    selectedInternshipId.value = previousStillExists ? previousInternshipId : '';
+    if (!previousStillExists) {
+      clearReportData();
+    }
+  } catch (error) {
+    if (version === projectOptionsVersion) {
+      console.error('获取实习项目失败:', error);
+      projectOptions.value = [];
+      selectedInternshipId.value = '';
+      projectOptionsError.value = true;
+      clearReportData();
+      ElMessage.error('获取实习项目失败');
+    }
+  } finally {
+    if (version === projectOptionsVersion) {
+      projectOptionsLoading.value = false;
+    }
+  }
+}
+
+let loadedClassCounselorId = '';
+
+async function loadClassOptions(counselorId = userInfo.value?.id, force = false) {
+  if (!counselorId) {
+    classOptions.value = [];
+    return;
+  }
+  if (!force && loadedClassCounselorId === String(counselorId)) return;
+
+  const version = ++classOptionsVersion;
+  classOptionsLoading.value = true;
+  try {
+    const res = await listAPI.getSomeRecords({
+      keyWords: 'ViewRelCounselorClass',
+      pageInfo: { page: 1, size: 1000 },
+      searchKey: { counselorId },
+      reg: { counselorId: CONSTANT.SEARCH_OPERATOR.EQ },
+      andor: {},
+      sort: { properties: 'className', direction: 'ASC' },
+    });
+    if (version !== classOptionsVersion || String(userInfo.value?.id) !== String(counselorId)) {
+      return;
+    }
+    const rows = responseRows(res);
     const map = new Map();
     rows.forEach((row) => {
       if (row.classId != null && !map.has(String(row.classId))) {
@@ -397,54 +566,63 @@ async function loadClassOptions() {
       }
     });
     classOptions.value = Array.from(map.values());
-  } catch {
-    classOptions.value = [];
-    reportRows.value = [];
-    ElMessage.error('获取所辖班级失败');
-  }
-}
-
-async function loadReport() {
-  const version = ++loadVersion;
-  reportRows.value = [];
-  if (!userInfo.value?.id || !classOptions.value.length) {
-    await refreshTable();
-    return;
-  }
-
-  loading.value = true;
-  try {
-    const { searchKey, reg } = buildReportSearchWords();
-    const rows = await fetchAll(
-      REPORT_VIEW,
-      searchKey,
-      reg,
-      { properties: 'className', direction: 'ASC' }
-    );
-    if (version !== loadVersion) return;
-    reportRows.value = normalizeReportRows(rows);
+    loadedClassCounselorId = String(counselorId);
+    if (
+      selectedClassId.value &&
+      !classOptions.value.some((item) => String(item.id) === String(selectedClassId.value))
+    ) {
+      selectedClassId.value = '';
+    }
   } catch (error) {
-    console.error('加载辅导员班级统计失败:', error);
-    reportRows.value = [];
-    ElMessage.error('加载班级统计失败');
+    if (version === classOptionsVersion) {
+      console.error('获取所辖班级失败:', error);
+      classOptions.value = [];
+      loadedClassCounselorId = '';
+      ElMessage.error('获取所辖班级失败');
+    }
   } finally {
-    if (version === loadVersion) {
-      loading.value = false;
-      await refreshTable();
+    if (version === classOptionsVersion) {
+      classOptionsLoading.value = false;
     }
   }
 }
 
-async function refreshAll() {
-  await loadClassOptions();
-  if (selectedClassId.value && !classOptions.value.some((item) => sameId(item.id, selectedClassId.value))) {
-    selectedClassId.value = '';
-  }
-  await loadReport();
+function clearReportData() {
+  reportRequestVersion += 1;
+  loading.value = false;
+  reportRows.value = [];
+  reportTotal.value = 0;
+  detailVisible.value = false;
+  detailRow.value = null;
 }
 
-async function handleClassChange() {
-  await loadReport();
+function resetReportTable() {
+  clearReportData();
+  if (hasSelectedProject.value) {
+    tableKey.value += 1;
+  }
+}
+
+async function handleProjectChange() {
+  resetReportTable();
+  if (!hasSelectedProject.value) return;
+  await loadClassOptions();
+}
+
+function handleReportFilterChange() {
+  resetReportTable();
+}
+
+async function refreshAll() {
+  const counselorId = userInfo.value?.id;
+  if (!counselorId) {
+    ElMessage.warning('无法获取当前辅导员信息');
+    return;
+  }
+  await loadProjectOptions({ counselorId, preserveSelection: true });
+  if (!hasSelectedProject.value) return;
+  await loadClassOptions(counselorId, true);
+  resetReportTable();
 }
 
 function openDetail(row) {
@@ -474,7 +652,34 @@ function internshipStatusTag(statusCode) {
   return STATUS_TAG_MAP[normalizeStatusCode(statusCode)] || 'info';
 }
 
-onMounted(refreshAll);
+function resetCounselorState() {
+  projectOptionsVersion += 1;
+  classOptionsVersion += 1;
+  clearReportData();
+  projectOptions.value = [];
+  classOptions.value = [];
+  projectOptionsLoading.value = false;
+  classOptionsLoading.value = false;
+  projectOptionsError.value = false;
+  selectedInternshipId.value = '';
+  selectedClassId.value = '';
+  internshipMode.value = '';
+  internshipStatusCode.value = '';
+  keyword.value = '';
+  loadedClassCounselorId = '';
+  tableKey.value += 1;
+}
+
+watch(
+  () => userInfo.value?.id,
+  async (counselorId) => {
+    resetCounselorState();
+    if (counselorId) {
+      await loadProjectOptions({ counselorId });
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>
@@ -489,7 +694,13 @@ onMounted(refreshAll);
 
 .filter-row {
   display: grid;
-  grid-template-columns: 280px 220px 230px minmax(320px, 1fr) auto;
+  grid-template-columns:
+    minmax(240px, 1.2fr)
+    minmax(200px, 1fr)
+    190px
+    210px
+    minmax(280px, 1.4fr)
+    auto;
   align-items: center;
   gap: 12px;
 }
@@ -537,7 +748,7 @@ onMounted(refreshAll);
   margin-bottom: 16px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1360px) {
   .filter-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
