@@ -113,7 +113,12 @@ service.interceptors.response.use(
       fullUrl.includes('/sign/logout') || configUrl.includes('/sign/logout')
     const backendMessage =
       errorData?.message || errorData?.error || errorData?.msg || errorData?.errorMessage
-    const errorMessage = normalizeBackendMessage(backendMessage || '操作失败')
+    const isLoginRequest =
+      fullUrl.includes('/sign/login') || configUrl.includes('/sign/login')
+    const rawMessage = isLoginRequest
+      ? '用户名或密码错误'
+      : backendMessage || '操作失败'
+    const errorMessage = normalizeBackendMessage(rawMessage)
 
     if (isLogoutRequest) {
       return Promise.reject(error)
@@ -143,7 +148,7 @@ service.interceptors.response.use(
       type: 'error',
       duration: 3 * 1000
     })
-    return Promise.reject(error)
+    return Promise.reject(new Error(errorMessage))
   }
 )
 

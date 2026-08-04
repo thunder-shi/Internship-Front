@@ -31,7 +31,7 @@ async function getVerifyUserIds(params) {
   });
 }
 
-// 按实习项目初始化师生分配（系统分配）
+// 按实习项目初始化师生分配（系统分配，异步启动）
 async function initTeacherStudentByInternshipId(params) {
   return request({
     url: '/internshipProcess/initTeacherStudentByInternshipId',
@@ -39,6 +39,18 @@ async function initTeacherStudentByInternshipId(params) {
     data: {
       node: JSON.stringify(params),
     },
+  });
+}
+
+/** 查询系统分配校内导师任务进度 */
+async function getInitTeacherStudentTaskStatus(params) {
+  return request({
+    url: '/internshipProcess/getInitTeacherStudentTaskStatus',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+    loadingMask: false,
   });
 }
 
@@ -172,7 +184,7 @@ function getExternalInternshipStudentPostBreakdown(node) {
 }
 
 /**
- * 为未选岗学生随机分配岗位
+ * 为未选岗学生随机分配岗位（异步启动，立即返回 taskId）
  * @param {Object} node — { internshipId }
  */
 function randomAssignPostsForUnselectedStudents(node) {
@@ -182,6 +194,21 @@ function randomAssignPostsForUnselectedStudents(node) {
     data: {
       node: JSON.stringify(node),
     },
+  });
+}
+
+/**
+ * 查询随机分配岗位任务进度
+ * @param {Object} node — { taskId }
+ */
+function getRandomAssignPostsTaskStatus(node) {
+  return request({
+    url: '/internshipProcess/getRandomAssignPostsTaskStatus',
+    method: 'post',
+    data: {
+      node: JSON.stringify(node),
+    },
+    loadingMask: false,
   });
 }
 
@@ -250,11 +277,107 @@ function applySelfInternship(node) {
   });
 }
 
+/**
+ * Excel 导入实习项目安排（RelIntershipUser）
+ * @param {Object} params
+ * @param {File} params.file - .xls / .xlsx
+ * @param {number|string} params.internshipId
+ * @param {number|string} params.processId
+ * @param {number|string} params.createUserId
+ * @param {string} params.role - student / teacher
+ * @param {number|string} [params.verifyRoleId]
+ * @param {number|string} [params.currentVerifyTypeId]
+ */
+function importRelIntershipUserByExcel(params) {
+  const formData = new FormData();
+  formData.append('file', params.file);
+  formData.append('internshipId', params.internshipId);
+  formData.append('processId', params.processId);
+  formData.append('createUserId', params.createUserId);
+  formData.append('role', params.role);
+  if (params.verifyRoleId != null && params.verifyRoleId !== '') {
+    formData.append('verifyRoleId', params.verifyRoleId);
+  }
+  if (params.currentVerifyTypeId != null && params.currentVerifyTypeId !== '') {
+    formData.append('currentVerifyTypeId', params.currentVerifyTypeId);
+  }
+  return request({
+    url: '/internshipProcess/importRelIntershipUserByExcel',
+    method: 'post',
+    data: formData,
+    timeout: 300000,
+  });
+}
+
+/** 下载实习项目安排 Excel 导入模板 */
+function downloadRelIntershipUserImportTemplate(role) {
+  const formData = new FormData();
+  formData.append('role', role);
+  return request({
+    url: '/internshipProcess/downloadRelIntershipUserImportTemplate',
+    method: 'post',
+    data: formData,
+    responseType: 'blob',
+  });
+}
+
+/**
+ * Excel 导入手动分配师生（异步启动，立即返回 taskId）
+ * @param {Object} params
+ * @param {File} params.file
+ * @param {number|string} params.internshipId
+ * @param {number|string} params.processId
+ * @param {number|string} params.createUserId
+ * @param {number|string} [params.verifyRoleId]
+ * @param {number|string} [params.currentVerifyTypeId]
+ */
+function importManualAssignTeacherStudentByExcel(params) {
+  const formData = new FormData();
+  formData.append('file', params.file);
+  formData.append('internshipId', params.internshipId);
+  formData.append('processId', params.processId);
+  formData.append('createUserId', params.createUserId);
+  if (params.verifyRoleId != null && params.verifyRoleId !== '') {
+    formData.append('verifyRoleId', params.verifyRoleId);
+  }
+  if (params.currentVerifyTypeId != null && params.currentVerifyTypeId !== '') {
+    formData.append('currentVerifyTypeId', params.currentVerifyTypeId);
+  }
+  return request({
+    url: '/internshipProcess/importManualAssignTeacherStudentByExcel',
+    method: 'post',
+    data: formData,
+    timeout: 300000,
+  });
+}
+
+/** 查询 Excel 导入分配任务进度 */
+function getImportManualAssignTeacherStudentTaskStatus(params) {
+  return request({
+    url: '/internshipProcess/getImportManualAssignTeacherStudentTaskStatus',
+    method: 'post',
+    data: {
+      node: JSON.stringify(params),
+    },
+    loadingMask: false,
+  });
+}
+
+/** 下载手动分配师生 Excel 导入模板 */
+function downloadManualAssignTeacherStudentImportTemplate() {
+  return request({
+    url: '/internshipProcess/downloadManualAssignTeacherStudentImportTemplate',
+    method: 'post',
+    responseType: 'blob',
+  });
+}
+
 export default {
   auditProcess,
   activateProcess,
   getVerifyUserIds,
   initTeacherStudentByInternshipId,
+  getInitTeacherStudentTaskStatus,
   initEnterpriseTutorByInternshipId,
   manualAssignTeacherStudent,
   listAssignableTeachers,
@@ -266,10 +389,16 @@ export default {
   listApprovedExternalInternshipPosts,
   getExternalInternshipStudentPostBreakdown,
   randomAssignPostsForUnselectedStudents,
+  getRandomAssignPostsTaskStatus,
   getLatestRejectedTitleSelection,
   acknowledgeRejectedTitleSelection,
   confirmStudentTopicSelection,
   createSelfInternshipPost,
   applySelfInternship,
+  importRelIntershipUserByExcel,
+  downloadRelIntershipUserImportTemplate,
+  importManualAssignTeacherStudentByExcel,
+  getImportManualAssignTeacherStudentTaskStatus,
+  downloadManualAssignTeacherStudentImportTemplate,
   // getNowInternship
 };

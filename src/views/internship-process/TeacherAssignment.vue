@@ -7,6 +7,8 @@
     :table-columns="ASSIGNMENT_TEACHER_COLUMNS"
     :select-dialog-component="DlgTeacherSelect"
     :show-batch-append="false"
+    :show-import-append="true"
+    import-role="teacher"
   />
 </template>
 

@@ -12,7 +12,7 @@
     :process-type-code="processTypeCode"
     :before-refresh-on-project-selected="beforeRefreshOnProjectSelected"
     @project-selected="handleProjectSelectedWrap"
-    @append-click="handleBatchSubmitClick"
+    @append-click="handleAppendClick"
     @submit-click="handleRowSubmitClick"
     @more2-click="handleBatchSubmitClick"
     @more3-click="handleSystemAssign"
@@ -103,13 +103,142 @@
           </el-button>
         </template>
       </el-dialog>
+      <el-dialog
+        v-model="importAssignDialogVisible"
+        title="导入分配"
+        width="480px"
+        append-to-body
+        :close-on-click-modal="false"
+        @closed="resetImportAssignDialog"
+      >
+        <div
+          class="import-dropzone"
+          :class="{ 'is-dragover': importAssignDragOver }"
+          @click="importAssignFileInputRef?.click()"
+          @dragenter.prevent="onImportAssignDragEnter"
+          @dragover.prevent="onImportAssignDragOver"
+          @dragleave.prevent="onImportAssignDragLeave"
+          @drop.prevent="onImportAssignDrop"
+        >
+          <div class="import-dropzone-title">将文件拖到此处，或<em>点击选择</em></div>
+          <div class="import-file-tip" @click.stop>
+            <span class="import-template-link" @click="downloadImportAssignTemplate">下载模板</span>
+            <span>仅支持 xls / xlsx，不超过 5MB</span>
+          </div>
+          <input
+            ref="importAssignFileInputRef"
+            type="file"
+            accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            style="display: none"
+            @change="onImportAssignFileChange"
+          />
+        </div>
+        <div v-if="importAssignFile" class="import-file-list">
+          <div class="import-file-item">
+            <div class="import-file-meta">
+              <span class="import-file-name" :title="importAssignFile.name">{{
+                importAssignFile.name
+              }}</span>
+              <span class="import-file-size">{{
+                formatImportFileSize(importAssignFile.size)
+              }}</span>
+            </div>
+            <el-button type="danger" link @click="clearImportAssignFile">移除</el-button>
+          </div>
+        </div>
+        <div v-else class="import-file-empty">尚未添加文件</div>
+        <template #footer>
+          <el-button @click="importAssignDialogVisible = false">取消</el-button>
+          <el-button
+            type="primary"
+            :loading="importAssignLoading"
+            @click="handleImportAssignConfirm"
+          >
+            确定
+          </el-button>
+        </template>
+      </el-dialog>
     </template>
   </InternshipPostHeaderPage>
+
+  <el-dialog
+    v-model="systemAssignProgressVisible"
+    title="系统分配进度"
+    width="420px"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+    :show-close="systemAssignProgressFinished"
+    @closed="onSystemAssignProgressClosed"
+  >
+    <div class="assign-progress-body">
+      <el-progress
+        :percentage="systemAssignPercent"
+        :status="systemAssignBarStatus"
+        :stroke-width="16"
+      />
+      <div class="assign-progress-meta">
+        <div>状态：{{ systemAssignStatusText }}</div>
+        <div>进度：{{ systemAssignProcessed }} / {{ systemAssignTotal }}</div>
+        <div>
+          成功 {{ systemAssignAssigned }} · 跳过 {{ systemAssignSkipped }} · 失败
+          {{ systemAssignFailed }}
+        </div>
+        <div v-if="systemAssignMessage" class="assign-progress-msg">{{ systemAssignMessage }}</div>
+      </div>
+    </div>
+    <template #footer>
+      <el-button
+        v-if="systemAssignProgressFinished"
+        type="primary"
+        @click="systemAssignProgressVisible = false"
+      >
+        知道了
+      </el-button>
+      <span v-else class="assign-progress-hint">分配进行中，请稍候…</span>
+    </template>
+  </el-dialog>
+
+  <el-dialog
+    v-model="importAssignProgressVisible"
+    title="导入分配进度"
+    width="420px"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+    :show-close="importAssignProgressFinished"
+    @closed="onImportAssignProgressClosed"
+  >
+    <div class="assign-progress-body">
+      <el-progress
+        :percentage="importAssignPercent"
+        :status="importAssignBarStatus"
+        :stroke-width="16"
+      />
+      <div class="assign-progress-meta">
+        <div>状态：{{ importAssignStatusText }}</div>
+        <div>进度：{{ importAssignProcessed }} / {{ importAssignTotal }}（按教师组）</div>
+        <div>
+          成功组 {{ importAssignAssignedGroups }} · 新增 {{ importAssignCreated }} · 失败
+          {{ importAssignFailed }}
+        </div>
+        <div v-if="importAssignMessage" class="assign-progress-msg">{{ importAssignMessage }}</div>
+      </div>
+    </div>
+    <template #footer>
+      <el-button
+        v-if="importAssignProgressFinished"
+        type="primary"
+        @click="importAssignProgressVisible = false"
+      >
+        知道了
+      </el-button>
+      <span v-else class="assign-progress-hint">导入分配进行中，请稍候…</span>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
-import { computed, reactive, ref, unref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { computed, getCurrentInstance, onBeforeUnmount, reactive, ref, unref } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useStore } from 'vuex';
 import InternshipPostHeaderPage from '@/views/master-page/InternshipPostHeaderPage.vue';
 import DlgVerifyProgress from '@/views/dialogs/DlgVerifyProgress.vue';
@@ -157,17 +286,76 @@ const props = defineProps({
     type: String,
     default: () => CONSTANT.USER_JOB_CODE.SCHOOL_TEACHER,
   },
+
+  /** 是否显示表头「导入分配」 */
+  showImportAssign: { type: Boolean, default: false },
 });
 
 defineOptions({
   name: 'TutorAssignmentBase',
 });
 
+const { proxy } = getCurrentInstance();
 const store = useStore();
 const { getVerifyRoleName } = useVerifyFilter();
 
 const autoAssignLocked = ref(false);
 const assigning = ref(false);
+const systemAssignProgressVisible = ref(false);
+const systemAssignProgressFinished = ref(false);
+const systemAssignPercent = ref(0);
+const systemAssignProcessed = ref(0);
+const systemAssignTotal = ref(0);
+const systemAssignAssigned = ref(0);
+const systemAssignSkipped = ref(0);
+const systemAssignFailed = ref(0);
+const systemAssignStatus = ref('');
+const systemAssignMessage = ref('');
+let systemAssignPollTimer = null;
+
+const systemAssignStatusText = computed(() => {
+  const map = {
+    PENDING: '排队中',
+    RUNNING: '分配中',
+    SUCCESS: '已完成',
+    FAILED: '失败',
+  };
+  return map[systemAssignStatus.value] || systemAssignStatus.value || '—';
+});
+const systemAssignBarStatus = computed(() => {
+  if (systemAssignStatus.value === 'SUCCESS') return 'success';
+  if (systemAssignStatus.value === 'FAILED') return 'exception';
+  return undefined;
+});
+
+const importAssignProgressVisible = ref(false);
+const importAssignProgressFinished = ref(false);
+const importAssignPercent = ref(0);
+const importAssignProcessed = ref(0);
+const importAssignTotal = ref(0);
+const importAssignAssignedGroups = ref(0);
+const importAssignCreated = ref(0);
+const importAssignFailed = ref(0);
+const importAssignStatus = ref('');
+const importAssignMessage = ref('');
+const importAssignResultSnapshot = ref(null);
+let importAssignPollTimer = null;
+
+const importAssignStatusText = computed(() => {
+  const map = {
+    PENDING: '排队中',
+    RUNNING: '分配中',
+    SUCCESS: '已完成',
+    FAILED: '失败',
+  };
+  return map[importAssignStatus.value] || importAssignStatus.value || '—';
+});
+const importAssignBarStatus = computed(() => {
+  if (importAssignStatus.value === 'SUCCESS') return 'success';
+  if (importAssignStatus.value === 'FAILED') return 'exception';
+  return undefined;
+});
+
 const manualAssignSubmitting = ref(false);
 const manualAssignDialogVisible = ref(false);
 const departmentOptions = ref([]);
@@ -175,6 +363,11 @@ const teacherOptions = ref([]);
 const studentOptions = ref([]);
 const manualAssignTargetRow = ref(null);
 const manualAssignTeacherOnly = ref(false);
+const importAssignDialogVisible = ref(false);
+const importAssignLoading = ref(false);
+const importAssignFile = ref(null);
+const importAssignDragOver = ref(false);
+const importAssignFileInputRef = ref(null);
 const departmentCascaderProps = {
   value: 'id',
   label: 'name',
@@ -223,13 +416,22 @@ function handleProjectSelectedWrap(internship, title) {
 }
 
 function getSubmitStatus(row) {
-  return row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY;
+  return row?.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
+    ? CONSTANT.AUDIT_STATUS.PASS
+    : CONSTANT.AUDIT_STATUS.SUBMIT;
 }
 
+/**
+ * 全量 /diary/init-by-internship 会大事务改 main_verify_process，易锁等待。
+ * 系统分配 / 手动分配 / Excel 导入后端已 ensureDiaryEntries，勿再调。
+ * 仅「行内只改老师」（editOneNode，未走分配接口）时补一次，用于刷新日志审核人。
+ */
 async function initDiaryPlaceholders(internshipId) {
   try {
     await initDiariesByInternship({ internshipId });
-  } catch {}
+  } catch (error) {
+    console.error('初始化日志占位失败:', error);
+  }
 }
 
 async function updateVerifyProcessStatus(rows, isBatch = false) {
@@ -316,13 +518,38 @@ async function runSystemAssign() {
     return;
   }
   if (assigning.value) return;
+
+  try {
+    await ElMessageBox.confirm(
+      '将对本项目下待提交的师生记录进行随机分配，是否继续？',
+      '系统分配确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+  } catch {
+    return;
+  }
+
   assigning.value = true;
+
+  systemAssignProgressFinished.value = false;
+  systemAssignPercent.value = 0;
+  systemAssignProcessed.value = 0;
+  systemAssignTotal.value = 0;
+  systemAssignAssigned.value = 0;
+  systemAssignSkipped.value = 0;
+  systemAssignFailed.value = 0;
+  systemAssignStatus.value = 'PENDING';
+  systemAssignMessage.value = '';
+  systemAssignProgressVisible.value = true;
 
   try {
     const verifyResp = await internshipProcessAPI.getVerifyUserIds({
       verifyRoleId,
       createUserId,
-      // 部分业务（如企业导师分配）需要基于当前实习项目获取审核人
       internshipId,
     });
     const verifyUserId = verifyResp?.data ?? verifyResp;
@@ -337,20 +564,106 @@ async function runSystemAssign() {
 
     const res = await internshipProcessAPI.initTeacherStudentByInternshipId(payload);
     if (!res || res.message !== 'successful') {
-      ElMessage.warning(res?.message || '系统分配失败');
+      systemAssignMessage.value = res?.message || '系统分配失败';
+      finishSystemAssignProgress(false);
       return;
     }
 
-    ElMessage.success('系统分配成功');
-    await headerPageRef.value?.baseListRef?.initDataList(true);
-    await initDiaryPlaceholders(internshipId);
+    const data = res.data || {};
+    applySystemAssignProgress(data);
+    if (data.status === 'SUCCESS') {
+      finishSystemAssignProgress(true);
+      return;
+    }
+    if (data.status === 'FAILED') {
+      finishSystemAssignProgress(false);
+      return;
+    }
+    const taskId = data.taskId;
+    if (!taskId) {
+      systemAssignMessage.value = '未返回 taskId';
+      finishSystemAssignProgress(false);
+      return;
+    }
+    stopSystemAssignPolling();
+    systemAssignPollTimer = setInterval(() => {
+      void pollSystemAssignStatus(taskId);
+    }, 1000);
+    await pollSystemAssignStatus(taskId);
   } catch (error) {
     console.error('系统分配失败:', error);
-    ElMessage.error('系统分配失败');
-  } finally {
+    systemAssignMessage.value = error?.response?.data?.message || error?.message || '系统分配失败';
+    finishSystemAssignProgress(false);
+  }
+}
+
+function applySystemAssignProgress(data) {
+  systemAssignStatus.value = data.status || '';
+  systemAssignPercent.value = Number(data.percent ?? 0);
+  systemAssignProcessed.value = Number(data.processed ?? 0);
+  systemAssignTotal.value = Number(data.total ?? 0);
+  systemAssignAssigned.value = Number(
+    data.assignedCount ?? data.createdRelTeacherStudentCount ?? 0
+  );
+  systemAssignSkipped.value = Number(data.skippedCount ?? 0);
+  systemAssignFailed.value = Number(data.failedCount ?? 0);
+  systemAssignMessage.value = data.message || '';
+}
+
+function stopSystemAssignPolling() {
+  if (systemAssignPollTimer != null) {
+    clearInterval(systemAssignPollTimer);
+    systemAssignPollTimer = null;
+  }
+}
+
+function finishSystemAssignProgress(success) {
+  systemAssignProgressFinished.value = true;
+  stopSystemAssignPolling();
+  assigning.value = false;
+  if (success) {
+    ElMessage.success(
+      `系统分配完成：成功 ${systemAssignAssigned.value}，跳过 ${systemAssignSkipped.value}，失败 ${systemAssignFailed.value}`
+    );
+    void headerPageRef.value?.baseListRef?.initDataList(true);
+  } else {
+    ElMessage.error(systemAssignMessage.value || '系统分配失败');
+  }
+}
+
+async function pollSystemAssignStatus(taskId) {
+  try {
+    const res = await internshipProcessAPI.getInitTeacherStudentTaskStatus({ taskId });
+    if (res?.message !== 'successful') {
+      systemAssignMessage.value = res?.message || '查询进度失败';
+      finishSystemAssignProgress(false);
+      return;
+    }
+    const data = res.data || {};
+    applySystemAssignProgress(data);
+    if (data.status === 'SUCCESS') {
+      finishSystemAssignProgress(true);
+    } else if (data.status === 'FAILED') {
+      finishSystemAssignProgress(false);
+    }
+  } catch (error) {
+    console.error('查询系统分配进度失败:', error);
+    systemAssignMessage.value = error?.response?.data?.message || error?.message || '查询进度失败';
+    finishSystemAssignProgress(false);
+  }
+}
+
+function onSystemAssignProgressClosed() {
+  stopSystemAssignPolling();
+  if (!systemAssignProgressFinished.value) {
     assigning.value = false;
   }
 }
+
+onBeforeUnmount(() => {
+  stopSystemAssignPolling();
+  stopImportAssignPolling();
+});
 
 function handleSystemAssign() {
   void runSystemAssign();
@@ -520,6 +833,300 @@ async function handleManualAssign(row) {
   await openManualAssignDialog(Array.isArray(row) ? null : row, { teacherOnly: false });
 }
 
+function handleAppendClick() {
+  if (props.showImportAssign) {
+    handleImportAssignClick();
+    return;
+  }
+  handleBatchSubmitClick();
+}
+
+function handleImportAssignClick() {
+  const cur = unref(headerPageRef.value?.currentInternship);
+  if (!cur?.internshipId) {
+    ElMessage.warning('请先选择实习项目');
+    return;
+  }
+  resetImportAssignDialog();
+  importAssignDialogVisible.value = true;
+}
+
+function resetImportAssignDialog() {
+  importAssignFile.value = null;
+  importAssignDragOver.value = false;
+  if (importAssignFileInputRef.value) {
+    importAssignFileInputRef.value.value = '';
+  }
+}
+
+function clearImportAssignFile() {
+  resetImportAssignDialog();
+}
+
+function formatImportFileSize(size) {
+  const bytes = Number(size) || 0;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function setImportAssignFile(file) {
+  if (!file) {
+    importAssignFile.value = null;
+    return;
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (!['xls', 'xlsx'].includes(ext)) {
+    ElMessage.error('上传文件只能是 xls/xlsx 格式');
+    resetImportAssignDialog();
+    return;
+  }
+  if (file.size / 1024 / 1024 >= 5) {
+    ElMessage.error('上传文件大小不能超过 5 MB');
+    resetImportAssignDialog();
+    return;
+  }
+  importAssignFile.value = file;
+}
+
+function onImportAssignFileChange(event) {
+  setImportAssignFile(event?.target?.files?.[0]);
+}
+
+function onImportAssignDragEnter() {
+  importAssignDragOver.value = true;
+}
+
+function onImportAssignDragOver() {
+  importAssignDragOver.value = true;
+}
+
+function onImportAssignDragLeave(event) {
+  if (event.currentTarget?.contains?.(event.relatedTarget)) return;
+  importAssignDragOver.value = false;
+}
+
+function onImportAssignDrop(event) {
+  importAssignDragOver.value = false;
+  setImportAssignFile(event?.dataTransfer?.files?.[0]);
+}
+
+async function downloadImportAssignTemplate() {
+  try {
+    const content = await internshipProcessAPI.downloadManualAssignTeacherStudentImportTemplate();
+    proxy.downloadFile(content, '手动分配导入模板.xlsx');
+  } catch (error) {
+    console.error('下载模板失败:', error);
+    ElMessage.error('下载模板失败');
+  }
+}
+
+async function handleImportAssignConfirm() {
+  if (!importAssignFile.value) {
+    ElMessage.warning('请选择 Excel 文件');
+    return;
+  }
+  const cur = unref(headerPageRef.value?.currentInternship);
+  const internshipId = Number(cur?.internshipId ?? cur?.id);
+  const processId = Number(cur?.processId ?? cur?.realId ?? cur?.id);
+  const createUserId = Number(store.getters.userInfo?.id);
+  const verifyRoleId = Number(cur?.verifyFirstRoleId);
+  const currentVerifyTypeId =
+    cur?.verifyTypeId === CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      ? CONSTANT.VERIFY_LEVEL.NO_VERIFY
+      : CONSTANT.VERIFY_LEVEL.ONE_VERIFY;
+  if (!internshipId || Number.isNaN(internshipId)) {
+    ElMessage.warning('缺少 internshipId，无法导入');
+    return;
+  }
+  if (!processId || Number.isNaN(processId)) {
+    ElMessage.warning('缺少 processId，无法导入');
+    return;
+  }
+  if (!createUserId || Number.isNaN(createUserId)) {
+    ElMessage.warning('缺少 createUserId，无法导入');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm('确认按所选 Excel 开始导入分配？', '导入分配确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+  } catch {
+    return;
+  }
+
+  importAssignLoading.value = true;
+  importAssignProgressFinished.value = false;
+  importAssignPercent.value = 0;
+  importAssignProcessed.value = 0;
+  importAssignTotal.value = 0;
+  importAssignAssignedGroups.value = 0;
+  importAssignCreated.value = 0;
+  importAssignFailed.value = 0;
+  importAssignStatus.value = 'PENDING';
+  importAssignMessage.value = '';
+  importAssignResultSnapshot.value = null;
+  importAssignDialogVisible.value = false;
+  importAssignProgressVisible.value = true;
+
+  try {
+    const payload = {
+      file: importAssignFile.value,
+      internshipId,
+      processId,
+      createUserId,
+      currentVerifyTypeId,
+    };
+    if (verifyRoleId && !Number.isNaN(verifyRoleId)) {
+      payload.verifyRoleId = verifyRoleId;
+    }
+    const res = await internshipProcessAPI.importManualAssignTeacherStudentByExcel(payload);
+    if (!res || res.message !== 'successful') {
+      importAssignMessage.value = res?.message || '导入分配失败';
+      finishImportAssignProgress(false);
+      return;
+    }
+    const data = res.data || {};
+    applyImportAssignProgress(data);
+    if (data.status === 'SUCCESS') {
+      finishImportAssignProgress(true);
+      return;
+    }
+    if (data.status === 'FAILED') {
+      finishImportAssignProgress(false);
+      return;
+    }
+    const taskId = data.taskId;
+    if (!taskId) {
+      importAssignMessage.value = '未返回 taskId';
+      finishImportAssignProgress(false);
+      return;
+    }
+    stopImportAssignPolling();
+    importAssignPollTimer = setInterval(() => {
+      void pollImportAssignStatus(taskId);
+    }, 1000);
+    await pollImportAssignStatus(taskId);
+  } catch (error) {
+    console.error('导入分配失败:', error);
+    const backendMsg = error?.response?.data?.message || error?.message;
+    importAssignMessage.value = backendMsg || '导入分配失败';
+    finishImportAssignProgress(false);
+  }
+}
+
+function applyImportAssignProgress(data) {
+  importAssignStatus.value = data.status || '';
+  importAssignPercent.value = Number(data.percent ?? 0);
+  importAssignProcessed.value = Number(data.processed ?? 0);
+  importAssignTotal.value = Number(data.total ?? 0);
+  importAssignAssignedGroups.value = Number(data.assignedTeacherGroupCount ?? 0);
+  importAssignCreated.value = Number(data.createdRelTeacherStudentCount ?? 0);
+  importAssignFailed.value = Number(data.failedCount ?? 0);
+  importAssignMessage.value = data.message || '';
+  importAssignResultSnapshot.value = data;
+}
+
+function stopImportAssignPolling() {
+  if (importAssignPollTimer != null) {
+    clearInterval(importAssignPollTimer);
+    importAssignPollTimer = null;
+  }
+}
+
+async function showImportAssignResultAlert(result) {
+  const created = Number(
+    result.createdRelTeacherStudentCount ??
+      result.createdCount ??
+      result.createdRelIntershipUserCount
+  );
+  const skipped = Number(result.skippedSubmittedCount ?? result.skippedExistingCount);
+  const failed = Number(result.failedCount);
+  const total = Number(result.totalExcelRowCount);
+  const failures = Array.isArray(result.failures) ? result.failures : [];
+  if (
+    Number.isNaN(created) &&
+    Number.isNaN(skipped) &&
+    Number.isNaN(failed) &&
+    Number.isNaN(total) &&
+    !failures.length
+  ) {
+    ElMessage.success('导入分配成功');
+    return;
+  }
+  const failureLines = failures.slice(0, 10).map((item) => {
+    const row = item?.row != null ? `第${item.row}行` : '未知行';
+    const account = item?.account ? `（${item.account}）` : '';
+    const reason = item?.reason || '导入失败';
+    return `${row}${account}：${reason}`;
+  });
+  const moreFail =
+    failures.length > 10 ? `<div>……其余 ${failures.length - 10} 条失败未展示</div>` : '';
+  const html = [
+    !Number.isNaN(total) ? `<div>Excel 共 ${total} 行</div>` : '',
+    !Number.isNaN(created) ? `<div>新增成功 ${created} 条</div>` : '',
+    !Number.isNaN(skipped) ? `<div>已存在跳过 ${skipped} 条</div>` : '',
+    !Number.isNaN(failed) ? `<div>失败 ${failed || 0} 条</div>` : '',
+    failureLines.length
+      ? `<div style="margin-top:8px;text-align:left;">失败明细：<br/>${failureLines.join('<br/>')}${moreFail}</div>`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('');
+  await ElMessageBox.alert(html || '导入分配成功', '导入结果', {
+    dangerouslyUseHTMLString: true,
+    confirmButtonText: '知道了',
+    type: failed > 0 ? 'warning' : 'success',
+  });
+}
+
+function finishImportAssignProgress(success) {
+  importAssignProgressFinished.value = true;
+  stopImportAssignPolling();
+  importAssignLoading.value = false;
+  if (success) {
+    void headerPageRef.value?.baseListRef?.initDataList(true);
+    const snap = importAssignResultSnapshot.value || {};
+    void showImportAssignResultAlert(snap);
+  } else {
+    ElMessage.error(importAssignMessage.value || '导入分配失败');
+  }
+}
+
+async function pollImportAssignStatus(taskId) {
+  try {
+    const res = await internshipProcessAPI.getImportManualAssignTeacherStudentTaskStatus({
+      taskId,
+    });
+    if (res?.message !== 'successful') {
+      importAssignMessage.value = res?.message || '查询进度失败';
+      finishImportAssignProgress(false);
+      return;
+    }
+    const data = res.data || {};
+    applyImportAssignProgress(data);
+    if (data.status === 'SUCCESS') {
+      finishImportAssignProgress(true);
+    } else if (data.status === 'FAILED') {
+      finishImportAssignProgress(false);
+    }
+  } catch (error) {
+    console.error('查询导入分配进度失败:', error);
+    importAssignMessage.value = error?.response?.data?.message || error?.message || '查询进度失败';
+    finishImportAssignProgress(false);
+  }
+}
+
+function onImportAssignProgressClosed() {
+  stopImportAssignPolling();
+  if (!importAssignProgressFinished.value) {
+    importAssignLoading.value = false;
+  }
+}
+
 async function onTeacherDeptChange(path) {
   manualAssignForm.teacherId = null;
   const departmentId = getLastCascaderValue(path);
@@ -681,7 +1288,6 @@ async function confirmManualAssign() {
     ElMessage.success('手动分配成功');
     manualAssignDialogVisible.value = false;
     await headerPageRef.value?.baseListRef?.initDataList(true);
-    await initDiaryPlaceholders(internshipId);
   } catch (error) {
     console.error('手动分配失败:', error);
     ElMessage.error('手动分配失败');
@@ -711,7 +1317,13 @@ const defaultDTLProps = computed(() => ({
     keyWord: props.listKeyWord,
     buttonProps: {
       more1: { show: true, name: '实习项目选择', disabled: isMore1Disabled.value },
-      create: { show: false, name: '批量提交', type: 'primary' },
+      create: props.showImportAssign
+        ? {
+            show: true,
+            name: '导入分配',
+            type: 'primary',
+          }
+        : { show: false, name: '批量提交', type: 'primary' },
       submit: { show: true, name: '提交', type: 'warning' },
       visible: { show: true, type: 'primary', name: '查看进度' },
       more3:
@@ -752,11 +1364,15 @@ const defaultDTLProps = computed(() => ({
             processTypeCode: props.processTypeCode,
             internshipId: cur.internshipId,
             tableName: 'RelTeacherStudent',
+            teacherId: '',
+            isAudit: String(CONSTANT.AUDIT_STATUS.SAVE),
           };
           const reg = {
             processTypeCode: '=',
             internshipId: '=',
             tableName: '=',
+            teacherId: CONSTANT.SEARCH_OPERATOR.IS_NOT_NULL,
+            isAudit: '=',
           };
           if (isCompanyUser.value && store.getters.userInfo?.departmentId) {
             searchKey.companyId = store.getters.userInfo.departmentId;
@@ -767,12 +1383,12 @@ const defaultDTLProps = computed(() => ({
               keyWords: props.listKeyWord.view,
               searchKey,
               reg,
-              filterRows: (row) =>
-                row.isAudit === CONSTANT.AUDIT_STATUS.SAVE &&
-                (!props.submitRowCondition || props.submitRowCondition(row)),
               mapNode: (row) => ({
                 id: row.id,
-                isAudit: row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY,
+                isAudit:
+                  row.verifyTypeId == CONSTANT.VERIFY_LEVEL.NO_VERIFY
+                    ? CONSTANT.AUDIT_STATUS.PASS
+                    : CONSTANT.AUDIT_STATUS.SUBMIT,
               }),
               buildConfirmText: (n) => `确定提交全部 ${n} 条可提交记录吗？`,
             },
@@ -810,5 +1426,104 @@ defineExpose({
 
 .w-100 {
   width: 100%;
+}
+.import-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 140px;
+  padding: 20px 16px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  background: var(--el-fill-color-blank);
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+.import-dropzone:hover,
+.import-dropzone.is-dragover {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+.import-dropzone-title {
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.import-dropzone-title em {
+  color: var(--el-color-primary);
+  font-style: normal;
+}
+.import-file-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.import-template-link {
+  color: var(--el-color-primary);
+  cursor: pointer;
+}
+.import-file-list {
+  margin-top: 12px;
+}
+.import-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: #f5f7fa;
+}
+.import-file-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.import-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #303133;
+  font-size: 13px;
+  font-weight: 500;
+}
+.import-file-size {
+  color: #909399;
+  font-size: 12px;
+}
+.import-file-empty {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--el-border-color-lighter);
+  border-radius: 6px;
+  color: #c0c4cc;
+  font-size: 13px;
+  text-align: center;
+}
+.assign-progress-body {
+  padding: 8px 4px 0;
+}
+.assign-progress-meta {
+  margin-top: 16px;
+  line-height: 1.8;
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+}
+.assign-progress-msg {
+  margin-top: 4px;
+  color: var(--el-color-danger);
+}
+.assign-progress-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 </style>

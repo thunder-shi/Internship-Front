@@ -41,6 +41,68 @@ import BaseList from '@/views/master-page/BaseList.vue';
 import SimpleDialog from '@/components/SimpleDialog.vue';
 import listAPI from '@/api/list';
 import { formatDate } from '@/utils/common';
+import CONSTANT from '@/utils/constant';
+
+function unwrapRecordList(res) {
+  if (!res?.data) return [];
+  return res.data.content || res.data || [];
+}
+
+/**
+ * 查出「实习计划制定」流程已审核通过的 internshipId 集合。
+ * 1) ViewRelProcessInternship：processTypeCode = INTERNSHIP_PLAN_MAKE → 取 id 作为 processId
+ * 2) ViewVerifyProcessInternshipMerge：processId + internshipId 且 isAudit = PASS
+ */
+async function fetchPlanApprovedInternshipIds() {
+  const planRes = await listAPI.getSomeRecords({
+    keyWords: 'ViewRelProcessInternship',
+    searchKey: {
+      processTypeCode: CONSTANT.PROCESS_TYPE.INTERNSHIP_PLAN_MAKE,
+    },
+    reg: {
+      processTypeCode: CONSTANT.SEARCH_OPERATOR.EQ,
+    },
+    pageInfo: { page: 1, size: 10000 },
+  });
+  const planRows = unwrapRecordList(planRes);
+  if (!planRows.length) return new Set();
+
+  const processIdToInternshipId = new Map();
+  const processIds = [];
+  planRows.forEach((row) => {
+    const processId = row?.id;
+    const internshipId = row?.internshipId;
+    if (processId == null || internshipId == null || internshipId === '') return;
+    processIdToInternshipId.set(String(processId), internshipId);
+    processIds.push(processId);
+  });
+  if (!processIds.length) return new Set();
+
+  const verifyRes = await listAPI.getSomeRecords({
+    keyWords: 'ViewVerifyProcessInternshipMerge',
+    searchKey: {
+      processId: processIds.join(','),
+      internshipId: [...new Set(processIdToInternshipId.values())].join(','),
+      isAudit: CONSTANT.AUDIT_STATUS.PASS,
+    },
+    reg: {
+      processId: CONSTANT.SEARCH_OPERATOR.IN,
+      internshipId: CONSTANT.SEARCH_OPERATOR.IN,
+      isAudit: CONSTANT.SEARCH_OPERATOR.EQ,
+    },
+    pageInfo: { page: 1, size: 10000 },
+  });
+
+  const approvedIds = new Set();
+  unwrapRecordList(verifyRes).forEach((row) => {
+    if (Number(row?.isAudit) !== CONSTANT.AUDIT_STATUS.PASS) return;
+    const expectedInternshipId = processIdToInternshipId.get(String(row?.processId));
+    if (expectedInternshipId == null) return;
+    if (String(row?.internshipId) !== String(expectedInternshipId)) return;
+    approvedIds.add(String(expectedInternshipId));
+  });
+  return approvedIds;
+}
 
 const props = defineProps({
   // 页面标题
@@ -358,45 +420,63 @@ function handleAfterInitData(dataList) {
   emit('after-init-data', dataList);
 }
 
-// 处理 more1 按钮点击事件（实习项目选择）
-async function handleMore1Click(rows) {
-  try {
-    // 合并调用方传入的查询条件和当前流程类型过滤
-    const searchKey = {
-      ...(props.projectSelectSearchKey || {}),
-    };
-    if (props.processTypeCode) {
-      searchKey.processTypeCode = props.processTypeCode;
-    }
+/**
+ * 加载可选实习项目：
+ * 仅当同 internshipId 下 INTERNSHIP_PLAN_MAKE 在 ViewVerifyProcessInternshipMerge 审核通过时，
+ * 才继续按页面条件查询；否则返回空列表。
+ */
+async function loadSelectableInternshipList() {
+  const approvedInternshipIds = await fetchPlanApprovedInternshipIds();
+  if (!approvedInternshipIds.size) {
+    return [];
+  }
 
-    const response = await listAPI.getSomeRecords({
-      keyWords: props.projectListKeyWords,
-      searchKey,
-      reg: props.projectSelectRegKey,
-    });
-    if (response && response.data) {
-      const internshipList = response.data.content || response.data || [];
-      // 按 internshipId / id 去重，避免同一实习项目在视图中多行导致下拉重复
-      const seen = new Set();
-      const uniqueList = [];
-      internshipList.forEach((item) => {
-        const key = item.internshipId || item.id;
-        if (!key || seen.has(key)) return;
-        seen.add(key);
-        uniqueList.push(item);
-      });
-      const internshipItem = projectSelectDialogProps.formItems.find(
-        (item) => item.field === 'internshipId'
-      );
-      if (internshipItem) {
-        internshipItem.type = 'select_noremote';
-        internshipItem.options = uniqueList.map((item) => ({
-          ...item,
-          realId: item.id,
-          id: item.internshipId || item.id,
-          name: item.internshipName || item.name,
-        }));
-      }
+  const searchKey = {
+    ...(props.projectSelectSearchKey || {}),
+    internshipId: [...approvedInternshipIds].join(','),
+  };
+  if (props.processTypeCode) {
+    searchKey.processTypeCode = props.processTypeCode;
+  }
+
+  const reg = {
+    ...(props.projectSelectRegKey || {}),
+    internshipId: CONSTANT.SEARCH_OPERATOR.IN,
+  };
+
+  const response = await listAPI.getSomeRecords({
+    keyWords: props.projectListKeyWords,
+    searchKey,
+    reg,
+  });
+  const internshipList = unwrapRecordList(response);
+  const seen = new Set();
+  const uniqueList = [];
+  internshipList.forEach((item) => {
+    const key = item.internshipId || item.id;
+    if (!key || seen.has(String(key))) return;
+    if (!approvedInternshipIds.has(String(key))) return;
+    seen.add(String(key));
+    uniqueList.push(item);
+  });
+  return uniqueList;
+}
+
+// 处理 more1 按钮点击事件（实习项目选择）
+async function handleMore1Click() {
+  try {
+    const uniqueList = await loadSelectableInternshipList();
+    const internshipItem = projectSelectDialogProps.formItems.find(
+      (item) => item.field === 'internshipId'
+    );
+    if (internshipItem) {
+      internshipItem.type = 'select_noremote';
+      internshipItem.options = uniqueList.map((item) => ({
+        ...item,
+        realId: item.id,
+        id: item.internshipId || item.id,
+        name: item.internshipName || item.name,
+      }));
     }
   } catch (error) {
     console.error('获取实习项目列表失败:', error);
@@ -407,60 +487,35 @@ async function handleMore1Click(rows) {
 // 初始化时调用后端接口获取当前可申报的实习项目
 async function initInternshipList() {
   try {
-    // 合并调用方传入的查询条件和当前流程类型过滤
-    const searchKey = {
-      ...(props.projectSelectSearchKey || {}),
-    };
-    if (props.processTypeCode) {
-      searchKey.processTypeCode = props.processTypeCode;
-    }
+    const uniqueList = await loadSelectableInternshipList();
 
-    const response = await listAPI.getSomeRecords({
-      keyWords: props.projectListKeyWords,
-      searchKey,
-      reg: props.projectSelectRegKey,
-    });
-
-    if (response && response.data) {
-      const internshipList = response.data.content || response.data || [];
-      // 按 internshipId / id 去重，避免同一实习项目在视图中多行导致下拉重复
-      const seen = new Set();
-      const uniqueList = [];
-      internshipList.forEach((item) => {
-        const key = item.internshipId || item.id;
-        if (!key || seen.has(key)) return;
-        seen.add(key);
-        uniqueList.push(item);
+    if (uniqueList.length === 0) {
+      emit('project-selected', null, props.noProjectMessage);
+      isMore1Disabled.value = true;
+    } else if (uniqueList.length === 1) {
+      const item = uniqueList[0];
+      currentInternship.value = _.cloneDeep({
+        ...item,
+        realId: item.id,
+        internshipId: item.internshipId || item.id,
+        processId: item.id,
       });
-
-      if (uniqueList.length === 0) {
-        emit('project-selected', null, props.noProjectMessage);
-        isMore1Disabled.value = true;
-      } else if (uniqueList.length === 1) {
-        const item = uniqueList[0];
-        currentInternship.value = _.cloneDeep({
-          ...item,
-          realId: item.id,
-          internshipId: item.internshipId || item.id,
-          processId: item.id,
-        });
-        const newTitle = generateTitleWithDate(currentInternship.value);
-        emit('project-selected', currentInternship.value, newTitle);
-        isMore1Disabled.value = false;
-        await nextTick();
-        await nextTick();
-        if (typeof props.beforeRefreshOnProjectSelected === 'function') {
-          try {
-            await props.beforeRefreshOnProjectSelected(currentInternship.value);
-          } catch (error) {
-            console.error('beforeRefreshOnProjectSelected 调用失败', error);
-          }
+      const newTitle = generateTitleWithDate(currentInternship.value);
+      emit('project-selected', currentInternship.value, newTitle);
+      isMore1Disabled.value = false;
+      await nextTick();
+      await nextTick();
+      if (typeof props.beforeRefreshOnProjectSelected === 'function') {
+        try {
+          await props.beforeRefreshOnProjectSelected(currentInternship.value);
+        } catch (error) {
+          console.error('beforeRefreshOnProjectSelected 调用失败', error);
         }
-        await updateSearchWordsAndRefresh();
-      } else {
-        emit('project-selected', null, props.pendingSelectMessage);
-        isMore1Disabled.value = false;
       }
+      await updateSearchWordsAndRefresh();
+    } else {
+      emit('project-selected', null, props.pendingSelectMessage);
+      isMore1Disabled.value = false;
     }
   } catch (error) {
     console.error('获取实习项目列表失败:', error);

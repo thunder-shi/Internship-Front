@@ -6,6 +6,8 @@
     :process-type-code="processTypeCode"
     :table-columns="ASSIGNMENT_STUDENT_COLUMNS"
     :select-dialog-component="DlgStudentSelect"
+    :show-import-append="true"
+    import-role="student"
   />
 </template>
 

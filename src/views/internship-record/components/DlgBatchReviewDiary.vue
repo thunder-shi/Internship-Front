@@ -16,7 +16,7 @@
 
     <el-form ref="formRef" :model="form" :rules="formRules" label-width="90px">
       <el-form-item label="审核结果" prop="isAudit">
-        <el-radio-group v-model="form.isAudit">
+        <el-radio-group v-model="form.isAudit" @change="clearScoreBackendError">
           <el-radio :label="AUDIT_STATUS.PASS">审核通过</el-radio>
           <el-radio :label="AUDIT_STATUS.BACK">退回修改</el-radio>
         </el-radio-group>
@@ -33,6 +33,7 @@
           :max="100"
           :precision="2"
           controls-position="right"
+          @change="clearScoreBackendError"
         />
       </el-form-item>
 
@@ -78,20 +79,22 @@ const eligibleCount = computed(() =>
 
 const formRef = ref(null)
 const form = reactive({ isAudit: null, reason: '', score: null })
+const scoreBackendError = ref('')
 const formRules = {
   isAudit: [{ required: true, message: '请选择审核结果', trigger: 'change' }],
   score: [
     {
       validator: (_rule, val, cb) => {
         if (form.isAudit !== AUDIT_STATUS.PASS) return cb()
+        if (scoreBackendError.value) return cb(new Error(scoreBackendError.value))
         const n = Number(val)
         if (val === null || val === '' || !Number.isFinite(n)) {
-          cb(new Error('请填写评分'))
+          cb(new Error('日志审核通过必须填写 score'))
         } else if (n < 0 || n > 100) {
-          cb(new Error('评分应在 0-100 之间'))
+          cb(new Error('score 超出范围 [0, 100]'))
         } else cb()
       },
-      trigger: 'blur',
+      trigger: ['blur', 'change'],
     },
   ],
 }
@@ -109,7 +112,40 @@ const reasonPlaceholder = computed(() => {
 })
 
 function getVerifyProcessId(diary) {
-  return diary?.verifyProcessId ?? diary?.id ?? null
+  const processId =
+    diary?.verifyProcessId ??
+    diary?.verify_process_id ??
+    diary?.mainVerifyProcessId ??
+    diary?.main_verify_process_id ??
+    diary?.mvpId ??
+    diary?.auditId
+  if (processId != null && processId !== '') return processId
+
+  const fallbackId = diary?.id
+  if (fallbackId != null && fallbackId !== diary?.diaryId && fallbackId !== diary?.relationId) {
+    return fallbackId
+  }
+  return null
+}
+
+function resolveScoreValidationMessage(message) {
+  if (!message) return ''
+  const text = String(message)
+  if (text.includes('score') && text.includes('必须填写')) return '日志审核通过必须填写 score'
+  if (text.includes('score') && text.includes('超出范围')) return 'score 超出范围 [0, 100]'
+  return ''
+}
+
+function clearScoreBackendError() {
+  if (!scoreBackendError.value) return
+  scoreBackendError.value = ''
+  formRef.value?.clearValidate?.(['score'])
+}
+
+function showScoreFieldError(message) {
+  scoreBackendError.value = message
+  const result = formRef.value?.validateField?.('score')
+  result?.catch?.(() => {})
 }
 
 function open(rows, options = {}) {
@@ -117,15 +153,18 @@ function open(rows, options = {}) {
   form.isAudit = null
   form.reason = ''
   form.score = null
+  scoreBackendError.value = ''
   visible.value = true
 }
 
 function onClosed() {
   formRef.value?.clearValidate()
+  scoreBackendError.value = ''
   batchRows.value = []
 }
 
 async function handleSubmit() {
+  scoreBackendError.value = ''
   try {
     await formRef.value.validate()
   } catch {
@@ -150,9 +189,23 @@ async function handleSubmit() {
         payload.score = Number(form.score)
       }
       try {
-        await internshipProcessAPI.auditProcess(payload)
+        const res = await internshipProcessAPI.auditProcess(payload)
+        if (res?.message !== 'successful') {
+          const scoreError = resolveScoreValidationMessage(res?.message)
+          if (scoreError) {
+            showScoreFieldError(scoreError)
+            return
+          }
+          failedNames.push(row.studentName || `ID:${processId}`)
+          continue
+        }
         successCount++
-      } catch {
+      } catch (e) {
+        const scoreError = resolveScoreValidationMessage(e?.message || e?.response?.data?.message)
+        if (scoreError) {
+          showScoreFieldError(scoreError)
+          return
+        }
         failedNames.push(row.studentName || `ID:${processId}`)
       }
     }
