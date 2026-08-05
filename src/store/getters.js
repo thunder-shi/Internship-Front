@@ -10,6 +10,7 @@ const getters = {
   roles: state => state.user.roles,
   contestTypes: state => state.user.contestTypes,
   studentInternshipType: state => state.user.studentInternshipType,
+  forceChangeInitialPassword: state => state.user.forceChangeInitialPassword,
   permission_routes: state => state.permission.routes,
   /** axios 列表区域 loading 遮罩进行中请求数（>0 表示显示） */
   requestMaskCount: (state) => state.requestMask.count,

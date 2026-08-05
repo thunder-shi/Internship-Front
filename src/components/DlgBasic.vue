@@ -1,6 +1,6 @@
 <template>
   <div class="dlg-drag-wrapper" v-dialogDrag="{ ref: dialogRef, uid: dlgUid }">
-    <el-dialog ref="dialogRef" append-to-body v-model="dialogShow" :close-on-click-modal="false" :close-on-press-escape="false" :modal-append-to-body="false" :class="[autoMax ? 'view-dialog' : '', `dlg-uid-${dlgUid}`]" :fullscreen="autoMax" :before-close="beforeCloseDlg" :width="width" :height="height" @opened="openFun" @close="closeDlg">
+    <el-dialog ref="dialogRef" append-to-body v-model="dialogShow" :close-on-click-modal="false" :close-on-press-escape="false" :show-close="showClose" :modal-append-to-body="false" :class="[autoMax ? 'view-dialog' : '', `dlg-uid-${dlgUid}`]" :fullscreen="autoMax" :before-close="beforeCloseDlg" :width="width" :height="height" @opened="openFun" @close="closeDlg">
       <template #title>
         <span>{{ dlgTitle + dlgSuffix }}</span>
         <svg-icon v-if="needMaxBtn" class="fullscreen" icon-class="fullscreen" @click="clickFull" />
@@ -178,6 +178,23 @@ const needVerifyUpdate = computed(() => {
   }
   return true
 })
+const preventClose = computed(() => {
+  if (Object.prototype.hasOwnProperty.call(props.defaultProps, 'someFlags')) {
+    if (Object.prototype.hasOwnProperty.call(props.defaultProps.someFlags, 'preventClose')) {
+      return !!props.defaultProps.someFlags.preventClose
+    }
+  }
+  return false
+})
+const showClose = computed(() => {
+  if (preventClose.value) return false
+  if (Object.prototype.hasOwnProperty.call(props.defaultProps, 'someFlags')) {
+    if (Object.prototype.hasOwnProperty.call(props.defaultProps.someFlags, 'showClose')) {
+      return !!props.defaultProps.someFlags.showClose
+    }
+  }
+  return true
+})
 
 const cloneOldData = () => {
   // 深拷贝 form.value 来保存初始数据，用于后续比较数据是否有变化
@@ -338,6 +355,10 @@ const onModalSubmit = async () => {
 }
 
 const beforeCloseDlg = (done) => {
+  // 强制改密等场景禁止关闭
+  if (preventClose.value) {
+    return
+  }
   // 如果 done 是函数，说明是从 el-dialog 的 before-close 调用的
   // 如果 done 是 undefined，说明是从按钮点击调用的
   if (needVerifyUpdate.value) {

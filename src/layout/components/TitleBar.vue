@@ -31,16 +31,15 @@
     </div>
     <DlgBasic ref="dlgPassword" :default-props="defaultDBProps" :dlgbasic-confirm="submit" @closeDialog="closeDialog">
       <template #mainForm>
+        <el-alert
+          v-if="forceChangeInitialPassword"
+          type="warning"
+          :closable="false"
+          show-icon
+          title="当前为初始密码，请修改后再使用系统"
+          style="margin-bottom: 12px"
+        />
         <el-form ref="formRef" :rules="rules" :model="form" size="small" label-suffix=":" label-width="100px">
-          <!-- <el-form-item label="手机号">
-            <span>{{ hidePhone(form.phone) }}</span>
-            <BtnGetVerCode :phone="form.phone" type="text" style="margin-left: 20px" />
-          </el-form-item> -->
-          <!-- <el-form-item prop="verCode" label="验证码">
-            <div style="display: flex">
-              <el-input v-model="form.verCode" class="verCode-input" type="text" auto-complete="on" placeholder="请输入验证码" />
-            </div>
-          </el-form-item> -->
           <el-form-item prop="oldPassword" label="旧密码">
             <el-input v-model="form.oldPassword" type="password" placeholder="请输入旧密码" />
           </el-form-item>
@@ -105,12 +104,26 @@ watch(
 
 const defaultDBProps = reactive({
   dlgTitle: '修改密码',
-  width: '300px', // 或者使用百分比，如 '30%'
-  footButtons: { repeatAdd: { show: false }},
+  width: '360px',
+  footButtons: {
+    cancel: { show: true },
+    repeatAdd: { show: false },
+  },
   someFlags: {
-    needValidate: false
-  }
+    needValidate: false,
+    preventClose: false,
+    needVerifyUpdate: false,
+  },
 })
+
+const forceChangeInitialPassword = computed(() => store.getters.forceChangeInitialPassword)
+
+function applyPasswordDialogMode(force = false) {
+  defaultDBProps.dlgTitle = force ? '请修改初始密码' : '修改密码'
+  defaultDBProps.footButtons.cancel.show = !force
+  defaultDBProps.someFlags.preventClose = force
+  defaultDBProps.someFlags.needVerifyUpdate = false
+}
 
 const validateNewPassword = (_rule, value, callback) => {
   if (value === undefined || value === null || String(value).trim() === '') {
@@ -221,13 +234,27 @@ const personalInfo = () => {
   router.push('/personal-information-manage/Personal')
 }
 
-const updatePassword = () => {
+const updatePassword = (force = false) => {
+  applyPasswordDialogMode(force === true)
   form.oldPassword = ''
   form.password = ''
   form.checkPass = ''
   dlgPassword.value?.showDialog(true, form)
   nextTick(() => formRef.value?.clearValidate())
 }
+
+watch(
+  forceChangeInitialPassword,
+  (needForce) => {
+    if (needForce) {
+      nextTick(() => {
+        updatePassword(true)
+        ElMessage.warning('当前账号为初始密码，请先修改密码')
+      })
+    }
+  },
+  { immediate: true }
+)
 
 const logout = async () => {
   try {
@@ -257,15 +284,14 @@ const submit = async () => {
   }
   try {
     await userAPI.editPassword(store.getters.userInfo.id, form.oldPassword, form.password, false)
+    store.commit('user/SET_FORCE_CHANGE_INITIAL_PASSWORD', false)
+    applyPasswordDialogMode(false)
     ElMessage.success('修改成功！请使用新密码重新登录')
     formRef.value.resetFields()
+    // 强制改密场景下 preventClose 会拦关闭，先解除再关
+    defaultDBProps.someFlags.preventClose = false
     dlgPassword.value?.showDialog(false)
-    try {
-      await store.dispatch('user/logout')
-    } catch (error) {
-      console.error('Logout error:', error)
-    }
-    router.push('/Login')
+    await logout()
     return true
   } catch {
     return false

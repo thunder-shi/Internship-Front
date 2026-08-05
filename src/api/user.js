@@ -10,6 +10,7 @@ export default {
   getUserInfo,
   editUserInfo,
   editPassword,
+  isInitialPassword,
   getDepartment
 }
 // 登录
@@ -62,6 +63,16 @@ function editPassword(userId, oldPassword, password, reset = false) {
     data: { userId, oldPassword, password, reset },
   });
 }
+
+/** 判断当前账号是否仍为初始密码 */
+function isInitialPassword(userId) {
+  return request({
+    url: '/sign/isInitialPassword',
+    method: 'post',
+    data: { userId },
+  });
+}
+
 // 修改密码
 function getDepartment(parentId) {
   return request({

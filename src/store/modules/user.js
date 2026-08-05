@@ -10,7 +10,9 @@ const state = {
   roles: [],
   contestTypes: [],
   // 学生实习类型：null | 'external' | 'internal' | 'both'
-  studentInternshipType: null
+  studentInternshipType: null,
+  /** 登录后检测到初始密码，需强制修改 */
+  forceChangeInitialPassword: false,
 }
 
 const mutations = {
@@ -28,7 +30,10 @@ const mutations = {
   },
   SET_STUDENT_INTERNSHIP_TYPE: (state, type) => {
     state.studentInternshipType = type
-  }
+  },
+  SET_FORCE_CHANGE_INITIAL_PASSWORD: (state, value) => {
+    state.forceChangeInitialPassword = !!value
+  },
 }
 
 const actions = {
@@ -86,9 +91,30 @@ const actions = {
         commit('SET_ROLES', res.data.roles)
         commit('SET_STUDENT_INTERNSHIP_TYPE', res.data.userInfo.internshipType ?? null)
         // commit('SET_CONTESTTYPES', res.data.contestTypes)
+      await dispatch('checkInitialPassword')
       return Promise.resolve(res.data)
     } catch (error) {
       return Promise.reject(error)
+    }
+  },
+
+  /** 查询是否初始密码，是则置强制改密标记 */
+  async checkInitialPassword({ commit, state }) {
+    const userId = state.userInfo?.id
+    if (userId == null || userId === '') {
+      commit('SET_FORCE_CHANGE_INITIAL_PASSWORD', false)
+      return false
+    }
+    try {
+      const res = await userAPI.isInitialPassword(userId)
+      const data = res?.data ?? {}
+      const needChange = data.isInitialPassword === true
+      commit('SET_FORCE_CHANGE_INITIAL_PASSWORD', needChange)
+      return needChange
+    } catch (error) {
+      console.warn('检查初始密码失败:', error)
+      commit('SET_FORCE_CHANGE_INITIAL_PASSWORD', false)
+      return false
     }
   },
 
@@ -99,10 +125,12 @@ const actions = {
     } catch (error) {
       console.warn('logout request failed, continue clearing session', error)
     }
+    commit('SET_TOKEN', '')
     commit('SET_USERINFO', {})
     commit('SET_ROLES', [])
     commit('SET_CONTESTTYPES', [])
     commit('SET_STUDENT_INTERNSHIP_TYPE', null)
+    commit('SET_FORCE_CHANGE_INITIAL_PASSWORD', false)
     removeToken()
     resetRouter()
     // 清空模块级用户态缓存，避免下一个登录用户读到上一个用户的 currentApproved
