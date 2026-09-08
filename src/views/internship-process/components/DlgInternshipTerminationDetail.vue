@@ -144,9 +144,12 @@ const attachments = computed(() => {
         return {
           id: item.id ?? item.ossFileId ?? item.fileId,
           name: item.name ?? item.fileName ?? item.originalName,
+          url: item.url,
+          previewUrl: item.previewUrl,
+          downloadUrl: item.downloadUrl,
         };
       })
-      .filter((item) => item.id != null && item.id !== '');
+      .filter((item) => (item.id != null && item.id !== '') || item.downloadUrl || item.url);
   }
 
   const ids = String(info.value.attachmentIds || '')
@@ -208,16 +211,17 @@ function auditTagType(value) {
   return getAuditTagType(value);
 }
 
-async function downloadAttachment(file) {
-  if (!file?.id) {
+function downloadAttachment(file) {
+  const href = file?.downloadUrl
+    ? fileAPI.resolveFileHref(file.downloadUrl)
+    : file?.id != null && file.id !== ''
+      ? fileAPI.getDownloadUrl(file.id)
+      : '';
+  if (!href) {
     ElMessage.warning('附件编号缺失，无法下载');
     return;
   }
-  try {
-    await fileAPI.downloadFile(file.id);
-  } catch {
-    ElMessage.error('打开附件失败');
-  }
+  window.open(href, '_blank');
 }
 </script>
 

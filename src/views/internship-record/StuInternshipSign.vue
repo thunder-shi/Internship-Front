@@ -923,12 +923,12 @@ async function handleSubmit() {
   }
 }
 
-async function previewSignImage(imgId) {
-  try {
-    await fileAPI.downloadFile(imgId);
-  } catch {
-    ElMessage.error('打开照片失败');
+function previewSignImage(imgId) {
+  if (imgId == null || imgId === '') {
+    ElMessage.warning('照片编号缺失');
+    return;
   }
+  window.open(fileAPI.getFileUrl(imgId), '_blank');
 }
 
 /** MainSign 审核轨迹：relationId 为打卡主表 id，与 DlgVerifyProgress 基表查询一致 */

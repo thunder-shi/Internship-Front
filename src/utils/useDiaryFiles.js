@@ -3,19 +3,32 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import fileAPI from '@/api/file'
 import listAPI from '@/api/list'
 
-// Docker / 网关：默认与入口 Nginx 的 /kkfileview 前缀一致（见工作区 server_directory/docker-compose 与 gateway.conf）
-// 构建时可设 VITE_KKFILEVIEW_BASE（如 https://preview.example.com/kkfileview）；留空则用当前站点同源路径
+const BROWSER_PREVIEW_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']
+const OFFICE_PREVIEW_EXTS = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
+
 function getKkFileViewBase() {
   const fromEnv = import.meta.env.VITE_KKFILEVIEW_BASE
   if (fromEnv && String(fromEnv).trim()) {
     return String(fromEnv).replace(/\/$/, '')
   }
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/kkfileview`.replace(/\/$/, '')
+  if (typeof window === 'undefined' || !window.location?.hostname) {
+    return ''
   }
-  return ''
+  const host = window.location.hostname
+  // 本机 npm run dev：kkFileView 在开发机 47，不在 localhost
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return 'http://47.96.172.199:8012'
+  }
+  // 部署后与前端同机 Docker，kkFileView 映射 8012（不是当前站点的 /kkfileview）
+  return `http://${host}:8012`
 }
 
+function fileExt(file) {
+  const name = file?.name || file?.fileName || ''
+  const i = name.lastIndexOf('.')
+  if (i < 0) return ''
+  return name.slice(i + 1).toLowerCase()
+}
 
 /**
  * 日志附件管理 composable
@@ -39,6 +52,9 @@ export function useDiaryFiles(tableName = 'main_diary') {
         id: f.id,
         name: f.fileName || '未知文件',
         size: Number(f.fileSize) || 0,
+        url: f.url,
+        previewUrl: f.previewUrl,
+        downloadUrl: f.downloadUrl,
       }))
     } catch {
       files.value = []
@@ -47,32 +63,61 @@ export function useDiaryFiles(tableName = 'main_diary') {
     }
   }
 
-  async function triggerDownload(file) {
-    try {
-      await fileAPI.downloadFile(file.id)
-    } catch {
-      ElMessage.error('下载失败')
-    }
+  function downloadHref(file) {
+    if (file?.downloadUrl) return fileAPI.resolveFileHref(file.downloadUrl)
+    if (file?.id == null || file.id === '') return ''
+    return fileAPI.getDownloadUrl(file.id)
   }
 
-  /**
-   * 通过 kkFileView 在线预览文件
-   * presigned URL 需能被 kkFileView 容器访问（Docker 内一般为 http://minio:9000/...）
-   */
+  function previewHref(file) {
+    if (file?.previewUrl) return fileAPI.resolveFileHref(file.previewUrl)
+    if (file?.url) return fileAPI.resolveFileHref(file.url)
+    if (file?.id == null || file.id === '') return ''
+    return fileAPI.getPreviewUrl(file.id)
+  }
+
+  async function triggerDownload(file) {
+    const href = downloadHref(file)
+    if (!href) {
+      ElMessage.warning('附件编号缺失，无法下载')
+      return
+    }
+    window.open(href, '_blank')
+  }
+
   async function triggerPreview(file) {
-    try {
-      const minioUrl = await fileAPI.getPreviewUrl(file.id)
+    const ext = fileExt(file)
+    if (OFFICE_PREVIEW_EXTS.includes(ext)) {
+      if (file?.id == null || file.id === '') {
+        ElMessage.warning('附件编号缺失，无法预览')
+        return
+      }
       const kkFileViewBase = getKkFileViewBase()
       if (!kkFileViewBase) {
         ElMessage.error('未配置预览服务地址')
         return
       }
-      // base64 结果必须再做一次 encodeURIComponent，否则其中的 + / = 会被 URL 解析破坏
-      const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(minioUrl))))
-      window.open(`${kkFileViewBase}/onlinePreview?url=${encoded}`, '_blank')
-    } catch {
-      ElMessage.error('预览失败，请尝试下载后查看')
+      try {
+        const minioUrl = await fileAPI.getPresignedPreviewUrl(file.id)
+        const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(minioUrl))))
+        window.open(`${kkFileViewBase}/onlinePreview?url=${encoded}`, '_blank')
+      } catch {
+        ElMessage.error('预览失败，请尝试下载后查看')
+      }
+      return
     }
+
+    if (ext && !BROWSER_PREVIEW_EXTS.includes(ext)) {
+      ElMessage.warning('该文件类型请下载后查看')
+      return
+    }
+
+    const href = previewHref(file)
+    if (!href) {
+      ElMessage.warning('附件编号缺失，无法预览')
+      return
+    }
+    window.open(href, '_blank')
   }
 
   async function deleteFile(file) {

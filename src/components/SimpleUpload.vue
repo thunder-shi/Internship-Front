@@ -13,7 +13,7 @@
 // 注：一般不能自动上传服务器，否则无法知道关联表信息，所以必须是在外层调用上传
 
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
-import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import CONSTANT from '@/utils/constant'
 import fileAPI from '@/api/file'
 
@@ -174,29 +174,11 @@ async function handlePreview(file) {
   if (file.status === 'success') {
     try {
       await ElMessageBox.confirm('是否下载该文件？', '提示')
-      const loading = ElLoading.service({ text: '下载中...', lock: true })
-      try {
-        const content = await fileAPI.downloadFile(file.id)
-        downloadFile(content, file.name)
-      } finally {
-        loading.close()
-      }
+      fileAPI.downloadFile(file.id)
     } catch {
       // User cancelled
     }
   }
-}
-
-function downloadFile(content, filename) {
-  const blob = new Blob([content])
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  window.URL.revokeObjectURL(url)
 }
 
 // Cleanup timer on unmount

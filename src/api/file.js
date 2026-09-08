@@ -3,6 +3,27 @@ import request from '@/utils/request'
 // 当前上传/下载进度百分比
 let nowProgressPercent = 0
 
+/** 与 axios baseURL 一致，浏览器打开时走同源 /api，带登录 cookie */
+const API_BASE = '/api'
+
+function minioUrl(kind, id) {
+  return `${API_BASE}/common/minio/${kind}/${id}`
+}
+
+/** 后端相对路径（如 /common/minio/file/1）拼到 /api 下；已是绝对地址则原样返回 */
+function resolveFileHref(path) {
+  if (path == null || path === '') return ''
+  const s = String(path)
+  if (/^https?:\/\//i.test(s)) return s
+  const p = s.startsWith('/') ? s : `/${s}`
+  if (p.startsWith(`${API_BASE}/`)) return p
+  return `${API_BASE}${p}`
+}
+
+const getFileUrl = (id) => minioUrl('file', id)
+const getPreviewUrl = (id) => minioUrl('preview', id)
+const getDownloadUrl = (id) => minioUrl('download', id)
+
 /**
  * 文件上传-上传到public
  * @param {Object} params - 上传参数
@@ -65,32 +86,42 @@ const deleteFile = (fileIds) => {
 }
 
 /**
- * 下载文件（presigned URL 直连 MinIO，速度最快）
- * 后端生成 presigned URL 时须携带 response-content-disposition=attachment; filename="xxx"
+ * 下载文件：直接打开后端文件流地址（Content-Disposition: attachment）
+ * 不要再用 axios GET 解析 JSON，也不要把 res.data 当 MinIO 直链
  * @param {string|number} id - SysOssFile.id
  */
-const downloadFile = async (id) => {
-  const res = await request({ url: `/common/minio/download/${id}`, method: 'get' })
-  window.open(res.data, '_blank')
+const downloadFile = (id) => {
+  if (id == null || id === '') return
+  window.open(getDownloadUrl(id), '_blank')
 }
 
 /**
- * 获取用于 kkFileView 在线预览的干净 presigned URL
- * 与 download 的区别：不携带 response-content-disposition / response-content-type 覆写参数，
- * 否则 MinIO 会返回 400，kkFileView 无法拉取文件内容
+ * Office 预览用：已登录请求，返回 MinIO 预签名 GET URL（10 分钟）。
+ * 只把返回值交给 kkFileView 服务端拉取，不要 window.open。
  * @param {string|number} id - SysOssFile.id
- * @returns {Promise<string>} 干净的 presigned URL
+ * @returns {Promise<string>}
  */
-const getPreviewUrl = async (id) => {
-  const res = await request({ url: `/common/minio/preview/${id}`, method: 'get' })
-  return res.data
+const getPresignedPreviewUrl = async (id) => {
+  const res = await request({
+    url: `/common/minio/presignedPreview/${id}`,
+    method: 'get',
+  })
+  const url = res?.data
+  if (!url || typeof url !== 'string') {
+    throw new Error('预览地址无效')
+  }
+  return url
 }
 
 export default {
   upload,
   deleteFile,
   downloadFile,
+  getFileUrl,
   getPreviewUrl,
+  getDownloadUrl,
+  getPresignedPreviewUrl,
+  resolveFileHref,
   getProgressPercent
 }
 

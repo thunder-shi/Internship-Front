@@ -505,9 +505,8 @@ function onCronChange(val, field, formData) {
 //   dlgBasicRef.value.cloneOldData()
 // },
 
-async function downloadLinkClick(id, fileName) {
-  var content = await fileAPI.downloadFile(id);
-  instance.proxy.downloadFile(content, fileName);
+async function downloadLinkClick(id, _fileName) {
+  fileAPI.downloadFile(id);
 }
 
 // 暴露方法供外部调用

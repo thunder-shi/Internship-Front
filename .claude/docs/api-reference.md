@@ -29,8 +29,11 @@ listAPI.changeNodeOrder(keyWords, nodeId, up, moveSearchKeys, moveRegKeys) // �
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/common/minio/upload` | POST | 上传（multipart/form-data） |
-| `/common/minio/download/{id}` | GET | 获取 presigned URL |
+| `/common/minio/upload` | POST | 上传（multipart/form-data），返回 JSON，`url` 为 `/common/minio/file/{id}` |
+| `/common/minio/file/{id}` | GET | 文件流，inline 预览（img / 新标签） |
+| `/common/minio/preview/{id}` | GET | 文件流，inline 预览 |
+| `/common/minio/download/{id}` | GET | 文件流，attachment 下载。不要当 JSON 解析 |
+| `/common/minio/presignedPreview/{id}` | GET | JSON，`data` 为 MinIO 预签名 URL，只给 kkFileView，不要 window.open |
 | `/common/minio/deleteFile` | DELETE | 删除（`?ossFileIds=1,2,3`） |
 
 ```javascript
@@ -44,15 +47,17 @@ fileAPI.upload({
   tabName: 'TableName'     // 可选
 })
 
-fileAPI.downloadFile(id)          // → presigned URL → window.open
-fileAPI.getPreviewUrl(id)         // 返回干净 presigned URL（用于 kkFileView 在线预览）
+fileAPI.downloadFile(id)          // window.open('/api/common/minio/download/{id}')
+fileAPI.getFileUrl(id)            // '/api/common/minio/file/{id}'，img/新标签预览
+fileAPI.getPreviewUrl(id)         // '/api/common/minio/preview/{id}'，不发请求
+fileAPI.getDownloadUrl(id)        // '/api/common/minio/download/{id}'
+fileAPI.getPresignedPreviewUrl(id)// GET /common/minio/presignedPreview/{id}，返回 MinIO 预签名字符串
 fileAPI.deleteFile(fileIds)       // 支持单个 id 或数组
 fileAPI.getProgressPercent()      // 当前上传进度
 ```
 
-> `getPreviewUrl` 与 `downloadFile` 走不同后端端点（`/preview/{id}` vs `/download/{id}`）：
-> preview URL 不携带 `response-content-disposition` / `response-content-type` 覆写参数，
-> 否则 MinIO 返回 400，kkFileView 拉不到文件内容。
+> download / preview / file 三个 GET 都是后端文件流，需要登录 cookie。不要 axios GET 再把 `res.data` 当 URL，也不要让浏览器打开 MinIO 地址。
+> Office 预览：登录后调 `presignedPreview`，把 `data` base64 交给 kkFileView 服务端拉取。
 
 **SimpleUpload 组件**:
 ```vue

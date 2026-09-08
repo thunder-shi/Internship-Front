@@ -3,8 +3,6 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
-ARG VITE_KKFILEVIEW_BASE=
-ENV VITE_KKFILEVIEW_BASE=${VITE_KKFILEVIEW_BASE}
 RUN npm run build
 
 FROM nginx:alpine

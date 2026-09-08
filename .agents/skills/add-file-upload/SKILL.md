@@ -110,9 +110,8 @@ import fileAPI from '@/api/file'
 // 上传（内部封装 FormData，files 字段会被自动拆分追加）
 fileAPI.upload({ files, userId, relIds, type, tabName })
 
-// 下载（GET /common/minio/download/{id} 获取 presigned URL，再 window.open 直连 Minio）
-// 后端生成 presigned URL 时须携带 response-content-disposition 以保留原始文件名
-await fileAPI.downloadFile(fileId)
+// 下载：直接打开后端文件流，不要再请求接口拿 MinIO 直链
+fileAPI.downloadFile(fileId)
 
 // 删除（支持单个 ID 或 ID 数组）
 fileAPI.deleteFile([1, 2, 3])

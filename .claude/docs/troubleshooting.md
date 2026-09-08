@@ -25,8 +25,8 @@
 **Q: 文件上传后数据库无关联记录？**
 上传顺序错误。必须先 `editOneNode` 获取 `relId`，再 `handleUpload(userId, relId, type)`。
 
-**Q: 文件下载慢或无反应？**
-用 `fileAPI.downloadFile(id)` → presigned URL → `window.open`。不要用 `/api/common/minio/file/{id}` 代理路径（经 Vite→后端→Minio 多次转发，慢）。若文件名不对，检查后端 presigned URL 是否携带 `response-content-disposition`。
+**Q: 文件下载/预览打不开？**
+用 `fileAPI.downloadFile(id)` 打开 `/api/common/minio/download/{id}`（后端文件流，同源 cookie）。不要 axios GET 再拿 `res.data` 当 URL，不要打开 `minio:9000`。预览用 `/api/common/minio/file/{id}` 或 `/preview/{id}`。
 
 **Q: Dialog 内文件选择按钮无反应？**
 `el-upload` 在 Element Plus 2.x 的 `el-dialog` 内点击无反应。改用：

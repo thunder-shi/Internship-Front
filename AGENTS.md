@@ -155,7 +155,7 @@ const initSearchWords = buildVerifySearchWords()  // isAudit IN (0,1,2,3) + 时�
 
 **Dialog 内文件选择**: `el-upload` 在 `el-dialog` 内点击无反应 → 改用原生 `<input type="file" ref="fileInputRef" style="display:none">` + `fileInputRef.click()`。
 
-**文件下载**: `fileAPI.downloadFile(id)` → presigned URL → `window.open`（不走代理，速度快）。
+**文件下载**: `fileAPI.downloadFile(id)` → `window.open('/api/common/minio/download/{id}')`（后端文件流，同源 cookie）。不要 axios GET 再拿 `res.data` 当 URL，不要让浏览器打开 MinIO 域名。PDF/图片预览用 `/api/common/minio/file/{id}` 或 `/preview/{id}`。Office 预览：已登录请求 `GET /common/minio/presignedPreview/{id}`，把 `data`（MinIO 预签名）base64 交给 kkFileView，不要 `window.open` 这条 URL。
 
 ## 关键常量
 
