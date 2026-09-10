@@ -55,8 +55,9 @@ services:
     expose:
       - "8012"
     environment:
-      - KK_TRUST_HOST=newback,minio,kkfileview,nginx,kkfileview.sxsxglxt.ahsdxy.edu.cn
-      - KK_BASE_URL=https://kkfileview.sxsxglxt.ahsdxy.edu.cn
+      - KK_CONTEXT_PATH=/api/kkfileview
+      - KK_BASE_URL=https://sxsxglxt.ahsdxy.edu.cn/api/kkfileview
+      - KK_TRUST_HOST=newback,minio,kkfileview,nginx,sxsxglxt.ahsdxy.edu.cn
       - KK_FILE_DIR=/opt/kkfileview/file
     volumes:
       - ./kkfileview/file:/opt/kkfileview/file

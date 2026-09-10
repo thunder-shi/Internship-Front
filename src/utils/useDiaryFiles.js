@@ -19,8 +19,7 @@ function getKkFileViewBase() {
   if (host === 'localhost' || host === '127.0.0.1') {
     return 'http://47.96.172.199:8012'
   }
-  // 部署后与前端同机 Docker，kkFileView 映射 8012（不是当前站点的 /kkfileview）
-  return `http://${host}:8012`
+  return '/api/kkfileview'
 }
 
 function fileExt(file) {
