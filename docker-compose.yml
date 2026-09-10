@@ -55,10 +55,13 @@ services:
     expose:
       - "8012"
     environment:
-      - KK_TRUST_HOST=newback,minio,kkfileview,nginx,kkfileview.sxslglxt.ahsdxy.edu.cn
+      - KK_TRUST_HOST=newback,minio,kkfileview,nginx,kkfileview.sxsxglxt.ahsdxy.edu.cn
       - KK_BASE_URL=https://kkfileview.sxsxglxt.ahsdxy.edu.cn
+      - KK_FILE_DIR=/opt/kkfileview/file
+    volumes:
+      - ./kkfileview/file:/opt/kkfileview/file
     networks:
-      - internship_net
+      - internship_net 
 
   newback:
     build:
