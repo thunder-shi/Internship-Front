@@ -48,12 +48,15 @@ services:
       - internship_net
 
   kkfileview:
-    image: keking/kkfileview:4.1.0
+    image: ghcr.io/zhuyifeiruichuang/kkfileview:5.0.2
     restart: unless-stopped
     depends_on:
       - minio
-    ports:
-      - "8012:8012"
+    expose:
+      - "8012"
+    environment:
+      - KK_TRUST_HOST=newback,minio,kkfileview,nginx,kkfileview.sxslglxt.ahsdxy.edu.cn
+      - KK_BASE_URL=https://kkfileview.sxslglxt.ahsdxy.edu.cn
     networks:
       - internship_net
 
