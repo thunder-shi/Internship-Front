@@ -19,7 +19,7 @@ function getKkFileViewBase() {
   if (host === 'localhost' || host === '127.0.0.1') {
     return 'http://47.96.172.199:8012'
   }
-  return '/api/kkfileview'
+  return '/kkfileview'
 }
 
 function fileExt(file) {
